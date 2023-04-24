@@ -4,8 +4,15 @@ from bnp_assembly import ContigGraph
 F = 0
 R = 1
 '''$-AL-AR CR-CL BL-BR #'''
-correct_path = {('A', F), ('C', R), ('B', F)}
-
+correct_path = [('A', F), ('C', R), ('B', F)]
+correct_idxs = [[0, 7],
+                [1, 2],
+                [2, 1],
+                [3, 5],
+                [4, 6],
+                [5, 3],
+                [6, 4],
+                [7, 0]]
 nodes = ['A', 'B', 'C']
 rl_edges = {'A': {'A': np.inf, 'B': 10, 'C': 5},
             'B': {'A': 10, 'B': np.inf, 'C': 3},
@@ -28,3 +35,11 @@ def contig_graph():
 def test_contig_graph():
     graph = ContigGraph.from_distance_dicts(rl_edges, rr_edges, ll_edges)
     assert graph.nodes == ['A', 'B', 'C']
+
+
+def test_best_path(contig_graph):
+    best_path = contig_graph.best_path()
+    a = best_path.to_list()
+    b = best_path.reverse().to_list()
+    print(a, b)
+    assert (a == correct_path or b == correct_path)
