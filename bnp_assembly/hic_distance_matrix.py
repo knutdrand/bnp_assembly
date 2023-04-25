@@ -12,6 +12,9 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
     for contig_a in contig_dict:
         for contig_b in contig_dict:
             for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l')):
+                if contig_a == contig_b:
+                    all_edges[(dir_a, dir_b)] == np.inf
+
                 id_a = (contig_a, dir_a)
                 id_b = (contig_b, dir_b)
                 overlap_count = overlap_counts[frozenset([id_a, id_b])]
@@ -46,8 +49,6 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
     return overlap_counts, inside_counts
 
 
-
-
 def calc_score(inside_a_count, inside_b_count, overlap_count):
     rate = np.mean([inside_a_count, inside_b_count])
-    return overlap_count/rate
+    return -(overlap_count+1)/(rate+1)
