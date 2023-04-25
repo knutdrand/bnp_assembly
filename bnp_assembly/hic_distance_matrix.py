@@ -1,10 +1,24 @@
 import typing as tp
-from collections import Counter
+import numpy as np
+from collections import Counter, defaultdict
+from scipy.stats import poisson
 from bnp_assembly.location import LocationPair, Location
+from .contig_graph import ContigGraph
 
 
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15):
-    return count_window_combinastions(contig_dict, location_pairs)
+    overlap_counts, inside_counts = count_window_combinastions(contig_dict, location_pairs)
+    all_edges = defaultdict(lambda: defaultdict(dict))
+    for contig_a in contig_dict:
+        for contig_b in contig_dict:
+            for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l')):
+                id_a = (contig_a, dir_a)
+                id_b = (contig_b, dir_b)
+                overlap_count = overlap_counts[frozenset([id_a, id_b])]
+                all_edges[(dir_a, dir_b)][contig_a][contig_b] = calc_score(inside_counts[id_a],
+                                                                           inside_counts[id_b],
+                                                                           overlap_count)
+    return ContigGraph.from_distance_dicts(*(all_edges[d] for d in [('r', 'l'), ('r', 'r'), ('l', 'l')]))
 
 
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15) -> Counter:
@@ -30,3 +44,10 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
                     if min(offset_a, offset_b) < window_size and window_size <= max(offset_a, offset_b) < 2*window_size:
                         inside_counts[id_a] += 1
     return overlap_counts, inside_counts
+
+
+
+
+def calc_score(inside_a_count, inside_b_count, overlap_count):
+    rate = np.mean([inside_a_count, inside_b_count])
+    return overlap_count/rate
