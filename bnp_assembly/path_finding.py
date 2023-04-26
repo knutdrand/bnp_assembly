@@ -8,7 +8,7 @@ def best_path(distance_matrix: DirectedDistanceMatrix):
     matrix = distance_matrix.data
     matrix = np.pad(matrix, [(0, 2), (0, 2)], constant_values = np.min(matrix)-1)
     np.fill_diagonal(matrix, np.inf)
-    print(matrix)
+    # print(matrix)
     row_idx, col_idx = linear_sum_assignment(matrix)
     from_sides = [NodeSide.from_numeric_index(i) for i in row_idx]
     to_sides = [NodeSide.from_numeric_index(i) for i in col_idx]
@@ -25,7 +25,7 @@ def best_path(distance_matrix: DirectedDistanceMatrix):
             break
         ordered_edges.append(Edge(cur_side, next_side))
         cur_side = next_side
-    print(ordered_edges)
+    #print(ordered_edges)
     return ContigPath.from_edges(ordered_edges)
     cur_idx = col_idx[len(matrix)-2]
 

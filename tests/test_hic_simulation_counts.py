@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
 from bnp_assembly.location import LocationPair, Location
-from bnp_assembly.hic_distance_matrix import calculate_distance_matrices, count_window_combinastions
+from bnp_assembly.hic_distance_matrix import calculate_distance_matrices, count_window_combinastions, NodeSide, Edge
+from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.path_finding import best_path
-
+np.random.seed(42)
 
 @pytest.fixture
 def contig_list():
@@ -42,7 +43,7 @@ def location_pairs2():
 
 def test_count_window_combinations(contig_list, location_pairs):
     overlap_count, inside_counts = count_window_combinastions(contig_list, location_pairs)
-    print(overlap_count)
+    # print(overlap_count)
     assert overlap_count[frozenset(((0, 'l'), (1, 'r')))] == 2
     assert sum(overlap_count.values()) == 2
     assert inside_counts[(0, 'l')] == 1
@@ -52,7 +53,7 @@ def test_distance_best_path(contig_list, location_pairs):
     graph = calculate_distance_matrices(contig_list, location_pairs)
     path = best_path(graph)
     a = path.to_list()
-    print(a)
+    # print(a)
     b = path.reverse().to_list()
     correct_path = [(1, 0), (0, 0)]
     assert (a == correct_path or b == correct_path)
@@ -60,7 +61,7 @@ def test_distance_best_path(contig_list, location_pairs):
 
 def test_count_window_combinations(contig_list2, location_pairs2):
     overlap_count, inside_counts = count_window_combinastions(contig_list2, location_pairs2, window_size=5)
-    print(overlap_count)
+    # print(overlap_count)
     assert overlap_count[frozenset(((1, 'l'), (2, 'r')))] == 1
     assert overlap_count[frozenset(((2, 'l'), (0, 'l')))] == 1
     assert sum(overlap_count.values()) == 2
@@ -79,3 +80,48 @@ def test_distance_best_path2(contig_list2, location_pairs2):
     b = path.reverse().to_list()
     correct_path = [(1, 1), (2, 1), (0, 0)]
     assert (a == correct_path or b == correct_path)
+
+
+def get_node_side_location(node_side: NodeSide, node_length=100):
+    if node_side.side == 'l':
+        return (node_side.node_id, 1)
+    else:
+        return (node_side.node_id, node_length-2)
+
+
+def generate_reads_for_path(edges):
+    from_locations = Location.from_entry_tuples([get_node_side_location(edge.from_node_side) for edge in edges])
+    to_locations = Location.from_entry_tuples([get_node_side_location(edge.to_node_side) for edge in edges])
+    return LocationPair(from_locations, to_locations)
+
+def generate_random_edges(n_nodes):
+    ordering = np.arange(n_nodes)
+    np.random.shuffle(ordering)
+    reverse = np.random.choice([0, 1], size=n_nodes)
+    edges = []
+    for i in range(n_nodes-1):
+        from_node = NodeSide(ordering[i], 'r' if reverse[i] == 0 else 'l')
+        to_node = NodeSide(ordering[i+1], 'l' if reverse[i+1] == 0 else 'r')
+        edges.append(Edge(from_node, to_node))
+    return edges
+
+
+def generate_random_order(n_nodes, signal=2, noise=1):
+    contig_dict = {i: 100 for i in range(n_nodes)}
+    edges = generate_random_edges(n_nodes)
+    correct_path = ContigPath.from_edges(edges)
+    pairs = generate_reads_for_path(edges)
+    false_pairs = generate_reads_for_path(generate_random_edges(n_nodes))
+    all_pairs = LocationPair(np.concatenate([pairs.location_a]*signal+[false_pairs.location_a]*noise),
+                             np.concatenate([pairs.location_b]*signal+[false_pairs.location_b]*noise))
+    return contig_dict, correct_path, all_pairs
+
+
+@pytest.mark.parametrize('n_nodes', list(range(3, 20)))
+@pytest.mark.parametrize('s', list(range(2, 10)))
+def test_random(n_nodes, s):
+    contig_dict, correct_path, pairs = generate_random_order(n_nodes, signal=s, noise=s-1)
+    print(correct_path, pairs)
+    graph = calculate_distance_matrices(contig_dict, pairs)
+    assert best_path(graph) == correct_path
+

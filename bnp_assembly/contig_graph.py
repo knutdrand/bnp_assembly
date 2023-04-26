@@ -41,6 +41,12 @@ class ContigPathEdges(ContigPath):
         last_side = self._edges[-1].to_node_side
         return nodes + [(last_side.node_id, int(last_side.side == 'r'))]
 
+    def __repr__(self):
+        return repr(self.to_list())
+
+    def __eq__(self, other):
+        assert isinstance(other, ContigPathEdges)
+        return self.to_list() == other.to_list() or self.reverse().to_list() == other.to_list()
 
 class ContigGraph:
     def __init__(self, nodes, rl_edges, rr_edges, ll_edges):
