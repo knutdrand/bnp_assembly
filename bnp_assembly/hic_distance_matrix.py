@@ -51,6 +51,8 @@ class NodeSide:
     def __hash__(self):
         return self.numeric_index
 
+    def __repr__(self):
+        return f'N({self.node_id}, {self.side})'
 
 @dataclass
 class Edge:
@@ -69,6 +71,9 @@ class Edge:
     def reverse(self):
         return self.__class__(self.to_node_side,
                               self.from_node_side)
+
+    def __repr__(self):
+        return f'E({self.from_node_side}, {self.to_node_side})'
 
 
 class DirectedDistanceMatrix:

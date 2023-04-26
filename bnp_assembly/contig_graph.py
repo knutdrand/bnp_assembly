@@ -32,6 +32,10 @@ class ContigPathEdges(ContigPath):
     def __init__(self, edges):
         self._edges = edges
 
+    @property
+    def edges(self):
+        return self._edges
+
     def reverse(self):
         return self.__class__([e.reverse() for e in self._edges[::-1]])
 
