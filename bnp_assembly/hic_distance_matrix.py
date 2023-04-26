@@ -7,12 +7,13 @@ from bnp_assembly.location import LocationPair, Location
 from .contig_graph import ContigGraph
 
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15):
-    overlap_counts, inside_counts = count_window_combinastions(contig_dict, location_pairs)
+    overlap_counts, inside_counts = count_window_combinastions(contig_dict, location_pairs, window_size)
     all_edges = defaultdict(lambda: defaultdict(dict))
     distance_matrix = DirectedDistanceMatrix(len(contig_dict))
+    print(overlap_counts)
     for contig_a in contig_dict:
         for contig_b in contig_dict:
-            for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l')):
+            for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l'), ('l', 'r')):
                 node_side_a = NodeSide(contig_a, dir_a)
                 node_side_b = NodeSide(contig_b, dir_b)
                 edge = Edge(node_side_a, node_side_b)
@@ -23,6 +24,7 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                 id_a = (contig_a, dir_a)
                 id_b = (contig_b, dir_b)
                 overlap_count = overlap_counts[frozenset([id_a, id_b])]
+                print(id_a, id_b, overlap_count)
                 score = calc_score(inside_counts[id_a],
                                    inside_counts[id_b],
                                    overlap_count)
@@ -39,14 +41,17 @@ class NodeSide:
 
     @property
     def numeric_index(self):
-        return self.node_id*2 + (self.side == 'r')
+        return int(self.node_id*2 + (self.side == 'r'))
 
     @classmethod
     def from_numeric_index(cls, idx: int):
         return cls(idx//2, 'r' if idx % 2 == 1 else 'l')
 
     def other_side(self):
-        return self.__class__(self.node_id, 'r' if self.side=='l' else 'l')
+        return self.__class__(self.node_id, 'r' if self.side == 'l' else 'l')
+
+    def __hash__(self):
+        return self.numeric_index
 
 
 @dataclass
@@ -64,8 +69,8 @@ class Edge:
         return cls(*(NodeSide.from_numeric_index(i) for i in idx))
 
     def reverse(self):
-        return self.__class__(self.to_node_side.other_side(),
-                              self.from_node_side.other_side())
+        return self.__class__(self.to_node_side,
+                              self.from_node_side)
 
 
 class DirectedDistanceMatrix:

@@ -36,10 +36,10 @@ class ContigPathEdges(ContigPath):
         return self.__class__([e.reverse() for e in self._edges[::-1]])
 
     def to_list(self):
-        nodes = [(edge.from_node_side.node_id, edge.from_node_side.side == 'l')
+        nodes = [(edge.from_node_side.node_id, int(edge.from_node_side.side == 'l'))
                  for edge in self._edges]
         last_side = self._edges[-1].to_node_side
-        return nodes + [(last_side.node_id, last_side.side == 'r')]
+        return nodes + [(last_side.node_id, int(last_side.side == 'r'))]
 
 
 class ContigGraph:
