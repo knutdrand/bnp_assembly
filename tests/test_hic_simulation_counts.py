@@ -1,6 +1,7 @@
 import pytest
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices, count_window_combinastions
+from bnp_assembly.path_finding import best_path
 
 
 @pytest.fixture
@@ -31,8 +32,9 @@ def test_count_window_combinations(contig_list, location_pairs):
 
 def test_distance_best_path(contig_list, location_pairs):
     graph = calculate_distance_matrices(contig_list, location_pairs)
-    best_path = graph.best_path()
-    a = best_path.to_list()
-    b = best_path.reverse().to_list()
+    path = best_path(graph)
+    a = path.to_list()
+    print(a)
+    b = path.reverse().to_list()
     correct_path = [(1, 0), (0, 0)]
     assert (a == correct_path or b == correct_path)

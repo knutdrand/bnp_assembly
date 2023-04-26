@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import typing as tp
 import numpy as np
 from collections import Counter, defaultdict
@@ -5,23 +6,79 @@ from scipy.stats import poisson
 from bnp_assembly.location import LocationPair, Location
 from .contig_graph import ContigGraph
 
-
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15):
     overlap_counts, inside_counts = count_window_combinastions(contig_dict, location_pairs)
     all_edges = defaultdict(lambda: defaultdict(dict))
+    distance_matrix = DirectedDistanceMatrix(len(contig_dict))
     for contig_a in contig_dict:
         for contig_b in contig_dict:
             for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l')):
+                node_side_a = NodeSide(contig_a, dir_a)
+                node_side_b = NodeSide(contig_b, dir_b)
+                edge = Edge(node_side_a, node_side_b)
                 if contig_a == contig_b:
-                    all_edges[(dir_a, dir_b)] == np.inf
+                    distance_matrix[edge] = np.inf
+                    continue
 
                 id_a = (contig_a, dir_a)
                 id_b = (contig_b, dir_b)
                 overlap_count = overlap_counts[frozenset([id_a, id_b])]
-                all_edges[(dir_a, dir_b)][contig_a][contig_b] = calc_score(inside_counts[id_a],
-                                                                           inside_counts[id_b],
-                                                                           overlap_count)
-    return ContigGraph.from_distance_dicts(*(all_edges[d] for d in [('r', 'l'), ('r', 'r'), ('l', 'l')]))
+                score = calc_score(inside_counts[id_a],
+                                   inside_counts[id_b],
+                                   overlap_count)
+                distance_matrix[edge] = score
+                # all_edges[(dir_a, dir_b)][contig_a][contig_b] = 
+    return distance_matrix
+# return ContigGraph.from_distance_dicts(*(all_edges[d] for d in [('r', 'l'), ('r', 'r'), ('l', 'l')]))
+
+
+@dataclass
+class NodeSide:
+    node_id: int
+    side: str
+
+    @property
+    def numeric_index(self):
+        return self.node_id*2 + (self.side == 'r')
+
+    @classmethod
+    def from_numeric_index(cls, idx: int):
+        return cls(idx//2, 'r' if idx % 2 == 1 else 'l')
+
+    def other_side(self):
+        return self.__class__(self.node_id, 'r' if self.side=='l' else 'l')
+
+
+@dataclass
+class Edge:
+    from_node_side: NodeSide
+    to_node_side: NodeSide
+
+    @property
+    def numeric_index(self):
+        return (self.from_node_side.numeric_index,
+                self.to_node_side.numeric_index)
+
+    @classmethod
+    def from_numeric_index(cls, idx):
+        return cls(*(NodeSide.from_numeric_index(i) for i in idx))
+
+    def reverse(self):
+        return self.__class__(self.to_node_side.other_side(),
+                              self.from_node_side.other_side())
+
+
+class DirectedDistanceMatrix:
+    def __init__(self, n_nodes):
+        n_sides = n_nodes*2
+        self._matrix = np.zeros((n_sides, n_sides))
+
+    @property
+    def data(self):
+        return self._matrix
+
+    def __setitem__(self, edge: Edge, score: float):
+        self._matrix[edge.numeric_index] = score
 
 
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15) -> Counter:

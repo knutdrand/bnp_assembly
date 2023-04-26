@@ -23,6 +23,24 @@ class ContigPath:
     def to_list(self):
         return [(self._node_names[node_id], strand) for node_id, strand in zip(self._node_ids, self._reverse_mask)]
 
+    @classmethod
+    def from_edges(cls, edges):
+        return ContigPathEdges(edges)
+
+
+class ContigPathEdges(ContigPath):
+    def __init__(self, edges):
+        self._edges = edges
+
+    def reverse(self):
+        return self.__class__([e.reverse() for e in self._edges[::-1]])
+
+    def to_list(self):
+        nodes = [(edge.from_node_side.node_id, edge.from_node_side.side == 'l')
+                 for edge in self._edges]
+        last_side = self._edges[-1].to_node_side
+        return nodes + [(last_side.node_id, last_side.side == 'r')]
+
 
 class ContigGraph:
     def __init__(self, nodes, rl_edges, rr_edges, ll_edges):
@@ -50,7 +68,10 @@ class ContigGraph:
             for to_dir in (0, 1):
                 distance_matrix[from_dir*n:from_dir*n+n, to_dir*n:to_dir*n+n] = matrices[from_dir][to_dir]
         np.fill_diagonal(distance_matrix, np.inf)
+        distance_matrix[-2:, -2:] = np.inf
+        print(distance_matrix)
         row_idx, col_idx = linear_sum_assignment(distance_matrix)
+        print(col_idx)
         cur_idx = col_idx[-1]
         path = []
         seen = set()
