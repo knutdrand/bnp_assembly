@@ -6,6 +6,7 @@ from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.path_finding import best_path
 np.random.seed(42)
 
+
 @pytest.fixture
 def contig_list():
     return {0: 100, 1: 50}
@@ -124,4 +125,3 @@ def test_random(n_nodes, s):
     print(correct_path, pairs)
     graph = calculate_distance_matrices(contig_dict, pairs)
     assert best_path(graph) == correct_path
-
