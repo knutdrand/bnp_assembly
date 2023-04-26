@@ -10,7 +10,6 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
     overlap_counts, inside_counts = count_window_combinastions(contig_dict, location_pairs, window_size)
     all_edges = defaultdict(lambda: defaultdict(dict))
     distance_matrix = DirectedDistanceMatrix(len(contig_dict))
-    # print(overlap_counts)
     for contig_a in contig_dict:
         for contig_b in contig_dict:
             for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l'), ('l', 'r')):
@@ -24,7 +23,6 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                 id_a = (contig_a, dir_a)
                 id_b = (contig_b, dir_b)
                 overlap_count = overlap_counts[frozenset([id_a, id_b])]
-                print(id_a, id_b, overlap_count)
                 score = calc_score(inside_counts[id_a],
                                    inside_counts[id_b],
                                    overlap_count)
