@@ -4,6 +4,13 @@ import numpy as np
 from typing import Dict
 from ..graph_objects import NodeSide
 from ..contig_graph import ContigPath
+@dataclass
+class SimulationParams:
+    n_nodes: int
+    n_reads: int
+    node_length: int = 100
+
+
 
 class PairDistribution:
     def __init__(self, contig_length, p):
@@ -65,6 +72,18 @@ def simulate_split_contig_reads(contig_length, n_parts, n_pairs, p=0.1, rng=None
     first_split = contig_split.map(first)
     second_split = contig_split.map(second)
     return SplitAndPairs(contig_split, first_split, second_split)
+
+
+def simulate_merged_contig_reads(node_length, n_parts, n_pairs, p=0.1, rng=None):
+    contig_length = node_length*n_parts
+    if rng is None:
+        rng = np.random.default_rng()
+    first, second = PairDistribution(contig_length, 0.1).sample(rng, n_pairs)
+    contig_split = split_contig_on_size(contig_length, contig_length//n_parts)
+    first_split = contig_split.map(first)
+    second_split = contig_split.map(second)
+    return SplitAndPairs(contig_split, first_split, second_split)
+
 
 def test():
     return simulate_split_contig_reads(100, 5, 10)

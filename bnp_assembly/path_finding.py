@@ -27,7 +27,9 @@ class PathFinder:
 
     def _split_path(self, path):
         if any(v>1 for v in Counter(path).values()):
+            print('pre_cycle', path)
             path = self.find_sub_cycle(path)
+            print('sub_cycle', path)
             # cycle_point = self.find_cycle_point(path)
         edges = [Edge(*pair) for pair in zip(path[1::2], path[2::2])] + [Edge(path[-1], path[0])]
         scores = [self._distance_matrix[edge] for edge in edges]
@@ -51,13 +53,40 @@ class PathFinder:
         return min(sub_paths, key=path_score)
 
     def find_sub_cycle(self, path):
-        start = None
-        for i in range(0, len(path)-2, 2):
-            if path[i-1] == path[i+2]:
-                if start is not None:
-                    return path[start:i]
-                start = i
-        return path[start:len(path)-2]
+        joined_path = path+path
+        max_path= []
+        n_unique_node_sides = len(set(path))
+        max_l  = 0 
+        seen = set()
+        final_path = []
+        for node_side in path:
+            if node_side in seen:
+                continue
+            final_path.append(node_side)
+            seen.add(node_side)
+        return final_path
+# 
+#         for i in range(len(path)):
+#             cur_seen = set()
+#             for j in range(n_unique_node_sides):
+#                 cur_idx = (i+j)%len(path)
+#                 max_l = max(max_l, j)
+#                 if path[cur_idx] in cur_seen:
+#                     break
+#                 cur_seen.add(path[cur_idx])
+#             else:
+#                 return [path[(i+j) % len(path)] for j in range(n_unique_node_sides)]
+#         assert False, (path, max_l, n_unique_node_sides)
+#         
+# 
+#         start = None
+#         for i in range(0, len(path)-2, 2):
+#             if path[i-1] == path[i+2]:
+#                 if start is not None:
+#                     return path[start:i]
+#                 start = i
+#         assert start is not None, path
+#         return path[start:len(path)-2]
 
     def _split_path_on_seen_nodes(self, path, seen_nodes):
         sub_paths = []
@@ -89,9 +118,10 @@ class PathFinder:
 
     def run(self):
         matrix = self._distance_matrix.data  # +noise
-        noise = np.random.rand(*matrix.shape)
+        noise = np.random.rand(*matrix.shape)*100
         noise = noise.T*noise
         matrix = matrix+noise
+        assert np.all(matrix.T==matrix)
         print(matrix)
         row_idx, col_idx = linear_sum_assignment(matrix)
         from_sides = [NodeSide.from_numeric_index(i) for i in row_idx]
