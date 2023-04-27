@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.optimize import linear_sum_assignment
-
+from .graph_objects import NodeSide, Edge
 
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):
@@ -25,8 +25,37 @@ class ContigPath:
 
     @classmethod
     def from_edges(cls, edges):
-        return ContigPathEdges(edges)
+        assert len(edges)>0
+        sides = [edges[0].from_node_side.other_side()]
+        for edge in edges:
+            sides.append(edge.from_node_side)
+            sides.append(edge.to_node_side)
+        sides.append(edges[-1].to_node_side.other_side())
+        return ContigPathSides(sides)
 
+    def __eq__(self, other):
+        assert isinstance(other, ContigPath)
+        return self.to_list() == other.to_list() or self.reverse().to_list() == other.to_list()
+
+
+class ContigPathSides(ContigPath):
+    def __init__(self, node_sides):
+        self._node_sides = node_sides
+
+    @property
+    def edges(self):
+        return [Edge(*pair) for pair in zip(self._node_sides[:-1], self._node_sides[1:])]
+
+    @property
+    def nodes(self):
+        return [node_side.node_id for node_side in self._node_sides[::2]]
+
+    def reverse(self):
+        return self.__class__(self._node_sides[::-1])
+
+    def to_list(self):
+        return [(node_side.node_id, int(node_side.side == 'r'))
+                for node_side in self._node_sides[::2]]
 
 class ContigPathEdges(ContigPath):
     def __init__(self, edges):
@@ -35,6 +64,12 @@ class ContigPathEdges(ContigPath):
     @property
     def edges(self):
         return self._edges
+
+    @property
+    def nodes(self):
+        if len(self._edges)==0:
+            return []
+        return [edge.from_node_side.node_id for edge in self._edges] + [self._edges[-1].to_node_side.node_id]
 
     def reverse(self):
         return self.__class__([e.reverse() for e in self._edges[::-1]])
