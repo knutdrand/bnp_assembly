@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from bionumpy.bnpdataclass import bnpdataclass
 import numpy as np
 from typing import Dict
+from ..graph_objects import NodeSide
+from ..contig_graph import ContigPath
 
 class PairDistribution:
     def __init__(self, contig_length, p):
@@ -27,6 +29,13 @@ class ContigSplit:
     def get_contig_dict(self) -> Dict[int, int]:
         lengths = np.append(self.starts, self.contig_length)[1:]-self.starts
         return dict(enumerate(lengths))
+
+    def get_paths(self):
+        node_sides = []
+        for i in range(len(self.starts)):
+            node_sides.append(NodeSide(i, 'l'))
+            node_sides.append(NodeSide(i, 'r'))
+        return [ContigPath.from_node_sides(node_sides)]
 
     def map(self, positions):
         contig_ids = np.searchsorted(self.starts, positions,side='right')-1

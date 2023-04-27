@@ -37,6 +37,9 @@ class Edge:
         return (self.from_node_side.numeric_index,
                 self.to_node_side.numeric_index)
 
+    def __hash__(self):
+        return hash(self.numeric_index)
+
     @classmethod
     def from_numeric_index(cls, idx):
         return cls(*(NodeSide.from_numeric_index(i) for i in idx))

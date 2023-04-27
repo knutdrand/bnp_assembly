@@ -89,6 +89,10 @@ class PathFinder:
 
     def run(self):
         matrix = self._distance_matrix.data  # +noise
+        noise = np.random.rand(*matrix.shape)
+        noise = noise.T*noise
+        matrix = matrix+noise
+        print(matrix)
         row_idx, col_idx = linear_sum_assignment(matrix)
         from_sides = [NodeSide.from_numeric_index(i) for i in row_idx]
         to_sides = [NodeSide.from_numeric_index(i) for i in col_idx]
