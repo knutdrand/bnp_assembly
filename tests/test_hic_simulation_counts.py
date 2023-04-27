@@ -52,7 +52,7 @@ def test_count_window_combinations(contig_list, location_pairs):
 
 def test_distance_best_path(contig_list, location_pairs):
     graph = calculate_distance_matrices(contig_list, location_pairs)
-    path = best_path(graph)
+    path = best_path(graph)[0]
     a = path.to_list()
     # print(a)
     b = path.reverse().to_list()
@@ -76,7 +76,7 @@ def test_distance_distance_matrtix(contig_list2, location_pairs2):
 
 def test_distance_best_path2(contig_list2, location_pairs2):
     graph = calculate_distance_matrices(contig_list2, location_pairs2, window_size=5)
-    path = best_path(graph)
+    path = best_path(graph)[0]
     a = path.to_list()
     b = path.reverse().to_list()
     correct_path = [(1, 1), (2, 1), (0, 0)]
@@ -124,4 +124,4 @@ def test_random(n_nodes, s):
     contig_dict, correct_path, pairs = generate_random_order(n_nodes, signal=s, noise=s-1)
     print(correct_path, pairs)
     graph = calculate_distance_matrices(contig_dict, pairs)
-    assert best_path(graph) == correct_path
+    assert best_path(graph) == [correct_path]
