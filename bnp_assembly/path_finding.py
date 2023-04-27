@@ -27,17 +27,13 @@ class PathFinder:
 
     def _split_path(self, path):
         if any(v>1 for v in Counter(path).values()):
-            print('pre_cycle', path)
             path = self.find_sub_cycle(path)
-            print('sub_cycle', path)
-            # cycle_point = self.find_cycle_point(path)
         edges = [Edge(*pair) for pair in zip(path[1::2], path[2::2])] + [Edge(path[-1], path[0])]
         scores = [self._distance_matrix[edge] for edge in edges]
         i = np.argmax(scores)
         cut_idx = 2*(i+1)
         path =  path[cut_idx:] + path[:cut_idx]
         return path
-        print('corrected_path', path)
         seen = set()
         split_points = [0]
         for i, node_side in enumerate(path):
@@ -106,7 +102,6 @@ class PathFinder:
         paths = sorted(paths, key=len, reverse=True)
         used_nodes = set()
         final_paths = []
-        print(paths)
         for pre_path in paths:
             sub_paths = self._split_path_on_seen_nodes(pre_path, used_nodes)
             for path in sub_paths:
@@ -118,11 +113,10 @@ class PathFinder:
 
     def run(self):
         matrix = self._distance_matrix.data  # +noise
-        noise = np.random.rand(*matrix.shape)*100
+        noise = np.random.rand(*matrix.shape)/10
         noise = noise.T*noise
         matrix = matrix+noise
         assert np.all(matrix.T==matrix)
-        print(matrix)
         row_idx, col_idx = linear_sum_assignment(matrix)
         from_sides = [NodeSide.from_numeric_index(i) for i in row_idx]
         to_sides = [NodeSide.from_numeric_index(i) for i in col_idx]
@@ -141,9 +135,7 @@ def best_path(distance_matrix: DirectedDistanceMatrix) -> tp.List[ContigPath]:
     row_idx, col_idx = linear_sum_assignment(matrix)
     from_sides = [NodeSide.from_numeric_index(i) for i in row_idx]
     to_sides = [NodeSide.from_numeric_index(i) for i in col_idx]
-    #print(from_sides)
-    #print(to_sides)
-    #print(np.round(matrix[row_idx, col_idx], 2))
+
     edges = [Edge.from_numeric_index(idx)
              for idx in zip(row_idx[:-2], col_idx[:-2])]
     cur_side = to_sides[-2]
