@@ -48,6 +48,9 @@ class DirectedDistanceMatrix:
     def __setitem__(self, edge: Edge, score: float):
         self._matrix[edge.numeric_index] = score
 
+    def __getitem__(self, edge: Edge):
+        return self._matrix[edge.numeric_index]
+
 
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15) -> Counter:
     overlap_counts = Counter()

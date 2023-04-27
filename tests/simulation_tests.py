@@ -8,7 +8,7 @@ np.random.seed(100)
 
 
 def is_correct_edge(edge):
-    if edge.from_node_side.node_id==edge.to_node_side.node_id-1:
+    if edge.from_node_side.node_id == edge.to_node_side.node_id-1:
         if edge.from_node_side.side=='r' and edge.to_node_side.side=='l':
             return True
     elif edge.from_node_side.node_id==edge.to_node_side.node_id+1:
@@ -17,8 +17,8 @@ def is_correct_edge(edge):
     return False
 
 
-@pytest.mark.parametrize('n_reads', [1000, 500, 100])
-@pytest.mark.parametrize('n_nodes', [3, 7])
+@pytest.mark.parametrize('n_reads', [1000, 500, 100])# , 500, 100])
+@pytest.mark.parametrize('n_nodes', [4, 8, 10])
 def test_simulated(n_reads, n_nodes):
     rng =  np.random.default_rng(seed=100)
     split_and_pairs = simulate_split_contig_reads(1000, n_nodes, n_reads, rng=rng)
@@ -27,11 +27,19 @@ def test_simulated(n_reads, n_nodes):
     paths = scaffold(split_and_pairs.split.get_contig_dict(),
                      LocationPair(split_and_pairs.location_a,
                                   split_and_pairs.location_b),
-                     window_size=20)
+                     window_size=50)
+    for path in paths:
+        print('>>>', path.node_sides)
     nodes_visited = [node for path in paths for node in path.nodes]
-    print(nodes_visited)
+    # print(nodes_visited)
     assert len(nodes_visited) == n_nodes
     assert len(set(nodes_visited)) == n_nodes
+
+    edges = [e for path in paths for e in path.edges]
+    correct = [is_correct_edge(e) for e in edges]
+    print(edges, correct)
+    score = sum(correct)
+    assert score//(n_nodes-1) > 0.8
     # edge.from_node_side.node_id for edges in path.edges for path in paths}
     # nodes_visited = {edge.from_node_side.node_id for edges in path.edges for path in paths}
     # 

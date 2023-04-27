@@ -33,6 +33,10 @@ class ContigPath:
         sides.append(edges[-1].to_node_side.other_side())
         return ContigPathSides(sides)
 
+    @classmethod
+    def from_node_sides(cls, node_sides):
+        return ContigPathSides(node_sides)
+
     def __eq__(self, other):
         assert isinstance(other, ContigPath)
         return self.to_list() == other.to_list() or self.reverse().to_list() == other.to_list()
@@ -44,11 +48,15 @@ class ContigPathSides(ContigPath):
 
     @property
     def edges(self):
-        return [Edge(*pair) for pair in zip(self._node_sides[:-1], self._node_sides[1:])]
+        return [Edge(*pair) for pair in zip(self._node_sides[1::2], self._node_sides[2::2])]
 
     @property
     def nodes(self):
         return [node_side.node_id for node_side in self._node_sides[::2]]
+
+    @property
+    def node_sides(self):
+        return self._node_sides
 
     def reverse(self):
         return self.__class__(self._node_sides[::-1])
