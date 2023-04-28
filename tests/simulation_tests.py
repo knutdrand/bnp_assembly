@@ -31,6 +31,7 @@ def test_simulated(n_reads, n_nodes):
     #                  LocationPair(split_and_pairs.location_a,
     #                               split_and_pairs.location_b),
     #                  window_size=30)
+    print([path.node_sides for path in paths])
     nodes_visited = [node for path in paths for node in path.nodes]
     assert len(nodes_visited) == n_nodes
     assert len(set(nodes_visited)) == n_nodes

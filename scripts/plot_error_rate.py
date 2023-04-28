@@ -15,7 +15,6 @@ def plot_error_rate(simulation_params):
             paths = run_simulated_experiment(replace(simulation_params, n_reads=n), rng)        
             y.append(score_scaffolding(*paths))
             x.append(n)
-            # y.append(np.mean(scores))
     px.scatter(x=np.log10(x), y=y).show()
 
 
