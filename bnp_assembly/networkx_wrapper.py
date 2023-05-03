@@ -1,6 +1,7 @@
 import networkx as nx
-from .graph_objects import NodeSide
+from .graph_objects import NodeSide, Edge
 from .contig_graph import ContigPath
+import numpy as np
 # from path_finding import PathFinder
 
 class NetworkXContigGraph:

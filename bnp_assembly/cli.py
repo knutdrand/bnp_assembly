@@ -7,7 +7,10 @@ import bionumpy as bnp
 from .io import get_read_pairs
 from .path_finding import best_path, PathFinder
 from .hic_distance_matrix import calculate_distance_matrices
-def scaffold(contig_file_name: str, read_filename: str):
+from .scaffold import scaffold
+
+
+def scaffold_main(contig_file_name: str, read_filename: str):
     '''
     Simple function
 
@@ -20,11 +23,12 @@ def scaffold(contig_file_name: str, read_filename: str):
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    distance_matrix = calculate_distance_matrices(numeric_contig_dict, reads, window_size=500)
-
-    path_finder = PathFinder(distance_matrix)
-    #path = best_path(distance_matrix)
-    paths = path_finder.run()
+    paths= scaffold(numeric_contig_dict, reads, window_size=500)
+    # distance_matrix = calculate_distance_matrices(numeric_contig_dict, reads, window_size=500)
+    # 
+    # path_finder = PathFinder(distance_matrix)
+    # #path = best_path(distance_matrix)
+    # paths = path_finder.run()
 
     sequence_dict = genome.read_sequence()
     for i, path in enumerate(paths):
@@ -39,7 +43,7 @@ def scaffold(contig_file_name: str, read_filename: str):
         print(np.concatenate(sequences).to_string())
 
 def main():
-    typer.run(scaffold)
+    typer.run(scaffold_main)
 
 if __name__ == "__main__":
     main()

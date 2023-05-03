@@ -25,12 +25,6 @@ def is_correct_edge(edge):
 def test_simulated(n_reads, n_nodes):
     rng = np.random.default_rng(seed=100)
     true_paths, paths = run_simulated_experiment(SimulationParams(n_nodes, n_reads), rng)
-    # split_and_pairs = simulate_split_contig_reads(1000, n_nodes, n_reads, rng=rng)
-    # n_nodes = len(split_and_pairs.split.starts)
-    # paths = scaffold(split_and_pairs.split.get_contig_dict(),
-    #                  LocationPair(split_and_pairs.location_a,
-    #                               split_and_pairs.location_b),
-    #                  window_size=30)
     print([path.node_sides for path in paths])
     nodes_visited = [node for path in paths for node in path.nodes]
     assert len(nodes_visited) == n_nodes

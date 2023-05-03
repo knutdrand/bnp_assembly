@@ -10,12 +10,17 @@ def plot_error_rate(simulation_params):
     y = []
     rng = np.random.default_rng()
     x = []
+    recalls, precisions = ([], [])
+    n_iter = 2
     for n in n_reads:
-        for _ in range(10):
-            paths = run_simulated_experiment(replace(simulation_params, n_reads=n), rng)        
-            y.append(score_scaffolding(*paths))
-            x.append(n)
-    px.scatter(x=np.log10(x), y=y).show()
+        for _ in range(n_iter):
+            paths = run_simulated_experiment(replace(simulation_params, n_reads=n), rng)
+            precision, recall = score_scaffolding(*paths)
+            recalls.append(recall)
+            precisions.append(precision)
+            x.append(np.log10(n))
+    px.scatter(dict(x=x, recall=recalls, precision=precisions), x='recall', y='precision', color='x').show()
+    # px.scatter(x=np.log10(x), y=y).show()
 
 
 plot_error_rate(SimulationParams(100, 100, 100))

@@ -23,7 +23,6 @@ def create_merged_graph(paths: tp.List[ContigPath], distance_matrix, path_mappin
     new_mapping = defaultdict(list)
     for new_node_id, path in enumerate(paths):
         for node_side_1, _ in chunked(path, 2):
-            print(node_side_1, _)
             if node_side_1.side == 'l':
                 new_mapping[new_node_id].extend(path_mapping[node_side_1.node_id])
             else:

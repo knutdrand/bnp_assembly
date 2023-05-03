@@ -6,7 +6,7 @@ from scipy.stats import poisson
 from bnp_assembly.location import LocationPair, Location
 from .contig_graph import ContigGraph
 from .graph_objects import NodeSide, Edge
-
+import logging
 
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, window_size=15):
     overlap_counts, inside_counts = count_window_combinastions(contig_dict, location_pairs, window_size)
@@ -40,6 +40,13 @@ class DirectedDistanceMatrix:
     def __init__(self, n_nodes):
         n_sides = n_nodes*2
         self._matrix = np.zeros((n_sides, n_sides))
+        self._fill_infs
+
+    def _fill_infs(self):
+        np.fill_diagonal(self._matrix, np.inf)
+        for i in range(len(self._matrix)):
+            node_side = NodeSide.from_numeric_index(i)
+            self._matrix[Edge(node_side, node_side.other_side()).numeric_index] = np.inf
 
     @property
     def data(self):
@@ -49,7 +56,9 @@ class DirectedDistanceMatrix:
         return len(self._matrix)
 
     def __setitem__(self, edge: Edge, score: float):
-        print(edge, score)
+        if edge.from_node_side.node_id == edge.to_node_side.node_id:
+            # logging.warning(f'Illegal edge set in distance_matrix: {edge}')
+            return 
         self._matrix[edge.numeric_index] = score
 
     def __getitem__(self, edge: Edge):
@@ -83,4 +92,4 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
 
 def calc_score(inside_a_count, inside_b_count, overlap_count):
     rate = np.mean([inside_a_count, inside_b_count])
-    return -(overlap_count+1)/(rate+1)
+    return -(overlap_count+0.1)/(rate+1)

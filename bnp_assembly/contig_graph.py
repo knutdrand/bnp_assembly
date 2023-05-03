@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from .graph_objects import NodeSide, Edge
+import typing as tp
+
 
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):
@@ -45,6 +47,19 @@ class ContigPath:
 class ContigPathSides(ContigPath):
     def __init__(self, node_sides):
         self._node_sides = node_sides
+
+    def split_on_edge(self, edge: Edge):
+        cut_idx = (self.edges.index(edge)+1)*2
+        return self.__class__(self._node_sides[:cut_idx]), self.__class__(self._node_sides[cut_idx:])
+
+    def split_on_edges(self, edges: tp.List[Edge]):
+        paths = []
+        cur_path = self
+        for edge in edges:
+            first, cur_path = cur_path.split_on_edge(edge)
+            paths.append(first)
+        paths.append(cur_path)
+        return paths
 
     @property
     def edges(self):
