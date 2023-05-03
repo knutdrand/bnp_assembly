@@ -10,7 +10,8 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['typer', 'more-itertools', 'numpy', 'bionumpy', 'plotly']
+requirements = ['typer', 'more-itertools', 'numpy', 'bionumpy', 'plotly',
+                'scipy']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 

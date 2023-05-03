@@ -14,3 +14,4 @@ build
 numpy
 bionumpy
 more-itertools
+scipy
