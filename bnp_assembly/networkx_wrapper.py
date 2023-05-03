@@ -13,7 +13,7 @@ class NetworkXContigGraph:
         return g
 
 class PathFinder:
-    def __init__(self, distance_matrix):
+    def __init__(self, distance_matrix, node_paths=None):
         self._graph = NetworkXContigGraph.from_distance_matrix(distance_matrix)
         self._distance_matrix = distance_matrix
 

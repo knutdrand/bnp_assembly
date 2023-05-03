@@ -45,7 +45,11 @@ class DirectedDistanceMatrix:
     def data(self):
         return self._matrix
 
+    def __len__(self):
+        return len(self._matrix)
+
     def __setitem__(self, edge: Edge, score: float):
+        print(edge, score)
         self._matrix[edge.numeric_index] = score
 
     def __getitem__(self, edge: Edge):
