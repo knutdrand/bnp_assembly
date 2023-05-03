@@ -11,3 +11,6 @@ hypothesis
 coverage
 pytest-cov
 build
+numpy
+bionumpy
+more-itertools
