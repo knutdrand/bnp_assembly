@@ -31,9 +31,6 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                 distance_matrix[edge] = score
                 # all_edges[(dir_a, dir_b)][contig_a][contig_b] = 
     return distance_matrix
-# return ContigGraph.from_distance_dicts(*(all_edges[d] for d in [('r', 'l'), ('r', 'r'), ('l', 'l')]))
-
-
 
 
 class DirectedDistanceMatrix:
