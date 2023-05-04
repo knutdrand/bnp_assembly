@@ -39,3 +39,15 @@ def test_interaction_matrix(location_pair):
         true_matrix[pair] = 1
         true_matrix[pair[::-1]] = 1
     np.testing.assert_array_equal(matrix.data, true_matrix)
+
+
+def test_interaction_matrix_binned(location_pair):
+    bin_size = 2
+    matrix = InteractionMatrix.from_locations_pair(location_pair, bin_size=bin_size)
+    true_matrix = np.zeros((60//2, 60//2))
+    coordinate_pairs = [(3//bin_size, 15//bin_size), (14//bin_size, 36//bin_size)]
+    for pair in coordinate_pairs:
+        true_matrix[pair] += 1
+        true_matrix[pair[::-1]] += 1
+    np.testing.assert_array_equal(matrix.data, true_matrix)
+

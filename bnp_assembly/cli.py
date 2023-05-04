@@ -8,6 +8,8 @@ from .io import get_read_pairs
 from .path_finding import best_path, PathFinder
 from .hic_distance_matrix import calculate_distance_matrices
 from .scaffold import scaffold
+from .datatypes import LocationPair
+from .interaction_matrix import InteractionMatrix
 
 
 def scaffold_main(contig_file_name: str, read_filename: str):
@@ -41,6 +43,14 @@ def scaffold_main(contig_file_name: str, read_filename: str):
         # sequence_dict = {int(s.name.raw()): s.sequence for s in sequence_entires}
         print(f'>contig{i}')
         print(np.concatenate(sequences).to_string())
+
+def heatmap_main(fasta_filename: str, interval_filename: str):
+    genome = bnp.Genome.from_file(fasta_filename)
+    interval_pairs = get_read_pairs(genome, interval_filename)
+    locations_pair = LocationPair(*(intervals.get_locations('center')
+                                    for intervals in interval_pairs))
+    interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair)
+    interaction_matrix.plot().show()
 
 def main():
     typer.run(scaffold_main)
