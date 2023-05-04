@@ -4,9 +4,10 @@ from .datatypes import GenomicLocationPair
 
 class InteractionMatrix:
 
-    def __init__(self, data, genome_context):
+    def __init__(self, data, genome_context, bin_size):
         self._data = data
         self._genome_context = genome_context
+        self._bin_size = bin_size
 
     @property
     def data(self) -> np.ndarray:
@@ -22,7 +23,13 @@ class InteractionMatrix:
         matrix =  np.zeros((size, size))
         np.add.at(matrix, global_pair, 1)
         np.add.at(matrix, global_pair[::-1], 1)
-        return cls(matrix, genome_context)
+        return cls(matrix, genome_context, bin_size)
 
     def plot(self):
-        return px.imshow(self._data)
+        go = self._genome_context.global_offset
+        fig = px.imshow(np.log2(self._data+1))
+        names = go.names()
+        offsets=go.get_offset(names)//self._bin_size
+        fig.update_layout(xaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names),
+                          yaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names))
+        return fig
