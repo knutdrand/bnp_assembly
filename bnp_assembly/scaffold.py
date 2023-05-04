@@ -22,7 +22,6 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, window_size=15):
     mapping = None
     max_iter = 10
     for _ in range(len(distance_matrix)//2):
-        print(len(distance_matrix))
         paths = PathFinder(distance_matrix).run()
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:

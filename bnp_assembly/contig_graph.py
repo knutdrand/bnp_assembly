@@ -1,8 +1,14 @@
+from dataclasses import dataclass
 import numpy as np
+from more_itertools import chunked
 from scipy.optimize import linear_sum_assignment
 from .graph_objects import NodeSide, Edge
 import typing as tp
 
+@dataclass
+class DirectedNode:
+    node_id: str
+    orientation: str
 
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):
@@ -26,6 +32,14 @@ class ContigPath:
         return [(self._node_names[node_id], strand) for node_id, strand in zip(self._node_ids, self._reverse_mask)]
 
     @classmethod
+    def from_directed_nodes(cls, directed_nodes: tp.List[DirectedNode]):
+        node_sides = []
+        for directed_node in directed_nodes:
+            sides = 'lr' if directed_node.orientation == '+' else '-'
+            node_sides.extend(NodeSide(directed_node.node_id, side) for side in sides)
+        return ContigPathSides(node_sides)
+
+    @classmethod
     def from_edges(cls, edges):
         assert len(edges)>0
         sides = [edges[0].from_node_side.other_side()]
@@ -47,6 +61,11 @@ class ContigPath:
 class ContigPathSides(ContigPath):
     def __init__(self, node_sides):
         self._node_sides = node_sides
+
+    @property
+    def directed_nodes(self):
+        return [DirectedNode(first_side.node_id, '+' if first_side.side=='l' else '-')
+                for side_1, _ in chunked(self._node_sides, 2)]
 
     def split_on_edge(self, edge: Edge):
         cut_idx = (self.edges.index(edge)+1)*2
@@ -137,16 +156,13 @@ class ContigGraph:
                 distance_matrix[from_dir*n:from_dir*n+n, to_dir*n:to_dir*n+n] = matrices[from_dir][to_dir]
         np.fill_diagonal(distance_matrix, np.inf)
         distance_matrix[-2:, -2:] = np.inf
-        print(distance_matrix)
         row_idx, col_idx = linear_sum_assignment(distance_matrix)
-        print(col_idx)
         cur_idx = col_idx[-1]
         path = []
         seen = set()
         node_ids = []
         reverse_mask = []
         while cur_idx < 2*n:
-            print(cur_idx)
             node_id, strand = (cur_idx % n, cur_idx//n)
             if node_id in seen:
                 break

@@ -8,11 +8,13 @@ from .io import get_read_pairs
 from .path_finding import best_path, PathFinder
 from .hic_distance_matrix import calculate_distance_matrices
 from .scaffold import scaffold
-from .datatypes import LocationPair
+from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
 
+app = typer.Typer()
 
-def scaffold_main(contig_file_name: str, read_filename: str):
+@app.command()
+def scaffold(contig_file_name: str, read_filename: str):
     '''
     Simple function
 
@@ -26,12 +28,6 @@ def scaffold_main(contig_file_name: str, read_filename: str):
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
     paths= scaffold(numeric_contig_dict, reads, window_size=500)
-    # distance_matrix = calculate_distance_matrices(numeric_contig_dict, reads, window_size=500)
-    # 
-    # path_finder = PathFinder(distance_matrix)
-    # #path = best_path(distance_matrix)
-    # paths = path_finder.run()
-
     sequence_dict = genome.read_sequence()
     for i, path in enumerate(paths):
         sequences = []
@@ -44,16 +40,18 @@ def scaffold_main(contig_file_name: str, read_filename: str):
         print(f'>contig{i}')
         print(np.concatenate(sequences).to_string())
 
-def heatmap_main(fasta_filename: str, interval_filename: str):
+@app.command()
+def heatmap(fasta_filename: str, interval_filename: str):
     genome = bnp.Genome.from_file(fasta_filename)
     interval_pairs = get_read_pairs(genome, interval_filename)
-    locations_pair = LocationPair(*(intervals.get_locations('center')
+    locations_pair = GenomicLocationPair(*(intervals.get_locations('center')
                                     for intervals in interval_pairs))
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair)
     interaction_matrix.plot().show()
 
 def main():
-    typer.run(scaffold_main)
+    app()
+    # typer.run(scaffold_main)
 
 if __name__ == "__main__":
     main()

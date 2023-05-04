@@ -21,11 +21,9 @@ def score_scaffolding(true_paths, scaffolded_paths):
     true_edges = {e for path in true_paths for e in path.edges}
     true_edges |= {e.reverse() for path in true_paths for e in path.edges}
     found_edges = {e for path in scaffolded_paths for e in path.edges}
-    print(len(found_edges), 'lkjasdlkfja;sl')
     if len(found_edges)>0:
         precision = len(true_edges & found_edges)/len(found_edges)
     else:
         precision = 1
-    print(precision)
     recall = len(true_edges & found_edges)/(len(true_edges)/2)
     return precision, recall
