@@ -7,21 +7,21 @@ import pytest
 
 @pytest.fixture
 def genome():
-    Genome.from_dict({'A': 10,
-                      'B': 20,
-                      'C': 30})
+    return Genome.from_dict({'A': 10,
+                             'B': 20,
+                             'C': 30})
 
 
 @pytest.fixture
 def genomic_locations_a(genome):
-    return GenomicLocation.from_fields(genome.genome_context,
+    return GenomicLocation.from_fields(genome.get_genome_context(),
                                        ['A', 'B'],
                                        [3, 4])
 
 
 @pytest.fixture
 def genomic_locations_b(genome):
-    return GenomicLocation.from_fields(genome.genome_context,
+    return GenomicLocation.from_fields(genome.get_genome_context(),
                                        ['B', 'C'],
                                        [5, 6])
 
@@ -32,7 +32,7 @@ def location_pair(genomic_locations_a, genomic_locations_b):
 
 
 def test_interaction_matrix(location_pair):
-    matrix = InteractionMatrix.from_location_pair(location_pair)
+    matrix = InteractionMatrix.from_locations_pair(location_pair)
     true_matrix = np.zeros((60, 60))
     coordinate_pairs = [(3, 15), (14, 36)]
     for pair in coordinate_pairs:
