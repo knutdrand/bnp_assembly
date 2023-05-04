@@ -4,7 +4,7 @@ import numpy as np
 
 import typer
 import bionumpy as bnp
-from .io import get_read_pairs
+from .io import get_read_pairs, get_genomic_read_pairs
 from .path_finding import best_path, PathFinder
 from .hic_distance_matrix import calculate_distance_matrices
 from .scaffold import scaffold
@@ -41,17 +41,14 @@ def scaffold(contig_file_name: str, read_filename: str):
         print(np.concatenate(sequences).to_string())
 
 @app.command()
-def heatmap(fasta_filename: str, interval_filename: str):
-    genome = bnp.Genome.from_file(fasta_filename)
-    interval_pairs = get_read_pairs(genome, interval_filename)
-    locations_pair = GenomicLocationPair(*(intervals.get_locations('center')
-                                    for intervals in interval_pairs))
-    interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair)
+def heatmap(fasta_filename: str, interval_filename: str, bin_size: int = 1000):
+    genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
+    locations_pair = get_genomic_read_pairs(genome, interval_filename)
+    interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)
     interaction_matrix.plot().show()
 
 def main():
     app()
-    # typer.run(scaffold_main)
 
 if __name__ == "__main__":
     main()

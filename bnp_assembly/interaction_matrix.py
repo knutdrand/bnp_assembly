@@ -18,7 +18,7 @@ class InteractionMatrix:
         global_offset = genome_context.global_offset
         global_pair = tuple(global_offset.from_local_coordinates(l.chromosome, l.position)//bin_size
                             for l in (locations_pair.a, locations_pair.b))
-        size = global_offset.total_size()//bin_size
+        size = (global_offset.total_size()+bin_size-1)//bin_size
         matrix =  np.zeros((size, size))
         np.add.at(matrix, global_pair, 1)
         np.add.at(matrix, global_pair[::-1], 1)
