@@ -7,14 +7,14 @@ import bionumpy as bnp
 from .io import get_read_pairs, get_genomic_read_pairs
 from .path_finding import best_path, PathFinder
 from .hic_distance_matrix import calculate_distance_matrices
-from .scaffold import scaffold
+from .scaffold import scaffold as scaffold_func
 from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
 
 app = typer.Typer()
 
 @app.command()
-def scaffold(contig_file_name: str, read_filename: str):
+def scaffold(contig_file_name: str, read_filename: str, out_file_name: str):
     '''
     Simple function
 
@@ -27,8 +27,11 @@ def scaffold(contig_file_name: str, read_filename: str):
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    paths= scaffold(numeric_contig_dict, reads, window_size=500)
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=500)
     sequence_dict = genome.read_sequence()
+    out_names = []
+    out_sequences = []
+
     for i, path in enumerate(paths):
         sequences = []
         for contig_id, is_reverse in path.to_list():
@@ -37,8 +40,15 @@ def scaffold(contig_file_name: str, read_filename: str):
                 seq = bnp.sequence.get_reverse_complement(seq)
             sequences.append(seq)
         # sequence_dict = {int(s.name.raw()): s.sequence for s in sequence_entires}
-        print(f'>contig{i}')
-        print(np.concatenate(sequences).to_string())
+        out_names.append(f'contig{i}')
+        out_sequences.append(np.concatenate(sequences))
+        #print(np.concatenate(sequences).to_string())
+
+    with bnp.open(out_file_name, "w") as f:
+        f.write(bnp.datatypes.SequenceEntry.from_entry_tuples(
+            zip(out_names, out_sequences)
+        ))
+
 
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, bin_size: int = 1000):
