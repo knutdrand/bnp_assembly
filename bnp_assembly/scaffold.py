@@ -1,4 +1,5 @@
 from .hic_distance_matrix import calculate_distance_matrices
+from .forbes_score import calculate_distance_matrices as forbes_matrix
 from collections import Counter
 from .path_finding import best_path, PathFinder
 from .location import LocationPair
@@ -11,12 +12,15 @@ import numpy as np
 
 PathFinder = nxPathFinder
 
-def split_contig(distance_matrix, path):
-    split_edges = (edge for edge in path.edges if distance_matrix[edge]>=-0.1)
+def split_contig(distance_matrix, path, T=-0.1):
+    split_edges = (edge for edge in path.edges if distance_matrix[edge]>=T)
     return path.split_on_edges(split_edges)
 
-def scaffold(contig_dict: dict, read_pairs: LocationPair, window_size=15):
-    original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, window_size=window_size)
+def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', **distance_kwargs):
+    if distance_measure == 'window':
+        original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
+    elif distance_measure == 'forbes':
+        original_distance_matrix = forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
     mapping = None

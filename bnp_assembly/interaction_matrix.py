@@ -13,7 +13,7 @@ class InteractionMatrix:
     def data(self) -> np.ndarray:
         return self._data
 
-    @classmethod 
+    @classmethod
     def from_locations_pair(cls, locations_pair: GenomicLocationPair, bin_size=1):
         genome_context = locations_pair.a.genome_context
         global_offset = genome_context.global_offset
