@@ -2,6 +2,7 @@ import plotly.express as px
 import numpy as np
 from .datatypes import GenomicLocationPair
 
+
 class InteractionMatrix:
 
     def __init__(self, data, genome_context, bin_size):

@@ -1,16 +1,33 @@
+from .hic_distance_matrix import calculate_distance_matrices
+from .forbes_score import calculate_distance_matrices as forbes_matrix
 from bnp_assembly.simulation.hic import simulate_merged_contig_reads
 from bnp_assembly.location import LocationPair
 from bnp_assembly.scaffold import scaffold
 from dataclasses import dataclass
 import numpy as np
 
-def run_simulated_experiment(simulation_params, rng):
+
+def get_distance_matrix(simulation_params, rng, distance_measure='window', **distance_kwargs):
+    n_nodes, n_reads = (simulation_params.n_nodes, simulation_params.n_reads)
+    split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
+    assert len(split_and_pairs.split.starts) == n_nodes
+    contig_dict = split_and_pairs.split.get_contig_dict()
+    read_pairs = LocationPair(split_and_pairs.location_a,
+                              split_and_pairs.location_b)
+    if distance_measure == 'window':
+        return calculate_distance_matrices(contig_dict, read_pairs)
+    elif distance_measure == 'forbes':
+        return forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
+
+
+def run_simulated_experiment(simulation_params, rng, distance_measure='window'):
     n_nodes, n_reads = (simulation_params.n_nodes, simulation_params.n_reads)
     split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
     assert len(split_and_pairs.split.starts) == n_nodes
     paths = scaffold(split_and_pairs.split.get_contig_dict(),
                      LocationPair(split_and_pairs.location_a,
                                   split_and_pairs.location_b),
+                     distance_measure=distance_measure,
                      window_size=30)
     true_paths = split_and_pairs.split.get_paths()
     return true_paths, paths
