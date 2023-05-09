@@ -27,18 +27,22 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str):
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=500, distance_measure='forbes')
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=500, distance_measure='window')
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []
 
     for i, path in enumerate(paths):
         sequences = []
-        for contig_id, is_reverse in path.to_list():
+        for j, (contig_id, is_reverse) in enumerate(path.to_list()):
+            if j > 0:
+                # adding 200 Ns between contigs
+                sequences.append(bnp.as_encoded_array('N' * 200, bnp.encodings.ACGTnEncoding))
             seq = sequence_dict[translation_dict[contig_id]]
             if is_reverse:
                 seq = bnp.sequence.get_reverse_complement(seq)
-            sequences.append(seq)
+            sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
+
         # sequence_dict = {int(s.name.raw()): s.sequence for s in sequence_entires}
         out_names.append(f'contig{i}')
         out_sequences.append(np.concatenate(sequences))
