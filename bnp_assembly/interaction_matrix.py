@@ -2,6 +2,7 @@ import plotly.express as px
 import numpy as np
 from .datatypes import GenomicLocationPair
 
+
 class InteractionMatrix:
 
     def __init__(self, data, genome_context, bin_size):
@@ -13,7 +14,7 @@ class InteractionMatrix:
     def data(self) -> np.ndarray:
         return self._data
 
-    @classmethod 
+    @classmethod
     def from_locations_pair(cls, locations_pair: GenomicLocationPair, bin_size=1):
         genome_context = locations_pair.a.genome_context
         global_offset = genome_context.global_offset
@@ -25,9 +26,12 @@ class InteractionMatrix:
         np.add.at(matrix, global_pair[::-1], 1)
         return cls(matrix, genome_context, bin_size)
 
+    def _transform(self, data):
+        return np.log2(data+1)
+
     def plot(self):
         go = self._genome_context.global_offset
-        fig = px.imshow(np.log2(self._data+1))
+        fig = px.imshow(self._transform(self._data))
         names = go.names()
         offsets=go.get_offset(names)//self._bin_size
         fig.update_layout(xaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names),

@@ -10,6 +10,9 @@ class DirectedNode:
     node_id: str
     orientation: str
 
+    def __repr__(self):
+        return f'{self.node_id}{self.orientation}'
+
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):
         self._node_ids = np.asarray(node_ids)
@@ -64,7 +67,7 @@ class ContigPathSides(ContigPath):
 
     @property
     def directed_nodes(self):
-        return [DirectedNode(first_side.node_id, '+' if first_side.side=='l' else '-')
+        return [DirectedNode(side_1.node_id, '+' if side_1.side=='l' else '-')
                 for side_1, _ in chunked(self._node_sides, 2)]
 
     def split_on_edge(self, edge: Edge):

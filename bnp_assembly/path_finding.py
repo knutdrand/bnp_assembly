@@ -5,6 +5,7 @@ from .contig_graph import ContigPath
 from collections import Counter
 import numpy as np
 
+
 class PathFinder:
     def __init__(self, distance_matrix):
         self._distance_matrix = distance_matrix

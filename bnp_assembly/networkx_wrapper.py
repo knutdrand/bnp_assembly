@@ -4,6 +4,7 @@ from .contig_graph import ContigPath
 import numpy as np
 # from path_finding import PathFinder
 
+
 class NetworkXContigGraph:
     @classmethod
     def from_distance_matrix(cls, distance_matrix):
@@ -13,13 +14,14 @@ class NetworkXContigGraph:
             (i, j, -d) for i, row in enumerate(data) for j, d in enumerate(row)])
         return g
 
+
 class PathFinder:
     def __init__(self, distance_matrix, node_paths=None):
         self._graph = NetworkXContigGraph.from_distance_matrix(distance_matrix)
         self._distance_matrix = distance_matrix
 
     def get_side_dict(self):
-        max_matching = nx.max_weight_matching(self._graph)
+        max_matching = nx.max_weight_matching(self._graph, maxcardinality=True)
         return {NodeSide.from_numeric_index(i): NodeSide.from_numeric_index(j)
                 for pair in max_matching for i, j in (pair, pair[::-1])}
 

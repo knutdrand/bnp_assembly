@@ -14,7 +14,7 @@ def plot_error_rate(simulation_params):
     n_iter = 2
     for n in n_reads:
         for _ in range(n_iter):
-            paths = run_simulated_experiment(replace(simulation_params, n_reads=n), rng)
+            paths = run_simulated_experiment(replace(simulation_params, n_reads=n), rng, distance_measure='forbes')
             precision, recall = score_scaffolding(*paths)
             recalls.append(recall)
             precisions.append(precision)
