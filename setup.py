@@ -11,7 +11,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = ['typer', 'more-itertools', 'numpy', 'bionumpy', 'plotly',
-                'scipy', 'networkx']
+                'scipy', 'networkx', 'kaleido']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 

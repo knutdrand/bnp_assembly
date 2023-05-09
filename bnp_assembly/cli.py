@@ -51,11 +51,14 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str):
 
 
 @app.command()
-def heatmap(fasta_filename: str, interval_filename: str, bin_size: int = 1000):
+def heatmap(fasta_filename: str, interval_filename: str, out_file_name: str, bin_size: int = 1000):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)
-    interaction_matrix.plot().show()
+    fig = interaction_matrix.plot()
+    fig.show()
+    fig.write_image(out_file_name)
+
 
 def main():
     app()
