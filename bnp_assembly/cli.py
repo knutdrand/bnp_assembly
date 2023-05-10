@@ -27,8 +27,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str):
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=500, distance_measure='forbes')
-    print([path.directed_nodes for path in paths])
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=500, distance_measure='window')
+    # print([path.directed_nodes for path in paths])
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []
