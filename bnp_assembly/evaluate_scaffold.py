@@ -9,7 +9,7 @@ import numpy as np
 
 def get_distance_matrix(simulation_params, rng, distance_measure='window', **distance_kwargs):
     n_nodes, n_reads = (simulation_params.n_nodes, simulation_params.n_reads)
-    split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
+    split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, p=1/simulation_params.mean_distance, rng=rng)
     assert len(split_and_pairs.split.starts) == n_nodes
     contig_dict = split_and_pairs.split.get_contig_dict()
     read_pairs = LocationPair(split_and_pairs.location_a,

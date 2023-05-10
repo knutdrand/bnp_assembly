@@ -14,7 +14,7 @@ PathFinder = nxPathFinder
 
 
 def split_contig(distance_matrix, path, T=-0.1):
-    # px.histogram([distance_matrix[e] for e in path.edges], nbins=20).show()
+    px.histogram([distance_matrix[e] for e in path.edges], nbins=10).show()
     split_edges = (edge for edge in path.edges if distance_matrix[edge] >= T)
     return path.split_on_edges(split_edges)
 
@@ -24,6 +24,7 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
     elif distance_measure == 'forbes':
         original_distance_matrix = forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
+    original_distance_matrix.plot().show()
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
     mapping = None
@@ -33,7 +34,8 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         if len(mapping) == 1:
             paths = split_contig(original_distance_matrix,
                                  ContigPath.from_node_sides(mapping.popitem()[1]),
-                                 T=-0.1 if distance_measure=='window' else 0
+                                 T=-0.1 if distance_measure == 'window' else 1
             )
+
             return paths
     assert len(mapping) == 0, mapping
