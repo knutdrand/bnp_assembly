@@ -19,10 +19,11 @@ def split_contig(distance_matrix, path, T=-0.1):
     return path.split_on_edges(split_edges)
 
 
-def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', **distance_kwargs):
+def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, **distance_kwargs):
     if distance_measure == 'window':
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
     elif distance_measure == 'forbes':
+        
         original_distance_matrix = forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
     # original_distance_matrix.plot().show()
     distance_matrix = original_distance_matrix
@@ -34,8 +35,8 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         if len(mapping) == 1:
             paths = split_contig(original_distance_matrix,
                                  ContigPath.from_node_sides(mapping.popitem()[1]),
-                                 T=-0.1 if distance_measure == 'window' else 0
-            )
+                                 T=threshold)
+
 
             return paths
     assert len(mapping) == 0, mapping
