@@ -27,7 +27,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str):
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='window')
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=500, distance_measure='forbes')
+    # print([path.directed_nodes for path in paths])
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []
@@ -55,7 +56,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str):
 
 
 @app.command()
-def heatmap(fasta_filename: str, interval_filename: str, out_file_name: str, bin_size: int = 1000):
+def heatmap(fasta_filename: str, interval_filename: str, out_file_name: str, bin_size: int = 10000):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)

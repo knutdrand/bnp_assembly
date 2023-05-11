@@ -4,6 +4,7 @@ from .graph_objects import NodeSide, Edge
 from .distance_matrix import DirectedDistanceMatrix
 from .distance_distribution import calculate_distance_distritbution
 from collections import Counter, defaultdict
+import plotly.express as px
 import typing as tp
 
 
@@ -14,6 +15,15 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                                           if a.contig_id == b.contig_id])
 
     node_side_counts, pair_counts = count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
+    # for d in ('l', 'r'):
+    #    px.bar([node_side_counts[NodeSide(node, d)] for node in range(len(node_side_counts)//2)]).show()
+    # print(len(location_pairs.location_a))
+    # count_matrix = DirectedDistanceMatrix(len(contig_dict))
+    # for edge, count in pair_counts.items():
+    # count_matrix[edge] = count
+    # count_matrix.data[count_matrix.data==np.inf] = 0
+    # count_matrix.plot().show()
+    # print(count_matrix.data.sum(axis=0), count_matrix.data.sum(axis=1))
     distance_matrix = DirectedDistanceMatrix(len(contig_dict))
     N = sum(node_side_counts.values())
     alpha = 1
@@ -23,7 +33,7 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                 node_side_a = NodeSide(contig_a, dir_a)
                 node_side_b = NodeSide(contig_b, dir_b)
                 edge = Edge(node_side_a, node_side_b)
-                score = len(location_pairs.location_a)*(pair_counts[edge]+alpha/(len(contig_dict)*4))/((node_side_counts[node_side_a]+alpha)*(node_side_counts[node_side_b])+alpha)
+                score = N*(pair_counts[edge]+alpha/(len(contig_dict)*4))/((node_side_counts[node_side_a]+alpha)*(node_side_counts[node_side_b])+alpha)
                 distance_matrix[edge] = -np.log(score)
                 distance_matrix[Edge(node_side_b, node_side_a)] = -np.log(score)
     return distance_matrix
@@ -58,15 +68,24 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
         right_weight_a = side_weight_func(a.offset, contig_dict[int(a.contig_id)])
         right_weight_b = side_weight_func(b.offset, contig_dict[int(b.contig_id)])
         for direction_a in ('l', 'r'):
+            a_side = NodeSide(int(a.contig_id), direction_a)
+            p_a = right_weight_a if direction_a == 'r' else 1-right_weight_a
+            # node_side_counts[a_side] += p_a
             for direction_b in ('l', 'r'):
-                a_side = NodeSide(int(a.contig_id), direction_a)
                 b_side = NodeSide(int(b.contig_id), direction_b)
-                p_a = right_weight_a if direction_a == 'r' else 1-right_weight_a
                 p_b = right_weight_b if direction_b == 'r' else 1-right_weight_b
-                node_side_counts[a_side] += p_a
-                node_side_counts[b_side] += p_b
+                # node_side_counts[b_side] += p_b
                 pair_counts[Edge(a_side, b_side)] += p_a*p_b
                 pair_counts[Edge(b_side, a_side)] += p_a*p_b
-
+            # n = node_side_counts[a_side]
+            # p = sum(value for key, value in pair_counts.items() if key.from_node_side == a_side)
+            # assert n==p, (n, p, p_a, p_b)
+    # for contig_id in contig_dict:
+    #     for direction in ('l', 'r'):
+    #         node_side = NodeSide(contig_id, direction)
+    #         n = node_side_counts[node_side]
+    #         p = sum(value for key, value in pair_counts.items() if key.from_node_side == node_side)            
+    #         assert n == p, (n, p)
+    node_side_counts = {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in (NodeSide(contig_id, direction) for contig_id in contig_dict for direction in ('l', 'r'))}
     return node_side_counts, pair_counts
     
