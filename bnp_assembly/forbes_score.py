@@ -4,6 +4,7 @@ from .graph_objects import NodeSide, Edge
 from .distance_matrix import DirectedDistanceMatrix
 from .distance_distribution import calculate_distance_distritbution
 from collections import Counter, defaultdict
+from scipy.stats import poisson
 import plotly.express as px
 import typing as tp
 
@@ -15,16 +16,10 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                                           if a.contig_id == b.contig_id])
 
     node_side_counts, pair_counts = count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
-    # for d in ('l', 'r'):
-    #    px.bar([node_side_counts[NodeSide(node, d)] for node in range(len(node_side_counts)//2)]).show()
-    # print(len(location_pairs.location_a))
-    # count_matrix = DirectedDistanceMatrix(len(contig_dict))
-    # for edge, count in pair_counts.items():
-    # count_matrix[edge] = count
-    # count_matrix.data[count_matrix.data==np.inf] = 0
-    # count_matrix.plot().show()
-    # print(count_matrix.data.sum(axis=0), count_matrix.data.sum(axis=1))
+    return  get_forbes_matrix(pair_counts, node_side_counts, contig_dict)
+    
     distance_matrix = DirectedDistanceMatrix(len(contig_dict))
+
     N = sum(node_side_counts.values())
     alpha = 1
     for contig_a in contig_dict:
@@ -37,6 +32,31 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
                 distance_matrix[edge] = -np.log(score)
                 distance_matrix[Edge(node_side_b, node_side_a)] = -np.log(score)
     return distance_matrix
+
+def get_pvalue_matrix(pair_counts: tp.Dict[Edge, float], node_side_counts: tp.Dict[NodeSide, float]):
+    n_nodes = len(node_side_counts)//2
+    distance_matrix = DirectedDistanceMatrix(n_nodes)
+    N = sum(node_side_counts.values()) # Should this be divided by two?
+    for edge, value in pair_counts.items():
+        rate = node_side_counts[edge.from_node_side]*node_side_counts[edge.to_node_side]/N
+        print(edge,rate, N)
+        p_value = poisson.sf(pair_counts[edge], rate)
+        distance_matrix[edge] = p_value
+        distance_matrix[edge.reverse()] = p_value
+    return distance_matrix
+
+
+def get_forbes_matrix(pair_counts, node_side_counts, alpha=1):
+    n_nodes = len(node_side_counts)//2
+    distance_matrix = DirectedDistanceMatrix(n_nodes)
+    N = sum(node_side_counts.values())
+    # alpha = 1
+    for edge, count in pair_counts.items():
+        score = N*(pair_counts[edge]+alpha/(n_nodes*4))/((node_side_counts[edge.from_node_side]+alpha)*(node_side_counts[edge.to_node_side])+alpha)
+        distance_matrix[edge] = -np.log(score)
+        distance_matrix[edge.reverse()] = -np.log(score)
+    return distance_matrix
+    
                 
 
 def _naive_side_weight(position, size):
