@@ -1,6 +1,7 @@
 from bnp_assembly.forbes_score import get_pvalue_matrix, get_forbes_matrix
 from scipy.stats import poisson
 from bnp_assembly.graph_objects import Edge, NodeSide
+import numpy as np
 import pytest
 
 
@@ -21,10 +22,10 @@ def node_side_counts(pair_counts):
 
 def test_pvalue(pair_counts, node_side_counts):
     p_values = get_pvalue_matrix(pair_counts, node_side_counts)
-    assert p_values[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == poisson.sf(2, 3*2/4)
+    assert p_values[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == poisson.sf(2, 3*2/8)
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_forbes(pair_counts, node_side_counts):
-    p_values = get_forbes_matrix(pair_counts, node_side_counts, alpha=0)
-    assert p_values[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == 2/(3*2/4)
+    forbes = get_forbes_matrix(pair_counts, node_side_counts, alpha=0)
+    assert forbes[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == -np.log(2/(3*2/8))

@@ -36,7 +36,7 @@ def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: 
 def get_pvalue_matrix(pair_counts: tp.Dict[Edge, float], node_side_counts: tp.Dict[NodeSide, float]):
     n_nodes = len(node_side_counts)//2
     distance_matrix = DirectedDistanceMatrix(n_nodes)
-    N = sum(node_side_counts.values())/2
+    N = sum(node_side_counts.values()) # Should this be divided by two?
     for edge, value in pair_counts.items():
         rate = node_side_counts[edge.from_node_side]*node_side_counts[edge.to_node_side]/N
         print(edge,rate, N)
@@ -46,20 +46,15 @@ def get_pvalue_matrix(pair_counts: tp.Dict[Edge, float], node_side_counts: tp.Di
     return distance_matrix
 
 
-def get_forbes_matrix(pair_counts, node_side_counts, contig_dict, alpha=1):
+def get_forbes_matrix(pair_counts, node_side_counts, alpha=1):
     n_nodes = len(node_side_counts)//2
     distance_matrix = DirectedDistanceMatrix(n_nodes)
-    N = sum(node_side_counts.values())/2
+    N = sum(node_side_counts.values())
     # alpha = 1
-    for contig_a in contig_dict:
-        for contig_b in contig_dict:
-            for dir_a, dir_b in (('r', 'l'), ('r', 'r'), ('l', 'l'), ('l', 'r')):
-                node_side_a = NodeSide(contig_a, dir_a)
-                node_side_b = NodeSide(contig_b, dir_b)
-                edge = Edge(node_side_a, node_side_b)
-                score = N*(pair_counts[edge]+alpha/(n_nodes*4))/((node_side_counts[node_side_a]+alpha)*(node_side_counts[node_side_b])+alpha)
-                distance_matrix[edge] = -np.log(score)
-                distance_matrix[Edge(node_side_b, node_side_a)] = -np.log(score)
+    for edge, count in pair_counts.items():
+        score = N*(pair_counts[edge]+alpha/(n_nodes*4))/((node_side_counts[edge.from_node_side]+alpha)*(node_side_counts[edge.to_node_side])+alpha)
+        distance_matrix[edge] = -np.log(score)
+        distance_matrix[edge.reverse()] = -np.log(score)
     return distance_matrix
     
                 
