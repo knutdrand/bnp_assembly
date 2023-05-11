@@ -1,5 +1,5 @@
 from .hic_distance_matrix import calculate_distance_matrices
-from .forbes_score import calculate_distance_matrices as forbes_matrix
+from .forbes_score import calculate_distance_matrices as forbes_matrix, get_pair_counts, get_node_side_counts, get_pscore_matrix
 from bnp_assembly.simulation.hic import simulate_merged_contig_reads
 from bnp_assembly.location import LocationPair
 from bnp_assembly.scaffold import scaffold
@@ -17,6 +17,9 @@ def get_distance_matrix(simulation_params, rng, distance_measure='window', **dis
     if distance_measure == 'window':
         return calculate_distance_matrices(contig_dict, read_pairs)
     elif distance_measure == 'forbes':
+        p = get_pair_counts(contig_dict, read_pairs)
+        n = get_node_side_counts(p)
+        get_pscore_matrix(p, n).plot().show()
         return forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
 
 

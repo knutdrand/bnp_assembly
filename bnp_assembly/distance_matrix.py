@@ -15,6 +15,12 @@ class DirectedDistanceMatrix:
             node_side = NodeSide.from_numeric_index(i)
             self._matrix[Edge(node_side, node_side.other_side()).numeric_index] = np.inf
 
+    @classmethod
+    def from_edge_dict(cls, n_nodes, d):
+        mat = cls(n_nodes)
+        for edge, value in d.items():
+            mat[edge] =value
+        return mat
     @property
     def data(self):
         return self._matrix

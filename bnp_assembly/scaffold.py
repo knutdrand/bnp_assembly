@@ -1,5 +1,7 @@
 from .hic_distance_matrix import calculate_distance_matrices
+from .distance_matrix import DirectedDistanceMatrix
 from .forbes_score import calculate_distance_matrices as forbes_matrix
+from .forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix, get_pscore_matrix
 from collections import Counter
 from .path_finding import best_path, PathFinder
 from .location import LocationPair
@@ -20,11 +22,21 @@ def split_contig(distance_matrix, path, T=-0.1):
 
 
 def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, **distance_kwargs):
+    print(contig_dict)
     if distance_measure == 'window':
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
+        split_matrix=original_distance_matrix
     elif distance_measure == 'forbes':
-        
-        original_distance_matrix = forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
+        pair_counts = get_pair_counts(contig_dict, read_pairs)
+        node_side_counts = get_node_side_counts(pair_counts)
+        print(node_side_counts)
+        DirectedDistanceMatrix.from_edge_dict(len(contig_dict), pair_counts).plot().show()
+        # print(node_side_counts)
+        original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
+        split_matrix = get_pscore_matrix(pair_counts, node_side_counts)
+        split_matrix.plot().show()
+        original_distance_matrix.plot().show()
+        # original_distance_matrix = forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
     # original_distance_matrix.plot().show()
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
@@ -33,7 +45,7 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         paths = PathFinder(distance_matrix).run()
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
-            paths = split_contig(original_distance_matrix,
+            paths = split_contig(split_matrix,
                                  ContigPath.from_node_sides(mapping.popitem()[1]),
                                  T=threshold)
 
