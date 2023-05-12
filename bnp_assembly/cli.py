@@ -10,7 +10,8 @@ from .hic_distance_matrix import calculate_distance_matrices
 from .scaffold import scaffold as scaffold_func
 from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
-
+import logging
+logging.basicConfig(level=logging.INFO)
 app = typer.Typer()
 
 @app.command()
@@ -45,7 +46,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 
         out_names.append(f'contig{i}')
         out_sequences.append(np.concatenate(sequences))
-
+    for path in paths:
+        logging.info(path.directed_nodes)
     with bnp.open(out_file_name, "w") as f:
         f.write(bnp.datatypes.SequenceEntry.from_entry_tuples(
             zip(out_names, out_sequences)

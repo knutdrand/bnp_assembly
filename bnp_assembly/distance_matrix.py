@@ -1,6 +1,6 @@
 from .graph_objects import NodeSide, Edge
 import numpy as np
-from .plotting import px, DummyPlot
+from .plotting import px, DummyPlot, level_dict
 import logging
 
 class DirectedDistanceMatrix:
@@ -39,6 +39,8 @@ class DirectedDistanceMatrix:
         return self._matrix[edge.numeric_index]
 
     def plot(self, level=logging.INFO):
+        if isinstance(level, str):
+            level = level_dict[level.lower()]
         if level<logging.root.level:
             return DummyPlot()
         n_nodes = len(self)//2
