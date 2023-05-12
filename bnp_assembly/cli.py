@@ -43,7 +43,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                 seq = bnp.sequence.get_reverse_complement(seq)
             sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
 
-        # sequence_dict = {int(s.name.raw()): s.sequence for s in sequence_entires}
         out_names.append(f'contig{i}')
         out_sequences.append(np.concatenate(sequences))
 

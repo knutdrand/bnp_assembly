@@ -1,7 +1,7 @@
 from .graph_objects import NodeSide, Edge
 import numpy as np
-from .plotting import px
-
+from .plotting import px, DummyPlot
+import logging
 
 class DirectedDistanceMatrix:
     def __init__(self, n_nodes):
@@ -38,7 +38,9 @@ class DirectedDistanceMatrix:
     def __getitem__(self, edge: Edge):
         return self._matrix[edge.numeric_index]
 
-    def plot(self):
+    def plot(self, level=logging.INFO):
+        if level<logging.root.level:
+            return DummyPlot()
         n_nodes = len(self)//2
         new_matrix = np.empty((n_nodes, n_nodes))
         max_value = self.data.max()
@@ -51,7 +53,7 @@ class DirectedDistanceMatrix:
                 new_matrix[node_id, node_id_2] = self[edge]
                 edge_r = Edge(NodeSide(node_id, 'l'), NodeSide(node_id_2, 'r'))
                 new_matrix[node_id_2, node_id] = self[edge_r]
-        fig = px().imshow(new_matrix)
+        fig = px(level).imshow(new_matrix)
         #go = self._genome_context.global_offset
         #fig = px.imshow(self._transform(self._data))
         #names = go.names()
