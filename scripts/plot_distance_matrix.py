@@ -24,4 +24,4 @@ def plot_distance(simulation_params):
     print([[d[e] for e in path.edges] for path in paths])
 
 
-plot_distance(SimulationParams(20, 2000, 1000, mean_distance=100))
+plot_distance(SimulationParams(20, 200, 1000, mean_distance=100))
