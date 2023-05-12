@@ -13,7 +13,7 @@ def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair
                                          [np.abs(a.offset-b.offset)
                                           for a, b in zip(location_pairs.location_a, location_pairs.location_b)
                                           if a.contig_id == b.contig_id])
-    px().line(F).show()
+    px('debug').line(F).show()
     return count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
 
 def get_node_side_counts(pair_counts):
@@ -112,6 +112,6 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
                 pair_counts[Edge(a_side, b_side)] += p_a*p_b
                 pair_counts[Edge(b_side, a_side)] += p_a*p_b
     # node_side_counts = {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in (NodeSide(contig_id, direction) for contig_id in contig_dict for direction in ('l', 'r'))}
-    px().histogram(tmp).show()
+    px('debug').histogram(tmp).show()
     return pair_counts
     

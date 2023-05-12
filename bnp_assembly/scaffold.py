@@ -30,11 +30,9 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         node_side_counts = get_node_side_counts(pair_counts)
         DirectedDistanceMatrix.from_edge_dict(len(contig_dict), pair_counts).plot(level=logging.DEBUG).show()
         original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
-        original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
-
+        split_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
         split_matrix = get_pscore_matrix(pair_counts, node_side_counts)
-        split_matrix.plot().show()
-        original_distance_matrix.plot().show()
+        original_distance_matrix.plot('debug').show()
 
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
