@@ -1,6 +1,6 @@
 from .graph_objects import NodeSide, Edge
 import numpy as np
-import plotly.express as px
+from .plotting import px
 
 
 class DirectedDistanceMatrix:
@@ -21,6 +21,7 @@ class DirectedDistanceMatrix:
         for edge, value in d.items():
             mat[edge] =value
         return mat
+
     @property
     def data(self):
         return self._matrix
@@ -50,7 +51,7 @@ class DirectedDistanceMatrix:
                 new_matrix[node_id, node_id_2] = self[edge]
                 edge_r = Edge(NodeSide(node_id, 'l'), NodeSide(node_id_2, 'r'))
                 new_matrix[node_id_2, node_id] = self[edge_r]
-        fig = px.imshow(new_matrix)
+        fig = px().imshow(new_matrix)
         #go = self._genome_context.global_offset
         #fig = px.imshow(self._transform(self._data))
         #names = go.names()

@@ -28,7 +28,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
     paths = scaffold_func(numeric_contig_dict, reads, window_size=500, distance_measure='forbes', threshold=threshold)
-    # print([path.directed_nodes for path in paths])
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []
@@ -47,7 +46,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         # sequence_dict = {int(s.name.raw()): s.sequence for s in sequence_entires}
         out_names.append(f'contig{i}')
         out_sequences.append(np.concatenate(sequences))
-        #print(np.concatenate(sequences).to_string())
 
     with bnp.open(out_file_name, "w") as f:
         f.write(bnp.datatypes.SequenceEntry.from_entry_tuples(

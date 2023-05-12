@@ -5,7 +5,7 @@ from .distance_matrix import DirectedDistanceMatrix
 from .distance_distribution import calculate_distance_distritbution
 from collections import Counter, defaultdict
 from scipy.stats import poisson
-import plotly.express as px
+from .plotting import px
 import typing as tp
 
 def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs): 
@@ -13,7 +13,7 @@ def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair
                                          [np.abs(a.offset-b.offset)
                                           for a, b in zip(location_pairs.location_a, location_pairs.location_b)
                                           if a.contig_id == b.contig_id])
-    px.line(F).show()
+    px().line(F).show()
     return count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
 
 def get_node_side_counts(pair_counts):
@@ -21,14 +21,7 @@ def get_node_side_counts(pair_counts):
     return {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in node_sides}
 
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
-    # F = calculate_distance_distritbution(list(contig_dict.values()),
-    #                                      [np.abs(a.offset-b.offset)
-    #                                       for a, b in zip(location_pairs.location_a, location_pairs.location_b)
-    #                                       if a.contig_id == b.contig_id])
     pair_counts = get_pair_counts(contig_dict, location_pairs)
-    print(pair_counts)
-    print(node_side_counts)
-    # count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
     node_side_counts = get_node_side_counts(pair_counts)
     return  get_forbes_matrix(pair_counts, node_side_counts)
     
@@ -119,6 +112,6 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
                 pair_counts[Edge(a_side, b_side)] += p_a*p_b
                 pair_counts[Edge(b_side, a_side)] += p_a*p_b
     # node_side_counts = {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in (NodeSide(contig_id, direction) for contig_id in contig_dict for direction in ('l', 'r'))}
-    px.histogram(tmp).show()
+    px().histogram(tmp).show()
     return pair_counts
     
