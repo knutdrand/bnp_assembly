@@ -38,7 +38,7 @@ class ContigPath:
     def from_directed_nodes(cls, directed_nodes: tp.List[DirectedNode]):
         node_sides = []
         for directed_node in directed_nodes:
-            sides = 'lr' if directed_node.orientation == '+' else '-'
+            sides = 'lr' if directed_node.orientation == '+' else 'rl'
             node_sides.extend(NodeSide(directed_node.node_id, side) for side in sides)
         return ContigPathSides(node_sides)
 

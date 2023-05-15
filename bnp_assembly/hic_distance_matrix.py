@@ -65,4 +65,4 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
 
 def calc_score(inside_a_count, inside_b_count, overlap_count):
     rate = np.mean([inside_a_count, inside_b_count])
-    return -(overlap_count+0.1)/(rate+1)
+    return -(overlap_count+0.1)/(rate+0.1)

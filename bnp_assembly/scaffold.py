@@ -10,15 +10,23 @@ from .networkx_wrapper import PathFinder as nxPathFinder
 from .contig_graph import ContigPath
 from numpy.testing import assert_array_equal
 from .plotting import px
+from .splitting import ScaffoldSplitter
 import logging
 import numpy as np
 
 PathFinder = nxPathFinder
 
 
-def split_contig(distance_matrix, path, T=-0.1):
+def _split_contig(distance_matrix, path, T=-0.1):
+    px('debug').histogram([distance_matrix[edge] for edge in path.edges if distance_matrix[edge]>-0.6], nbins=15).show()
     split_edges = (edge for edge in path.edges if distance_matrix[edge] >= T)
     return path.split_on_edges(split_edges)
+
+def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
+    return ScaffoldSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
+                                                  
+    
+    
 
 
 def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, **distance_kwargs):
@@ -31,7 +39,7 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         DirectedDistanceMatrix.from_edge_dict(len(contig_dict), pair_counts).plot(level=logging.DEBUG).show()
         original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
         split_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
-        split_matrix = get_pscore_matrix(pair_counts, node_side_counts)
+        # split_matrix = get_pscore_matrix(pair_counts, node_side_counts)
         original_distance_matrix.plot('debug').show()
 
     distance_matrix = original_distance_matrix
@@ -41,7 +49,12 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         paths = PathFinder(distance_matrix).run()
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
-            paths = split_contig(split_matrix,
+            # paths = split_contig(ContigPath.from_node_sides(mapping.popitem()[1]),
+            #                      contig_dict,
+            #                      -threshold,
+            #                      min(1000, sum(contig_dict.values())//100),
+            #                      read_pairs)
+            paths = _split_contig(split_matrix,
                                  ContigPath.from_node_sides(mapping.popitem()[1]),
                                  T=threshold)
 
