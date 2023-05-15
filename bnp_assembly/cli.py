@@ -59,7 +59,7 @@ def heatmap(fasta_filename: str, interval_filename: str, out_file_name: str, bin
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
     if bin_size == 0:
         bin_size = max(1000, genome.size // 1000)
-
+    print(bin_size)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)
     fig = interaction_matrix.plot()

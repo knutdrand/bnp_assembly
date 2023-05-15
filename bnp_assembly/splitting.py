@@ -24,7 +24,8 @@ class ScaffoldSplitter:
         normalized = interaction_matrix.normalize_diagonals(10)
         offsets = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]
         scores =  [normalized.get_triangle_score(offset//self._bin_size, 10) for offset in offsets]
-        px('info').histogram(scoregs).show()
+        print(scores)
+        px('info').histogram(scores).show()
         px('info').bar(scores).show()
         indices = [i for i, score in enumerate(scores) if score<threshold]
         edges = contig_path.edges

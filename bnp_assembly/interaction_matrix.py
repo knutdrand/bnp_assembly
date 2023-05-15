@@ -43,20 +43,23 @@ class InteractionMatrix:
 
 
 class SplitterMatrix(InteractionMatrix):
+
     def normalize_diagonals(self, max_offset)->'SplitterMatrix':
-        copy = self._data.copy()
-        means = {i:np.mean(np.diagonal(self.data, offset=i))
+        # copy = self._data.copy()
+        copy = self._data+0.01
+        means = {i: np.median(np.diagonal(copy, offset=i))
                  for i in range(1, max_offset)}
+
         for x in range(len(copy)):
             for i in range(1, max_offset):
                 y = x-i
                 if y >= 0:
-                    copy[x, y]/=means[i]
-                y= x+i
+                    copy[x, y] /= means[i]
+                y = x+i
                 if y < len(copy):
                     copy[x, y] /= means[i]
         return SplitterMatrix(copy, self._genome_context, self._bin_size)
-                
+
     def get_triangle_score(self, bin_n, max_offset):
         score = 0
         n = 0
@@ -69,7 +72,7 @@ class SplitterMatrix(InteractionMatrix):
                 if y >= len(self.data):
                     continue
                 score += self.data[x, y]
-                n+=1
+                n += 1
         if n == 0:
             return 1
         return score/n
