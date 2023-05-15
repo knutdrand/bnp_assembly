@@ -10,7 +10,7 @@ from .networkx_wrapper import PathFinder as nxPathFinder
 from .contig_graph import ContigPath
 from numpy.testing import assert_array_equal
 from .plotting import px
-from .splitting import ScaffoldSplitter
+from .splitting import ScaffoldSplitter, LinearSplitter
 import logging
 import numpy as np
 
@@ -24,7 +24,9 @@ def _split_contig(distance_matrix, path, T=-0.1):
 
 
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
-    return ScaffoldSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
+    return LinearSplitter(contig_dict).split(contig_path, locations_pair, threshold)
+
+# return ScaffoldSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
 
 
 def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, **distance_kwargs):

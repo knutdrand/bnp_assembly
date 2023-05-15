@@ -2,17 +2,18 @@ import numpy as np
 from .location import LocationPair, Location
 from .graph_objects import NodeSide, Edge
 from .distance_matrix import DirectedDistanceMatrix
-from .distance_distribution import calculate_distance_distritbution
+from .distance_distribution import calculate_distance_distritbution, distance_dist
 from collections import Counter, defaultdict
 from scipy.stats import poisson
 from .plotting import px
 import typing as tp
 
 def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs): 
-    F = calculate_distance_distritbution(list(contig_dict.values()),
-                                         [np.abs(a.offset-b.offset)
-                                          for a, b in zip(location_pairs.location_a, location_pairs.location_b)
-                                          if a.contig_id == b.contig_id])
+    F = distance_dist(location_pairs, contig_dict)
+    # calculate_distance_distritbution(list(contig_dict.values()),
+    #[np.abs(a.offset-b.offset)
+    #                                      for a, b in zip(location_pairs.location_a, location_pairs.location_b)
+    #                                      if a.contig_id == b.contig_id])
     return count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
 
 def get_node_side_counts(pair_counts):
