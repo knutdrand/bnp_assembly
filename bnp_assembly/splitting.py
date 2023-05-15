@@ -70,9 +70,12 @@ class LinearSplitter(ScaffoldSplitter):
         start_count = np.cumsum(start_array)
         end_count = np.cumsum(end_array)
         counts = (start_count-end_count)[:-1]
-        distance_to_edge = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])
-        distance_to_edge = np.minimum(distance_to_edge, sum(self._contig_dict.values())-distance_to_edge)
-        distance_to_edge = np.minimum(distance_to_edge, window_size-1)
+        node_sizes = np.array([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])
+        distance_to_start = np.cumsum(node_sizes)[:-1]
+        distance_to_end = np.cumsum(node_sizes[::-1])[::-1][1:]
+        distance_to_edge = np.minimum(distance_to_end, distance_to_start, window_size-1)
+        # distance_to_edge, sum(self._contig_dict.values())-distance_to_edge)
+        # distance_to_edge = np.minimum(distance_to_edge, window_size-1)
         weights = boundry_distance_to_weight[distance_to_edge]
         counts /= weights[:-1]
         px('info').histogram(counts, nbins=20).show()
@@ -80,6 +83,30 @@ class LinearSplitter(ScaffoldSplitter):
         q = np.quantile(counts, 0.70)
         threshold = q*threshold
         px('info').bar(counts/q).show()
+        
+        splits = [0, len(node_sizes)] # The first node in each split
+        while True:
+            i = np.argmin(count)
+            if counts[i]>=threshold:
+                break
+            counts[i] = threshold
+            pre_split = max(s for s in splits if s< i)
+            post_split = min(s for s in splits if s>i)
+            splits.append(i)
+            splits.sort()
+            node_lens =node_sizes[pre_split:post_split]
+            counts[pre_split:post_split] *= weights[pre_split:post_split]
+            distance_to_end[pre_split:i] = np.cumsum(node_lens[:i-pre_split])
+            distance_to_start[i:post_split:
+            new_distances
+            
+            for (start_i, end_i) in pairwise([0] + splits + len(n_nodes))
+                l_node_sizes = node_sizes[start_i:end_i]
+                distance_to_start = np.cumsum(node_sizes)[:-1]
+                distance_to_end = np.cumsum(node_sizes[::-1])[::-1][1:]
+                
+        
+
         indices = [i for i, count in enumerate(counts) if count<threshold]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
