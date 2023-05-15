@@ -22,7 +22,7 @@ def scaffold_map(contig_dict, contig_path):
 
 def test_map(scaffold_map):
     assert scaffold_map.translate_location(Location.single_entry(0, 5))==5
-    assert scaffold_map.translate_location(Location.single_entry(1, 5))==145
+    assert scaffold_map.translate_location(Location.single_entry(1, 5))==144
     
 
 

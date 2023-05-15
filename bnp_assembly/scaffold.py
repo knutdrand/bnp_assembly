@@ -22,11 +22,9 @@ def _split_contig(distance_matrix, path, T=-0.1):
     split_edges = (edge for edge in path.edges if distance_matrix[edge] >= T)
     return path.split_on_edges(split_edges)
 
+
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     return ScaffoldSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
-                                                  
-    
-    
 
 
 def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, **distance_kwargs):
@@ -49,14 +47,11 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         paths = PathFinder(distance_matrix).run()
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
-            # paths = split_contig(ContigPath.from_node_sides(mapping.popitem()[1]),
-            #                      contig_dict,
-            #                      -threshold,
-            #                      min(1000, sum(contig_dict.values())//100),
-            #                      read_pairs)
-            paths = _split_contig(split_matrix,
-                                 ContigPath.from_node_sides(mapping.popitem()[1]),
-                                 T=threshold)
+            path = ContigPath.from_node_sides(mapping.popitem()[1])
+            paths = split_contig(path, contig_dict, -threshold, 1000, read_pairs)
+            # paths = _split_contig(split_matrix,
+            #                      ContigPath.from_node_sides(mapping.popitem()[1]),
+            #                      T=threshold)
 
 
             return paths

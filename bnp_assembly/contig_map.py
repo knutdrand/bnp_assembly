@@ -9,7 +9,7 @@ class ScaffoldMap:
     def __init__(self, contig_path: ContigPath, contig_dict):
         self._contig_path = contig_path
         self._contig_dict = contig_dict
-        directed_nodes= contig_path.directed_nodes
+        directed_nodes = contig_path.directed_nodes
         offsets = np.cumsum([contig_dict[directed_node.node_id] for directed_node in directed_nodes])
         offsets = np.insert(offsets, 0, 0)
         self._offset_dict = {directed_node.node_id: offset for directed_node, offset in zip(directed_nodes, offsets)}
@@ -22,7 +22,7 @@ class ScaffoldMap:
         node_id = int(location.contig_id)
         offset = self._offset_dict[node_id]
         if self._direction_dict[node_id] == '-':
-            local_offset = self._contig_dict[node_id]-location.offset
+            local_offset = self._contig_dict[node_id]-location.offset-1
         else:
             local_offset = location.offset
         return offset+local_offset

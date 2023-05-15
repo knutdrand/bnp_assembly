@@ -4,6 +4,7 @@ from .datatypes import GenomicLocationPair
 from bionumpy.genomic_data  import Genome, GenomicLocation
 import numpy as np
 from .interaction_matrix import SplitterMatrix
+from .plotting import px
 
 class ScaffoldSplitter:
     def __init__(self, contig_dict, bin_size):
@@ -23,6 +24,8 @@ class ScaffoldSplitter:
         normalized = interaction_matrix.normalize_diagonals(10)
         offsets = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]
         scores =  [normalized.get_triangle_score(offset//self._bin_size, 10) for offset in offsets]
+        px('info').histogram(scoregs).show()
+        px('info').bar(scores).show()
         indices = [i for i, score in enumerate(scores) if score<threshold]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]

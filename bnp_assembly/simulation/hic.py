@@ -20,8 +20,12 @@ class PairDistribution:
         self._p = p
 
     def sample(self, rng, n_samples=1):
-        distance = np.minimum(rng.geometric(self._p, size=n_samples), self._contig_length)
+        distance = np.minimum(rng.geometric(self._p, size=n_samples), self._contig_length-2)
+        print(np.min(distance))
         first = rng.integers(0, self._contig_length-distance)
+        second = first+distance
+        assert np.all(second < self._contig_length), (second, self._contig_length)
+        assert np.all(first < self._contig_length), (first, self._contig_length)
         return (first, first+distance)
 
 @bnpdataclass
@@ -49,11 +53,16 @@ class ContigSplit:
     def map(self, positions):
         contig_ids = np.searchsorted(self.starts, positions,side='right')-1
         offsets = positions-self.starts[contig_ids]
+        d = self.get_contig_dict()
+        ls = [d[contig_id] for contig_id in contig_ids]
+        assert np.all(offsets<ls), (offsets, ls)
         return Location(contig_ids, offsets)
+
 
 def split_contig(rng, contig_length, n_parts):
     split_points = rng.choice(contig_length-1, size=n_parts-1, replace=False)+1
     return ContigSplit(contig_length, np.insert(np.sort(split_points), 0, 0))
+
 
 def split_contig_on_size(contig_length, size):
     split_points = np.arange(0, contig_length, size)
