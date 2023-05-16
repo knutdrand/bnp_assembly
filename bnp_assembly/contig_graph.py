@@ -13,6 +13,7 @@ class DirectedNode:
     def __repr__(self):
         return f'{self.node_id}{self.orientation}'
 
+
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):
         self._node_ids = np.asarray(node_ids)

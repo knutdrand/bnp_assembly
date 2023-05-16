@@ -37,9 +37,6 @@ class ScaffoldSplitter:
         return contig_path.split_on_edges(split_edges)
 
 
-
-
-
 class LinearSplitter(ScaffoldSplitter):
     def __init__(self, contig_dict, threshold):
         self._contig_dict = contig_dict
