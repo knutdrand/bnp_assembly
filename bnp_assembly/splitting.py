@@ -58,11 +58,12 @@ class LinearSplitter(ScaffoldSplitter):
         if len(contig_path.directed_nodes)==1:
             return [contig_path]
         scores = self._adjust_counts(contig_path, edge_counts, boundry_distance_to_weight)
-
         i = np.argmin(scores)
         if scores[i]>self._threshold:
             return [(contig_path, edge_counts)]
-        return contig_path.split_on_edges([contig_path.edges[i]])
+        edge = contig_path.edges[i]
+        print(edge)
+        return contig_path.split_on_edges([edge])
 
     def _calculate_boundry_weights(self, location_pair):
         F = distance_dist(location_pair, self._contig_dict)
@@ -105,21 +106,24 @@ class LinearSplitter(ScaffoldSplitter):
         boundry_distance_to_weight = self._calculate_boundry_weights(location_pair)
         edge_counts_dict = self._get_edge_counts(contig_path, location_pair)
         edge_counts = self._get_counts_for_path(contig_path, edge_counts_dict)
+        px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges]).show()
         unfinished = [(contig_path, edge_counts)]
         finished= []
         i = 0
+        self._threshold = np.quantile(edge_counts, 0.70)*self._threshold
         while len(unfinished):
             if i>1000:
                 assert False, unfinished
             i+=1
             contig_path, edge_counts = unfinished.pop()
             split_paths = self._split_once(contig_path, edge_counts, boundry_distance_to_weight)
-            print(split_paths)
             if len(split_paths) == 1:
                 finished.append(contig_path)
             else:
+                # px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges]).show()
+                
                 unfinished += [(cp, self._get_counts_for_path(cp, edge_counts_dict)) for cp in split_paths]
-        return list(finished)
+        return list(finished)[::-1]
 
 #     def split(self, contig_path, locations_pair, threshold=0.1):
 #         F = distance_dist(locations_pair, self._contig_dict)
