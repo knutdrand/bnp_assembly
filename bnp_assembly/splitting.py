@@ -50,12 +50,12 @@ class ScaffoldSplitter2:
                                            ['0']*len(g), g) for g in (global_a, global_b))
         return GenomicLocationPair(gl_a, gl_b)
 
-    def split(self, contig_path, locations_pair, threshold=0.5):
+    def split(self, contig_path, locations_pair, threshold=0.5, n_bins=50):
         global_locations_pair = self._get_global_location(contig_path, locations_pair)
         interaction_matrix = SplitterMatrix2.from_locations_pair(global_locations_pair, self._bin_size)
-        normalized = interaction_matrix.normalize_diagonals(10)
+        normalized = interaction_matrix.normalize_diagonals(n_bins)
         offsets = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]
-        scores =  [normalized.get_triangle_score(offset//self._bin_size, 10) for offset in offsets]
+        scores =  [normalized.get_triangle_score(offset//self._bin_size, n_bins) for offset in offsets]
         q = np.quantile(scores, 0.7)
         threshold = threshold*q
         print(scores)

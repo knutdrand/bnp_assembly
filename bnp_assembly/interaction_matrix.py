@@ -50,6 +50,7 @@ class SplitterMatrix(InteractionMatrix):
         means = {i: np.median(np.diagonal(copy, offset=i))
                  for i in range(1, max_offset)}
 
+
         for x in range(len(copy)):
             for i in range(1, max_offset):
                 y = x-i
@@ -83,7 +84,8 @@ class SplitterMatrix2(InteractionMatrix):
     def normalize_diagonals(self, max_offset)->'SplitterMatrix2':
         # copy = self._data.copy()
         copy = self._data.astype(float)
-        means = {i: np.median(np.diagonal(copy, offset=i))
+        # adding + 1 before taking median to avoid zero median
+        means = {i: np.median(np.diagonal(copy, offset=i) + 1)
                  for i in range(1, max_offset)}
 
         for x in range(len(copy)):
@@ -95,6 +97,10 @@ class SplitterMatrix2(InteractionMatrix):
                 if y < len(copy):
                     copy[x, y] = min(copy[x, y], means[i])
                     # copy[x, y] /= means[i]
+        copy[np.isnan(copy)] = 0
+
+        assert np.all(~np.isnan(copy))
+
         return SplitterMatrix2(copy, self._genome_context, self._bin_size)
 
     def get_triangle_score(self, bin_n, max_offset):
@@ -106,7 +112,7 @@ def get_weighted_triangle_score(matrix, bin_n, max_offset):
     n = 0
     for i in range(0, max_offset+1):
         x = bin_n+i
-        if x >=len(matrix):
+        if x >= len(matrix):
             continue
         for j in range(0, max_offset-i+1):
             if i == 0 and j == 0:

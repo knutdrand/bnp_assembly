@@ -52,6 +52,6 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
             path = ContigPath.from_node_sides(mapping.popitem()[1])
-            paths = split_contig(path, contig_dict, -threshold, 10000, read_pairs)
+            paths = split_contig(path, contig_dict, -threshold, 2000, read_pairs)
             return paths
     assert len(mapping) == 0, mapping
