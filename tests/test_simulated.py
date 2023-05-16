@@ -37,7 +37,7 @@ def test_simulated(n_reads, n_nodes, method):
 @pytest.mark.parametrize('n_nodes', [4])
 @pytest.mark.parametrize('method', ['forbes'])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
-def test_simulated(n_reads, n_nodes, method):
+def test_simulated2(n_reads, n_nodes, method):
     rng = np.random.default_rng(seed=100)
     true_paths, paths = run_simulated_experiment(SimulationParams(n_nodes, n_reads),
                                                  rng, distance_measure=method)
