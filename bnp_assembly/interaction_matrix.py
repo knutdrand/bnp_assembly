@@ -76,3 +76,66 @@ class SplitterMatrix(InteractionMatrix):
         if n == 0:
             return 1
         return score/n
+
+
+
+class SplitterMatrix2(InteractionMatrix):
+    def normalize_diagonals(self, max_offset)->'SplitterMatrix2':
+        # copy = self._data.copy()
+        copy = self._data.astype(float)
+        means = {i: np.median(np.diagonal(copy, offset=i))
+                 for i in range(1, max_offset)}
+
+        for x in range(len(copy)):
+            for i in range(1, max_offset):
+                y = x-i
+                if y >= 0:
+                    copy[x, y] = min(copy[x, y], means[i])
+                y = x+i
+                if y < len(copy):
+                    copy[x, y] = min(copy[x, y], means[i])
+                    # copy[x, y] /= means[i]
+        return SplitterMatrix2(copy, self._genome_context, self._bin_size)
+
+    def get_triangle_score(self, bin_n, max_offset):
+        return get_weighted_triangle_score(self.data, bin_n, max_offset)
+
+
+def get_weighted_triangle_score(matrix, bin_n, max_offset):
+    score = 0
+    n = 0
+    for i in range(0, max_offset+1):
+        x = bin_n+i
+        if x >=len(matrix):
+            continue
+        for j in range(0, max_offset-i+1):
+            if i == 0 and j == 0:
+                continue
+            y = bin_n-j
+            if y < 0:
+                continue
+            score += matrix[x, y] # /(i+1)
+            n += 1
+    if n == 0:
+        return 1
+    return score/n
+
+
+def get_triangle_score(matrix, bin_n, max_offset):
+    score = 0
+    n = 0
+    for i in range(0, max_offset+1):
+        x = bin_n+i
+        if x >= len(matrix):
+            continue
+        for j in range(0, max_offset-i+1):
+            if i == 0 and j == 0:
+                continue
+            y = bin_n-j
+            if y < 0:
+                continue
+            score += matrix[x, y] # /(i+1)
+            n += 1 # /(i+1)
+    if n == 0:
+        return 1
+    return score# /n
