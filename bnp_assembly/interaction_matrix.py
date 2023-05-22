@@ -125,7 +125,7 @@ def get_weighted_triangle_score(matrix, bin_n, max_offset, ignore_positions=None
     subset = matrix[bin_n:bin_n+max_offset, bin_n-max_offset:bin_n].copy()
     if subset.size > 0:
         subset[0, 0] = 0
-    px.imshow(subset, range_color=(0, 2000)).show()
+    px.imshow(subset, range_color=(0, 2000), title="BIN number: " + str(bin_n)).show()
     score = 0
     n = 0
     if ignore_positions is None:
