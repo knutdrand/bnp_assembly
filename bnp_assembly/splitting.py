@@ -37,6 +37,7 @@ class ScaffoldSplitter:
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
 
+
 class ScaffoldSplitter2:
     def __init__(self, contig_dict, bin_size):
         self._contig_dict = contig_dict
@@ -101,6 +102,7 @@ class ScaffoldSplitter3(ScaffoldSplitter2):
         matrix = interaction_matrix.normalize_matrix()
         matrix.plot().show()
         return self._split_on_matrix(contig_path, matrix, threshold, n_bins)
+
 
 class LinearSplitter(ScaffoldSplitter):
     def __init__(self, contig_dict, threshold):
@@ -170,13 +172,13 @@ class LinearSplitter(ScaffoldSplitter):
         edge_counts = self._get_counts_for_path(contig_path, edge_counts_dict)
         px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges]).show()
         unfinished = [(contig_path, edge_counts)]
-        finished= []
+        finished = []
         i = 0
         self._threshold = np.quantile(edge_counts, 0.70)*self._threshold
         while len(unfinished):
-            if i>1000:
+            if i > 1000:
                 assert False, unfinished
-            i+=1
+            i += 1
             contig_path, edge_counts = unfinished.pop()
             split_paths = self._split_once(contig_path, edge_counts, boundry_distance_to_weight)
             if len(split_paths) == 1:
@@ -187,6 +189,39 @@ class LinearSplitter(ScaffoldSplitter):
                 unfinished += [(cp, self._get_counts_for_path(cp, edge_counts_dict)) for cp in split_paths]
         return list(finished)[::-1]
 
+
+class LinearSplitter2(LinearSplitter):
+    def __init__(self, contig_dict, contig_path, window_size=100000):
+        self._contig_dict = contig_dict
+        self._genome = Genome.from_dict({'0': sum(self._contig_dict.values())})
+        self._contig_path = contig_path
+        self._scaffold_map = ScaffoldMap(contig_path, self._contig_dict)
+        self._edge_indices = np.cumsum([self._contig_dict[int(dn.node_id)] for dn in contig_path.directed_nodes])[1:]
+        self._window_size = window_size
+
+    def _get_all_mapped_locations(self, location_pair):
+        locations = np.concatenate([self._scaffold_map.translate_locations(locations)
+                                     for locations in (location_pair.location_a, location_pair.location_b)])
+        return np.sort(locations)
+
+    def split(self, location_pair):
+        F = distance_dist(location_pair, self._contig_dict)
+        window_size = min(F.size-1, self._window_size)
+
+        locations = self._get_all_mapped_locations(location_pair)
+        expected = []
+        for idx in self._edge_indices:
+            first, mid, last = np.searchsorted(locations, [idx-window_size, idx, idx+window_size])
+            pL = np.sum(F[window_size]-F[idx-locations[first:mid]])
+            pR = np.sum(F[window_size]-F[locations[mid:last]-idx])
+            expected.append(pL*pR)
+        
+        edge_counts = self._get_edge_counts(self._contig_path, location_pair)
+        scores = [count/expected for count, expected in zip(edge_counts.values(), expected)]
+        threshold = 0.5*np.quantile(scores, 0.7)
+        px('info').bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
+        split_edges = [edge for score, edge in zip(scores, self._contig_path.edges) if score<threshold]
+        return self._contig_path.split_on_edges(split_edges)
 #     def split(self, contig_path, locations_pair, threshold=0.1):
 #         F = distance_dist(locations_pair, self._contig_dict)
 #         F = F[:100000]
