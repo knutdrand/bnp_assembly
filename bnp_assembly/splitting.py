@@ -62,9 +62,12 @@ class ScaffoldSplitter2:
         normalized = self._create_matrix(contig_path, locations_pair)
         return self._split_on_matrix(contig_path, normalized, threshold, n_bins)
 
-    def _split_on_matrix(self, contig_path, normalized, threshold, n_bins)
-        offsets = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]
-        scores =  [normalized.get_triangle_score(offset//self._bin_size, n_bins) for offset in offsets]
+    def get_edge_bin_ids(self, contig_path):
+        return np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]//self._bin_size
+
+    def _split_on_matrix(self, contig_path, normalized, threshold, n_bins):
+        offsets = self.get_edge_bin_ids()
+        scores =  [normalized.get_triangle_score(offset, n_bins) for offset in offsets]
         q = np.quantile(scores, 0.7)
         threshold = threshold*q
         print(scores)
@@ -78,20 +81,26 @@ class ScaffoldSplitter2:
         return contig_path.split_on_edges(split_edges)
 
 
-class ScaffoldSplitter3:
-    def get_oriented_offsets(self, locations, orientation_dict):
-        return Location.from_entry_tuples([(loc.contig_id, loc.offset if orientation_dict[loc.contig_id]=='+' else self._contig_dict[loc.contig_id]-loc.offset-1) for loc in locations])
+class ScaffoldSplitter3(ScaffoldSplitter2):
+    def _get_oriented_offsets(self, locations, orientation_dict):
+        return Location.from_entry_tuples([(loc.contig_id, loc.offset if orientation_dict[int(loc.contig_id)]=='+' else self._contig_dict[int(loc.contig_id)]-loc.offset-1) for loc in locations])
 
-        contig_id, offset, orientation_dict):
+    # contig_id, offset, orientation_dict):
 
+    def get_edge_bin_ids(self, *args, **kwargs):
+        return self._factory.get_edge_bin_ids()[1:]
 
     def split(self, contig_path, locations_pair, threshold=0.5, n_bins=20):
         orientation_dict = {dn.node_id: dn.orientation for dn in contig_path.directed_nodes}
-        oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict) for locations in
-                                                 locations_pair.location_a, locations_pair.locations_b))
+        oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict) 
+                                                 for locations in
+                                                 (locations_pair.location_a, locations_pair.location_b)))
         contig_dict = {dn.node_id: self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes}
-        interaction_matrix = InteractionMatrixFactory(contig_dict, self._bin_size).create_from_location_pairs(oriented_locations_pair)
-        return self._split_on_matrix(contig_path, interaction_matrix, threshold, n_bins)
+        self._factory = InteractionMatrixFactory(contig_dict, self._bin_size)
+        interaction_matrix = self._factory.create_from_location_pairs(oriented_locations_pair)
+        matrix = interaction_matrix.normalize_matrix()
+        matrix.plot().show()
+        return self._split_on_matrix(contig_path, matrix, threshold, n_bins)
 
 class LinearSplitter(ScaffoldSplitter):
     def __init__(self, contig_dict, threshold):

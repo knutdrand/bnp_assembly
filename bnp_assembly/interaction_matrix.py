@@ -19,8 +19,10 @@ class InteractionMatrix:
                               self._bin_size)
 
     def normalize_matrix(self):
-        norm = (np.mean(self._data, axis=-1, keepdims=True)*np.mean(self._data, axis=0, keepdims=True))
-        new_data = np.where(norm==0, 0, self._data/norm)
+        norm1 = (np.mean(self._data, axis=-1, keepdims=True))
+        norm2 = np.mean(self._data, axis=0, keepdims=True)
+        mask = (norm1*norm2) == 0
+        new_data = np.where(mask, 0, self._data/(norm1*norm2))
         return self.__class__(new_data,
                               self._genome_context,
                               self._bin_size)
@@ -120,23 +122,28 @@ class SplitterMatrix2(InteractionMatrix):
 
 
 def get_weighted_triangle_score(matrix, bin_n, max_offset, ignore_positions=None):
+    subset = matrix[bin_n:bin_n+max_offset, bin_n-max_offset:bin_n].copy()
+    if subset.size > 0:
+        subset[0, 0] = 0
+    px.imshow(subset, range_color=(0, 2000)).show()
     score = 0
     n = 0
     if ignore_positions is None:
         ignore_positions = np.zeros(len(matrix), dtype=bool)
     for i in range(0, max_offset+1):
-        if ignore_positions[i]:
-            continue
         x = bin_n+i
         if x >= len(matrix):
             continue
-        for j in range(0, max_offset-i+1):
-            if ignore_positions[j]:
-                continue
+        if ignore_positions[x]:
+            continue
+
+        for j in range(1, max_offset-i):
             if i == 0 and j == 0:
                 continue
             y = bin_n-j
             if y < 0:
+                continue
+            if ignore_positions[y]:
                 continue
             score += matrix[x, y] # /(i+1)
             n += 1
