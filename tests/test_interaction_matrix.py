@@ -1,6 +1,7 @@
 from bionumpy.genomic_data import GenomicLocation, Genome
 from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.interaction_matrix import InteractionMatrix
+from bnp_assembly.dynamic_bin_distance_matrix import InteractionMatrixFactory
 import numpy as np
 import pytest
 
@@ -30,7 +31,6 @@ def genomic_locations_b(genome):
 def location_pair(genomic_locations_a, genomic_locations_b):
     return GenomicLocationPair(genomic_locations_a, genomic_locations_b)
 
-
 def test_interaction_matrix(location_pair):
     matrix = InteractionMatrix.from_locations_pair(location_pair)
     true_matrix = np.zeros((60, 60))
@@ -50,4 +50,3 @@ def test_interaction_matrix_binned(location_pair):
         true_matrix[pair] += 1
         true_matrix[pair[::-1]] += 1
     np.testing.assert_array_equal(matrix.data, true_matrix)
-

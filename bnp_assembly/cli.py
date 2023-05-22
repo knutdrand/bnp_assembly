@@ -65,7 +65,7 @@ def heatmap(fasta_filename: str, interval_filename: str, out_file_name: str, bin
     fig = interaction_matrix.plot()
     fig.show()
     fig.write_image(out_file_name)
-
+    interaction_matrix.normalize_matrix().plot().show()
 
 def main():
     app()

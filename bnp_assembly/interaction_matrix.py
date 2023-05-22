@@ -2,8 +2,8 @@ import plotly.express as px
 import numpy as np
 from .datatypes import GenomicLocationPair
 
-class InteractionMatrix:
 
+class InteractionMatrix:
     def __init__(self, data, genome_context, bin_size):
         self._data = data
         self._genome_context = genome_context
@@ -12,6 +12,19 @@ class InteractionMatrix:
     @property
     def data(self) -> np.ndarray:
         return self._data
+
+    def normalize_rows(self):
+        return self.__class__(self._data/np.sum(self._data, axis=-1, keepdims=True),
+                              self._genome_context,
+                              self._bin_size)
+
+    def normalize_matrix(self):
+        norm = (np.mean(self._data, axis=-1, keepdims=True)*np.mean(self._data, axis=0, keepdims=True))
+        new_data = np.where(norm==0, 0, self._data/norm)
+        return self.__class__(new_data,
+                              self._genome_context,
+                              self._bin_size)
+
 
     @classmethod
     def from_locations_pair(cls, locations_pair: GenomicLocationPair, bin_size=1):
@@ -36,7 +49,7 @@ class InteractionMatrix:
         go = self._genome_context.global_offset
         fig = px.imshow(self._transform(self._data))
         names = go.names()
-        offsets=go.get_offset(names)//self._bin_size
+        offsets = go.get_offset(names)//self._bin_size
         fig.update_layout(xaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names),
                           yaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names))
         return fig
@@ -49,7 +62,6 @@ class SplitterMatrix(InteractionMatrix):
         copy = self._data+0.01
         means = {i: np.median(np.diagonal(copy, offset=i))
                  for i in range(1, max_offset)}
-
 
         for x in range(len(copy)):
             for i in range(1, max_offset):
@@ -85,7 +97,7 @@ class SplitterMatrix2(InteractionMatrix):
         # copy = self._data.copy()
         copy = self._data.astype(float)
         # adding + 1 before taking median to avoid zero median
-        means = {i: np.median(np.diagonal(copy, offset=i) + 1)
+        means = {i: np.quantile(np.diagonal(copy, offset=i) + 1, 0.8)
                  for i in range(1, max_offset)}
 
         for x in range(len(copy)):
@@ -104,17 +116,23 @@ class SplitterMatrix2(InteractionMatrix):
         return SplitterMatrix2(copy, self._genome_context, self._bin_size)
 
     def get_triangle_score(self, bin_n, max_offset):
-        return get_weighted_triangle_score(self.data, bin_n, max_offset)
+        return get_weighted_triangle_score(self.data, bin_n, max_offset, ignore_positions=np.sum(self._data, axis=-1)==0)
 
 
-def get_weighted_triangle_score(matrix, bin_n, max_offset):
+def get_weighted_triangle_score(matrix, bin_n, max_offset, ignore_positions=None):
     score = 0
     n = 0
+    if ignore_positions is None:
+        ignore_positions = np.zeros(len(matrix), dtype=bool)
     for i in range(0, max_offset+1):
+        if ignore_positions[i]:
+            continue
         x = bin_n+i
         if x >= len(matrix):
             continue
         for j in range(0, max_offset-i+1):
+            if ignore_positions[j]:
+                continue
             if i == 0 and j == 0:
                 continue
             y = bin_n-j

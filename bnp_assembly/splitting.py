@@ -4,6 +4,7 @@ from .datatypes import GenomicLocationPair
 from bionumpy.genomic_data  import Genome, GenomicLocation
 import numpy as np
 from .interaction_matrix import SplitterMatrix, SplitterMatrix2
+from .dynamic_bin_distance_matrix import InteractionMatrixFactory
 from .plotting import px
 from .distance_distribution import calculate_distance_distritbution, distance_dist
 
@@ -50,23 +51,47 @@ class ScaffoldSplitter2:
                                            ['0']*len(g), g) for g in (global_a, global_b))
         return GenomicLocationPair(gl_a, gl_b)
 
-    def split(self, contig_path, locations_pair, threshold=0.5, n_bins=50):
+    def _create_matrix(self, contig_path, locations_pair):
         global_locations_pair = self._get_global_location(contig_path, locations_pair)
         interaction_matrix = SplitterMatrix2.from_locations_pair(global_locations_pair, self._bin_size)
-        normalized = interaction_matrix.normalize_diagonals(n_bins)
+        normalized = interaction_matrix.normalize_matrix() # .normalize_diagonals(n_bins)
+        normalized.plot().show()
+        return normalized
+
+    def split(self, contig_path, locations_pair, threshold=0.5, n_bins=20):
+        normalized = self._create_matrix(contig_path, locations_pair)
+        return self._split_on_matrix(contig_path, normalized, threshold, n_bins)
+
+    def _split_on_matrix(self, contig_path, normalized, threshold, n_bins)
         offsets = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]
         scores =  [normalized.get_triangle_score(offset//self._bin_size, n_bins) for offset in offsets]
         q = np.quantile(scores, 0.7)
         threshold = threshold*q
         print(scores)
-        px('info').histogram(scores).show()
-        px('info').bar(scores).show()
+        print(threshold, q)
+        # px('info').histogram(scores).show()
+        px('info').bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
+        # px('info').bar(scores).show()
         indices = [i for i, score in enumerate(scores) if score<threshold]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
 
 
+class ScaffoldSplitter3:
+    def get_oriented_offsets(self, locations, orientation_dict):
+        return Location.from_entry_tuples([(loc.contig_id, loc.offset if orientation_dict[loc.contig_id]=='+' else self._contig_dict[loc.contig_id]-loc.offset-1) for loc in locations])
+
+        contig_id, offset, orientation_dict):
+
+
+    def split(self, contig_path, locations_pair, threshold=0.5, n_bins=20):
+        orientation_dict = {dn.node_id: dn.orientation for dn in contig_path.directed_nodes}
+        oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict) for locations in
+                                                 locations_pair.location_a, locations_pair.locations_b))
+        contig_dict = {dn.node_id: self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes}
+        interaction_matrix = InteractionMatrixFactory(contig_dict, self._bin_size).create_from_location_pairs(oriented_locations_pair)
+        return self._split_on_matrix(contig_path, interaction_matrix, threshold, n_bins)
 
 class LinearSplitter(ScaffoldSplitter):
     def __init__(self, contig_dict, threshold):
