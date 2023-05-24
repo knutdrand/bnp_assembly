@@ -118,14 +118,14 @@ class SplitterMatrix2(InteractionMatrix):
         return SplitterMatrix2(copy, self._genome_context, self._bin_size)
 
     def get_triangle_score(self, bin_n, max_offset):
-        return get_weighted_triangle_score(self.data, bin_n, max_offset, ignore_positions=np.sum(self._data, axis=-1)==0)
+        return get_weighted_triangle_score(self.data, bin_n, max_offset)  # , ignore_positions=np.sum(self._data, axis=-1)==0)
 
 
 def get_weighted_triangle_score(matrix, bin_n, max_offset, ignore_positions=None):
     subset = matrix[bin_n:bin_n+max_offset, bin_n-max_offset:bin_n].copy()
     if subset.size > 0:
         subset[0, 0] = 0
-    px.imshow(subset, range_color=(0, 2000), title="BIN number: " + str(bin_n)).show()
+    #px.imshow(subset, range_color=(0, 2000), title="BIN number: " + str(bin_n)).show()
     score = 0
     n = 0
     if ignore_positions is None:

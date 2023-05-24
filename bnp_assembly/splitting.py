@@ -91,7 +91,7 @@ class ScaffoldSplitter3(ScaffoldSplitter2):
     def get_edge_bin_ids(self, *args, **kwargs):
         return self._factory.get_edge_bin_ids()[1:]
 
-    def split(self, contig_path, locations_pair, threshold=0.5, n_bins=20):
+    def split(self, contig_path, locations_pair, threshold=0.5, n_bins=40):
         orientation_dict = {dn.node_id: dn.orientation for dn in contig_path.directed_nodes}
         oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict) 
                                                  for locations in
