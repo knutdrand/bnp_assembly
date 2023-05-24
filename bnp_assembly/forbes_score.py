@@ -10,7 +10,7 @@ import typing as tp
 
 def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
     F = distance_dist(location_pairs, contig_dict)
-
+    px("debug").line(F).show()
     # calculate_distance_distritbution(list(contig_dict.values()),
     #[np.abs(a.offset-b.offset)
     #                                      for a, b in zip(location_pairs.location_a, location_pairs.location_b)
@@ -19,7 +19,7 @@ def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair
 
 def get_node_side_counts(pair_counts):
     node_sides = {edge.from_node_side for edge in pair_counts} | {edge.to_node_side for edge in pair_counts}
-    return {node_side: sum((pair_counts[Edge(node_side, node_side2)]+pair_counts[Edge(node_side2, node_side)])/2 for node_side2 in node_sides if node_side2.node_id != node_side.node_id) for node_side in node_sides}
+    return {node_side: sum((pair_counts[Edge(node_side, node_side2)]+pair_counts[Edge(node_side2, node_side)])/2 for node_side2 in node_sides if True or node_side2.node_id != node_side.node_id) for node_side in node_sides}
 #     return {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in node_sides}
 
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
@@ -49,7 +49,7 @@ def get_forbes_matrix(pair_counts, node_side_counts, alpha=1):
     N = sum(node_side_counts.values())
     for edge, count in pair_counts.items():
         rate = get_rate(node_side_counts[edge.from_node_side], node_side_counts[edge.to_node_side], N, alpha)
-        score = (pair_counts[edge]+(alpha/n_nodes*4))/rate
+        score = (pair_counts[edge]+(alpha/(n_nodes*2)))/rate
         # score = N*(pair_counts[edge]+alpha/(n_nodes*4))/((node_side_counts[edge.from_node_side]+alpha)*(node_side_counts[edge.to_node_side])+alpha)
         distance_matrix[edge] = -np.log(score)
         distance_matrix[edge.reverse()] = -np.log(score)
@@ -77,11 +77,11 @@ class CumulativeSideWeight:
 
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, side_weight_func=_naive_side_weight) -> tp.Tuple[Counter, Counter]:
     node_sides = [NodeSide(i, d) for i in range(len(contig_dict)) for d in ('l', 'r')]
-    pair_counts = {Edge(a, b): 0 for a in node_sides for b in node_sides if not a.node_id==b.node_id}
+    pair_counts = {Edge(a, b): 0 for a in node_sides for b in node_sides} # if not a.node_id==b.node_id}
     tmp = []
     for a, b in zip(location_pairs.location_a, location_pairs.location_b):
-        if a.contig_id == b.contig_id:
-            continue
+        #if a.contig_id == b.contig_id:
+        #    continue
         right_weight_a = side_weight_func(a.offset, contig_dict[int(a.contig_id)])
         right_weight_b = side_weight_func(b.offset, contig_dict[int(b.contig_id)])
         for direction_a in ('l', 'r'):
