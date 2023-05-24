@@ -26,7 +26,9 @@ class PairDistribution:
         second = first+distance
         assert np.all(second < self._contig_length), (second, self._contig_length)
         assert np.all(first < self._contig_length), (first, self._contig_length)
-        return (first, first+distance)
+        direction = rng.choice([True, False], size=n_samples)
+        return (np.where(direction, first, first+distance), np.where(direction, first+distance, first))
+
 
 @bnpdataclass
 class Location:
@@ -85,7 +87,7 @@ class ManyContigSplit:
     @property
     def contig_offsets(self):
         return np.cumsum([0]+[len(contig_split.get_contig_dict()) for contig_split in self.contig_splits])[:-1]
-                         
+
     def map(self, contig_id, postions):
         location = self.contig_splits[contig_id].map(positions)
         return Location(self.contig_offsets[contig_id]+location.contig_id, location.offset)

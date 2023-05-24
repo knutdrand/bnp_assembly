@@ -7,12 +7,12 @@ import pytest
 
 @pytest.fixture
 def contig_dict():
-    return {0: 100, 1: 50}
+    return {0: 100, 1: 60, 2: 50}
 
 
 @pytest.fixture
 def contig_path():
-    return ContigPath.from_directed_nodes([DirectedNode(0, '+'), DirectedNode(1, '-')])
+    return ContigPath.from_directed_nodes([DirectedNode(0, '+'), DirectedNode(2, '-'), DirectedNode(1, '+')])
 
 
 @pytest.fixture
@@ -21,16 +21,17 @@ def scaffold_map(contig_dict, contig_path):
 
 
 def test_map(scaffold_map):
-    assert scaffold_map.translate_location(Location.single_entry(0, 5))==5
-    assert scaffold_map.translate_location(Location.single_entry(1, 5))==144
-    
+    assert scaffold_map.translate_location(Location.single_entry(0, 5)) == 5
+    assert scaffold_map.translate_location(Location.single_entry(2, 5)) == 144
+    assert scaffold_map.translate_location(Location.single_entry(1, 5)) == 155
+
 
 
 '''
 @pytest.fixture
 def original_genome():
     return Genome.from_dict({'A': 10,
-                             'B': 20, 
+                             'B': 20,
                              'C': 30})
 
 
@@ -40,6 +41,6 @@ def paths():
                                             DirectedNode('A', '-')]),
             ContigPath.from_directed_nodes([DirectedNode('C', '+'),
                                            DirectedNode('B', '-')]
-            
+
 
 '''

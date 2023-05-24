@@ -8,8 +8,9 @@ from scipy.stats import poisson
 from .plotting import px
 import typing as tp
 
-def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs): 
+def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
     F = distance_dist(location_pairs, contig_dict)
+
     # calculate_distance_distritbution(list(contig_dict.values()),
     #[np.abs(a.offset-b.offset)
     #                                      for a, b in zip(location_pairs.location_a, location_pairs.location_b)
@@ -53,7 +54,7 @@ def get_forbes_matrix(pair_counts, node_side_counts, alpha=1):
         distance_matrix[edge] = -np.log(score)
         distance_matrix[edge.reverse()] = -np.log(score)
     return distance_matrix
-                    
+
 
 def _naive_side_weight(position, size):
     return position/size
@@ -92,4 +93,4 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
                 pair_counts[Edge(a_side, b_side)] += p_a*p_b
                 pair_counts[Edge(b_side, a_side)] += p_a*p_b
     return pair_counts
-    
+

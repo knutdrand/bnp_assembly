@@ -1,5 +1,8 @@
+import scipy.stats
+
 from .location import LocationPair, Location
 from .contig_map import ScaffoldMap
+from .scaffold_splitting import count_possible_edge_pairs, count_edge_overlaps
 from .datatypes import GenomicLocationPair
 from bionumpy.genomic_data  import Genome, GenomicLocation
 import numpy as np
@@ -93,7 +96,7 @@ class ScaffoldSplitter3(ScaffoldSplitter2):
 
     def split(self, contig_path, locations_pair, threshold=0.5, n_bins=40):
         orientation_dict = {dn.node_id: dn.orientation for dn in contig_path.directed_nodes}
-        oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict) 
+        oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict)
                                                  for locations in
                                                  (locations_pair.location_a, locations_pair.location_b)))
         contig_dict = {dn.node_id: self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes}
@@ -144,10 +147,10 @@ class LinearSplitter(ScaffoldSplitter):
         index_dict = {dn.node_id : i for i, dn in enumerate(directed_nodes)}
         start_array = np.zeros(len(directed_nodes))
         end_array = np.zeros(len(directed_nodes))
-        
+
         global_locations_pair = self._get_global_location(contig_path, locations_pair)
         distance = np.abs(global_locations_pair.a.position-global_locations_pair.b.position)
-        mask = distance < 100000
+        mask = distance <= self._window_size
         for a, b, m in zip(locations_pair.location_a, locations_pair.location_b, mask):
             if not m:
                 continue
@@ -157,7 +160,7 @@ class LinearSplitter(ScaffoldSplitter):
                 continue
             start_array[first]+=1
             end_array[second]+=1
-        
+
         start_count = np.cumsum(start_array)
         end_count = np.cumsum(end_array)
         return dict(zip(contig_path.edges, (start_count-end_count)[:-1]))
@@ -185,18 +188,19 @@ class LinearSplitter(ScaffoldSplitter):
                 finished.append(contig_path)
             else:
                 # px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges]).show()
-                
+
                 unfinished += [(cp, self._get_counts_for_path(cp, edge_counts_dict)) for cp in split_paths]
         return list(finished)[::-1]
 
 
 class LinearSplitter2(LinearSplitter):
-    def __init__(self, contig_dict, contig_path, window_size=100000):
+    def __init__(self, contig_dict, contig_path, window_size=30000):
         self._contig_dict = contig_dict
         self._genome = Genome.from_dict({'0': sum(self._contig_dict.values())})
         self._contig_path = contig_path
         self._scaffold_map = ScaffoldMap(contig_path, self._contig_dict)
-        self._edge_indices = np.cumsum([self._contig_dict[int(dn.node_id)] for dn in contig_path.directed_nodes])[1:]
+        self._edge_indices = np.cumsum([self._contig_dict[int(dn.node_id)] for dn in contig_path.directed_nodes])[:-1]
+        assert self._edge_indices[0]>0 and self._edge_indices[-1] < sum(self._contig_dict.values())
         self._window_size = window_size
 
     def _get_all_mapped_locations(self, location_pair):
@@ -211,14 +215,14 @@ class LinearSplitter2(LinearSplitter):
         locations = self._get_all_mapped_locations(location_pair)
         expected = []
         alpha = 0.3
-        print(locations)
+
         for idx in self._edge_indices:
             first, mid, last = np.searchsorted(locations, [idx-window_size, idx, idx+window_size])
             print(idx, locations[first], locations[mid], locations[last])
             pL = np.sum(F[window_size]-F[idx-locations[first:mid]])
             pR = np.sum(F[window_size]-F[locations[mid:last]-idx])
             expected.append(pL*pR+alpha)
-        
+
         edge_counts = self._get_edge_counts(self._contig_path, location_pair)
         scores = [(count+alpha/2)/expected for count, expected in zip(edge_counts.values(), expected)]
         threshold = 0.3*np.quantile(scores, 0.7)
@@ -228,75 +232,31 @@ class LinearSplitter2(LinearSplitter):
         _px.bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
         split_edges = [edge for score, edge in zip(scores, self._contig_path.edges) if score<threshold]
         return self._contig_path.split_on_edges(split_edges)
-#     def split(self, contig_path, locations_pair, threshold=0.1):
-#         F = distance_dist(locations_pair, self._contig_dict)
-#         F = F[:100000]
-#         window_size = F.size
-#         f = lambda x: np.where(x<F.size, F[x], 1)
-#         p_left_is_matched_in_right = (1-F[np.arange(window_size)])
-#         boundry_distance_to_weight = np.cumsum(p_left_is_matched_in_right)
-#         boundry_distance_to_weight/=boundry_distance_to_weight[-1]
-# 
-#         directed_nodes = contig_path.directed_nodes
-#         index_dict = {dn.node_id : i for i, dn in enumerate(directed_nodes)}
-#         start_array = np.zeros(len(directed_nodes))
-#         end_array = np.zeros(len(directed_nodes))
-# 
-#         global_locations_pair = self._get_global_location(contig_path, locations_pair)
-#         distance = np.abs(global_locations_pair.a.position-global_locations_pair.b.position)
-#         mask = distance < 100000
-#         for a, b, m in zip(locations_pair.location_a, locations_pair.location_b, mask):
-#             if not m:
-#                 continue
-#             indices = tuple(index_dict[int(location.contig_id)] for location in (a, b))
-#             first, second = (min(indices), max(indices))
-#             if first == second:
-#                 continue
-#             start_array[first]+=1
-#             end_array[second]+=1
-# 
-#         start_count = np.cumsum(start_array)
-#         end_count = np.cumsum(end_array)
-#         counts = (start_count-end_count)[:-1]
-#         node_sizes = np.array([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])
-#         distance_to_start = np.cumsum(node_sizes)[:-1]
-#         distance_to_end = np.cumsum(node_sizes[::-1])[::-1][1:]
-#         distance_to_edge = np.minimum(distance_to_end, distance_to_start, window_size-1)
-#         # distance_to_edge, sum(self._contig_dict.values())-distance_to_edge)
-#         # distance_to_edge = np.minimum(distance_to_edge, window_size-1)
-#         weights = boundry_distance_to_weight[distance_to_edge]
-#         counts /= weights[:-1]
-#         px('info').histogram(counts, nbins=20).show()
-#         px('info').bar(counts).show()
-#         q = np.quantile(counts, 0.70)
-#         threshold = q*threshold
-#         px('info').bar(counts/q).show()
-#         
-#         splits = [0, len(node_sizes)] # The first node in each split
-#         while True:
-#             i = np.argmin(count)
-#             if counts[i]>=threshold:
-#                 break
-#             counts[i] = threshold
-#             pre_split = max(s for s in splits if s< i)
-#             post_split = min(s for s in splits if s>i)
-#             splits.append(i)
-#             splits.sort()
-#             node_lens =node_sizes[pre_split:post_split]
-#             counts[pre_split:post_split] *= weights[pre_split:post_split]
-#             distance_to_end[pre_split:i] = np.cumsum(node_lens[:i-pre_split])
-#             distance_to_start[i:post_split:
-#             new_distances
-#             
-#             for (start_i, end_i) in pairwise([0] + splits + len(n_nodes))
-#                 l_node_sizes = node_sizes[start_i:end_i]
-#                 distance_to_start = np.cumsum(node_sizes)[:-1]
-#                 distance_to_end = np.cumsum(node_sizes[::-1])[::-1][1:]
-#                 
-#         
-# 
-#         indices = [i for i, count in enumerate(counts) if count<threshold]
-#         edges = contig_path.edges
-#         split_edges = [edges[i] for i in indices]
-#         return contig_path.split_on_edges(split_edges)
-# 
+
+class LinearSplitter3(LinearSplitter2):
+    def split(self, location_pair):
+        noise_factor = 0.5
+        window_size = self._window_size
+        locations_pair = [self._scaffold_map.translate_locations(locations)
+                          for locations in (location_pair.location_a, location_pair.location_b)]
+        locations = np.sort(np.concatenate(locations_pair))
+        assert np.all(locations[1:]>=locations[:-1])
+        print(locations[-10:], self._edge_indices, self._contig_dict)
+        n_locations = len(locations)
+        possible_edge_pairs = np.asarray(count_possible_edge_pairs(locations, self._edge_indices, window_size))*2
+        total_possible_pairs = (n_locations ** 2)
+        sampled_pairs = len(locations_pair[0])
+        _px.density_heatmap(x=locations_pair[0], y=locations_pair[1], nbinsx=100, nbinsy=100).show()
+        # _px.scatter(*locations_pair, ).show()
+        print(possible_edge_pairs, total_possible_pairs, sampled_pairs, n_locations)
+        expected = np.array(possible_edge_pairs) / total_possible_pairs * sampled_pairs * noise_factor
+        edge_values = np.asarray(count_edge_overlaps(*locations_pair, self._edge_indices, window_size))
+        print(expected)
+        print(edge_values)
+        p_values = scipy.stats.poisson.sf(edge_values-1, expected)
+        threshold = 0.05
+        _px.scatter(x=expected, y=edge_values, labels={'x': 'expected', 'y': 'observed'}, title='expected vs observed').show()
+        _px.bar(y=p_values, x=[str(e) for e in self._contig_path.edges]).show()
+        split_edges = [edge for p_value, edge in zip(p_values, self._contig_path.edges) if p_value > threshold]
+        return self._contig_path.split_on_edges(split_edges)
+

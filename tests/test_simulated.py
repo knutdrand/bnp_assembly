@@ -49,8 +49,8 @@ def test_simulated2(n_reads, n_nodes, method):
     assert len(set(nodes_visited)) == n_nodes
 
 
-@pytest.mark.parametrize('n_reads', [1000]) # , 500, 100])
-@pytest.mark.parametrize('n_nodes', [4, 10])
+@pytest.mark.parametrize('n_reads', [10000]) # , 500, 100])
+@pytest.mark.parametrize('n_nodes', [10, 20, 30])
 # @pytest.mark.parametrize('method', ['forbes'])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
 def test_simulated_split(n_reads, n_nodes):

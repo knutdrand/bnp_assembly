@@ -3,8 +3,6 @@ from bnp_assembly.dynamic_bin_distance_matrix import InteractionMatrixFactory
 import numpy as np
 import pytest
 
-
-
 @pytest.fixture
 def contig_dict():
     return {0: 10, 1: 11}
@@ -36,7 +34,7 @@ def test_interaction_matrix_factory(contig_dict, location_a, location_b):
             [0, 0, 0, 0, 0, 0]]
 
     np.testing.assert_equal(data, true)
-    
+
 def test_interaction_matrix_factory(contig_dict):
     factory = InteractionMatrixFactory(contig_dict, 4)
     zero_dict = {0: 0, 1: 0, 2: 0, 3: 0,
@@ -54,7 +52,7 @@ def test_interaction_matrix_factory(contig_dict):
     for offset, bin_id in one_dict.items():
         print(offset, factory.get_bin(0, offset), bin_id)
         assert factory.get_bin(1, offset) == bin_id
-        
+
 
 @pytest.mark.parametrize("bin_size", [2, 4, 5, 6])
 def test_splitting_score_with_dynamic_interaction_matrix(contig_dict_large, bin_size):
