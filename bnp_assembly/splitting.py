@@ -7,7 +7,7 @@ from .interaction_matrix import SplitterMatrix, SplitterMatrix2
 from .dynamic_bin_distance_matrix import InteractionMatrixFactory
 from .plotting import px
 from .distance_distribution import calculate_distance_distritbution, distance_dist
-
+import plotly.express as _px
 
 class ScaffoldSplitter:
     def __init__(self, contig_dict, bin_size):
@@ -210,16 +210,22 @@ class LinearSplitter2(LinearSplitter):
 
         locations = self._get_all_mapped_locations(location_pair)
         expected = []
+        alpha = 0.3
+        print(locations)
         for idx in self._edge_indices:
             first, mid, last = np.searchsorted(locations, [idx-window_size, idx, idx+window_size])
+            print(idx, locations[first], locations[mid], locations[last])
             pL = np.sum(F[window_size]-F[idx-locations[first:mid]])
             pR = np.sum(F[window_size]-F[locations[mid:last]-idx])
-            expected.append(pL*pR)
+            expected.append(pL*pR+alpha)
         
         edge_counts = self._get_edge_counts(self._contig_path, location_pair)
-        scores = [count/expected for count, expected in zip(edge_counts.values(), expected)]
-        threshold = 0.5*np.quantile(scores, 0.7)
-        px('info').bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
+        scores = [(count+alpha/2)/expected for count, expected in zip(edge_counts.values(), expected)]
+        threshold = 0.3*np.quantile(scores, 0.7)
+        print(scores)
+        _px.bar(y=list(edge_counts.values()), x=[str(e) for e in self._contig_path.edges]).show()
+        _px.bar(y=expected, x=[str(e) for e in self._contig_path.edges]).show()
+        _px.bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
         split_edges = [edge for score, edge in zip(scores, self._contig_path.edges) if score<threshold]
         return self._contig_path.split_on_edges(split_edges)
 #     def split(self, contig_path, locations_pair, threshold=0.1):
