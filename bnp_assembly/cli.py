@@ -14,8 +14,9 @@ from .hic_distance_matrix import calculate_distance_matrices
 from .scaffold import scaffold as scaffold_func
 from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
+from .simulation import hic_read_simulation
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
 
 @app.command()
@@ -99,6 +100,12 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
     fig.show()
     fig.write_image(out_file_name)
     interaction_matrix.normalize_matrix().plot().show()
+
+
+@app.command()
+def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, out_base_name: str, read_name_prefix: str):
+    hic_read_simulation.simulate(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name, read_name_prefix)
+
 
 def main():
     app()

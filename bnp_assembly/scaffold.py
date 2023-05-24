@@ -24,7 +24,7 @@ def _split_contig(distance_matrix, path, T=-0.1):
 
 
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
-    return LinearSplitter2(contig_dict,  contig_path).split(locations_pair)
+    #return LinearSplitter2(contig_dict,  contig_path).split(locations_pair)
     return ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
 
     # return LinearSplitter(contig_dict, threshold).iterative_split(contig_path, locations_pair)
