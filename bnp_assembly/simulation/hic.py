@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from bionumpy.bnpdataclass import bnpdataclass
 import numpy as np
-from typing import Dict
+from typing import Dict, List
 from ..graph_objects import NodeSide
-from ..contig_graph import ContigPath
+from ..contig_graph import ContigPath, DirectedNode
 
 
 @dataclass
@@ -12,7 +12,7 @@ class SimulationParams:
     n_reads: int
     node_length: int = 100
     mean_distance: int = 10
-
+    n_chromosomes: int = 1
 
 class PairDistribution:
     def __init__(self, contig_length, p):
@@ -58,6 +58,41 @@ class ContigSplit:
         assert np.all(offsets<ls), (offsets, ls)
         return Location(contig_ids, offsets)
 
+@dataclass
+class ManyContigSplit:
+    contig_splits: List[ContigSplit]
+
+    def get_contig_dict(self):
+        offset = 0
+        d = {}
+        for contig_split in self.contig_splits:
+            contig_dict = contig_split.get_contig_dict()
+            d.update({key+offset: value for key, value in contig_dict.items()})
+            offset += len(contig_dict)
+        return  d
+
+    def get_paths(self):
+        offset = 0
+        paths=[]
+        for contig_split in self.contig_splits:
+            path = contig_split.get_paths()[0]
+            paths.append(ContigPath.from_directed_nodes(
+                [DirectedNode(dn.node_id+offset, dn.orientation)
+                 for dn in path.directed_nodes]))
+            offset += len(contig_split.get_contig_dict())
+        return paths
+
+    @property
+    def contig_offsets(self):
+        return np.cumsum([0]+[len(contig_split.get_contig_dict()) for contig_split in self.contig_splits])[:-1]
+                         
+    def map(self, contig_id, postions):
+        location = self.contig_splits[contig_id].map(positions)
+        return Location(self.contig_offsets[contig_id]+location.contig_id, location.offset)
+
+    def map_locations(self, contig_id, locations):
+        return Location(self.contig_offsets[contig_id]+locations.contig_id, locations.offset)
+
 
 def split_contig(rng, contig_length, n_parts):
     split_points = rng.choice(contig_length-1, size=n_parts-1, replace=False)+1
@@ -96,6 +131,13 @@ def simulate_merged_contig_reads(node_length, n_parts, n_pairs, p=0.1, rng=None)
     second_split = contig_split.map(second)
     return SplitAndPairs(contig_split, first_split, second_split)
 
+
+def simulate_many_contigs(n_contigs, *args, **kwargs):# node_length, n_parts, n_pairs, p=0.1, rng=None):
+    split_and_pair_list = [simulate_merged_contig_reads(*args, **kwargs) for i in range(n_contigs)]
+    split = ManyContigSplit([sp.split for sp in split_and_pair_list])
+    location_a = np.concatenate([split.map_locations(i, sp.location_a) for i, sp in enumerate(split_and_pair_list)])
+    location_b = np.concatenate([split.map_locations(i, sp.location_b) for i, sp in enumerate(split_and_pair_list)])
+    return SplitAndPairs(split, location_a, location_b)
 
 def test():
     return simulate_split_contig_reads(100, 5, 10)
