@@ -1,7 +1,7 @@
 from .hic_distance_matrix import calculate_distance_matrices
 from .forbes_score import calculate_distance_matrices as forbes_matrix, get_pair_counts, get_node_side_counts, get_pscore_matrix
 from bnp_assembly.contig_graph import ContigPath, DirectedNode
-from bnp_assembly.splitting import LinearSplitter2, LinearSplitter3
+from bnp_assembly.splitting import LinearSplitter2, LinearSplitter3, YahsSplitter
 from bnp_assembly.simulation.hic import simulate_merged_contig_reads, simulate_many_contigs, SimulationParams
 from bnp_assembly.location import LocationPair
 from bnp_assembly.scaffold import scaffold
@@ -51,9 +51,10 @@ def run_simulated_split_experiment(simulation_params: SimulationParams, rng: obj
         DirectedNode(i, '+') for i in split_and_pairs.split.get_contig_dict())
 
     # split = ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
-    splitter = LinearSplitter3(contig_dict, contig_path, window_size=100)
-    paths = splitter.split(LocationPair(split_and_pairs.location_a,
-                                        split_and_pairs.location_b))
+    paths = YahsSplitter(contig_dict, bin_size=100).split(contig_path, LocationPair(split_and_pairs.location_a, split_and_pairs.location_b))
+    #splitter = LinearSplitter3(contig_dict, contig_path, window_size=100)
+    #npaths = splitter.split(LocationPair(split_and_pairs.location_a,
+    #                                    split_and_pairs.location_b))
 
     return true_paths, paths
 

@@ -26,7 +26,7 @@ class InteractionMatrixFactory:
         local_bin = int(np.floor(offset/self._bin_size_dict[int(contig)]))
         return self._bin_offset[int(contig)]+local_bin
 
-    def create_from_location_pairs(self, location_pairs: LocationPair):
+    def create_from_location_pairs(self, location_pairs: LocationPair) -> SplitterMatrix2:
         a_bins, b_bins = ([self.get_bin(location.contig_id, location.offset) for location in locations]
                           for locations in (location_pairs.location_a, location_pairs.location_b))
         data = np.zeros((self._n_bins, self._n_bins))

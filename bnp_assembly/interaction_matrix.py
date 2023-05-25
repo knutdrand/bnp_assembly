@@ -4,7 +4,7 @@ from .datatypes import GenomicLocationPair
 
 
 class InteractionMatrix:
-    def __init__(self, data, genome_context, bin_size):
+    def __init__(self, data: object, genome_context: object, bin_size: object) -> object:
         self._data = data
         self._genome_context = genome_context
         self._bin_size = bin_size
@@ -150,6 +150,8 @@ def get_weighted_triangle_score(matrix, bin_n, max_offset, ignore_positions=None
     if n == 0:
         return 1
     return score/n
+
+
 
 
 def get_triangle_score(matrix, bin_n, max_offset):
