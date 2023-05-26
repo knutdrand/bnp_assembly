@@ -20,6 +20,7 @@ class PairDistribution:
         self._p = p
 
     def sample(self, rng, n_samples=1):
+        print(self._p)
         distance = np.minimum(rng.geometric(self._p, size=n_samples), self._contig_length-2)
         print(np.min(distance))
         first = rng.integers(0, self._contig_length-distance)
@@ -127,6 +128,7 @@ def simulate_merged_contig_reads(node_length, n_parts, n_pairs, p=0.1, rng=None)
     contig_length = node_length*n_parts
     if rng is None:
         rng = np.random.default_rng()
+    print(',', p)
     first, second = PairDistribution(contig_length, p).sample(rng, n_pairs)
     contig_split = split_contig_on_size(contig_length, contig_length//n_parts)
     first_split = contig_split.map(first)

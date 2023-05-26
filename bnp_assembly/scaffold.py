@@ -10,6 +10,7 @@ from .networkx_wrapper import PathFinder as nxPathFinder
 from .contig_graph import ContigPath
 from numpy.testing import assert_array_equal
 from .plotting import px
+from .scaffold_splitting.binned_bayes import BinnedBayes
 from .splitting import ScaffoldSplitter, ScaffoldSplitter2, LinearSplitter, ScaffoldSplitter3, LinearSplitter2, \
     LinearSplitter3, YahsSplitter
 import logging
@@ -27,7 +28,9 @@ def _split_contig(distance_matrix, path, T=-0.1):
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     # return LinearSplitter3(contig_dict,  contig_path).split(locations_pair)
     #return LinearSplitter2(contig_dict,  contig_path).split(locations_pair)
+    YahsSplitter.matrix_class = BinnedBayes
     return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair)
+
     #return ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
 
     # return LinearSplitter(contig_dict, threshold).iterative_split(contig_path, locations_pair)

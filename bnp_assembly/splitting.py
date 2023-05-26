@@ -270,6 +270,7 @@ class LinearSplitter3(LinearSplitter2):
         return self._contig_path.split_on_edges(split_edges)
 
 class YahsSplitter(ScaffoldSplitter3):
+    matrix_class = Yahs
     def __init__(self, contig_dict, bin_size):
         super().__init__(contig_dict, bin_size)
         self._bin_size = min(bin_size, max(contig_dict.values())//2)
@@ -284,13 +285,14 @@ class YahsSplitter(ScaffoldSplitter3):
         interaction_matrix = factory.create_from_location_pairs(oriented_locations_pair)
         matrix = interaction_matrix.data
         offsets = factory.get_edge_bin_ids()+[len(matrix)]
-        start_stop_dict = {dn.node_id: (start, stop) for (dn, start, stop) in
-                           zip(contig_path.directed_nodes, offsets[:-1], offsets[1:])}
+        start_stop_dict = {i: (start, stop) for i, (start, stop) in
+                           enumerate(zip(offsets[:-1], offsets[1:]))}
         assert all([start < stop for start, stop in start_stop_dict.values()])
-        yahs = Yahs(matrix, start_stop_dict)
+        yahs = self.matrix_class(matrix, start_stop_dict)
         scores = yahs.score_vector()
+        yahs.plot()
         _px.bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
-        indices = [i for i, score in enumerate(scores) if score < threshold]
+        indices = [i for i, score in enumerate(scores) if score < np.log(threshold)]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
@@ -311,4 +313,3 @@ class YahsSplitter(ScaffoldSplitter3):
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
-

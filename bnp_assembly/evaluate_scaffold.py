@@ -38,9 +38,14 @@ def run_simulated_experiment(simulation_params, rng, distance_measure='window'):
     return true_paths, paths
 
 
-def run_simulated_split_experiment(simulation_params: SimulationParams, rng: object) -> object:
+@dataclass
+class SplittingParams:
+    bin_size: int= 100
+    threshold: float = 0.5
+
+def run_simulated_split_experiment(simulation_params: SimulationParams, rng: object, splitting_params: SplittingParams) -> object:
     n_nodes, n_reads, n_chromosomes = (simulation_params.n_nodes, simulation_params.n_reads, simulation_params.n_chromosomes)
-    split_and_pairs = simulate_many_contigs(n_chromosomes, simulation_params.node_length, n_nodes, n_reads, rng=rng)
+    split_and_pairs = simulate_many_contigs(n_chromosomes, simulation_params.node_length, n_nodes, n_reads, rng=rng, p=1/simulation_params.mean_distance)
     # split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
     true_paths = split_and_pairs.split.get_paths()
     assert len(true_paths) == n_chromosomes, true_paths
@@ -51,7 +56,7 @@ def run_simulated_split_experiment(simulation_params: SimulationParams, rng: obj
         DirectedNode(i, '+') for i in split_and_pairs.split.get_contig_dict())
 
     # split = ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
-    paths = YahsSplitter(contig_dict, bin_size=100).split(contig_path, LocationPair(split_and_pairs.location_a, split_and_pairs.location_b))
+    paths = YahsSplitter(contig_dict, bin_size=splitting_params.bin_size).split(contig_path, LocationPair(split_and_pairs.location_a, split_and_pairs.location_b), threshold=splitting_params.threshold)
     #splitter = LinearSplitter3(contig_dict, contig_path, window_size=100)
     #npaths = splitter.split(LocationPair(split_and_pairs.location_a,
     #                                    split_and_pairs.location_b))

@@ -45,8 +45,9 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         sequences = []
         scaffold_name = f'scaffold{i}_'+':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
         offset = 0
-        for j, (contig_id, is_reverse) in enumerate(path.to_list()):
-
+        print(path.directed_nodes)
+        for j, dn in enumerate(path.directed_nodes):
+            (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
             if j > 0:
                 # adding 200 Ns between contigs
                 sequences.append(bnp.as_encoded_array('N' * 200, bnp.encodings.ACGTnEncoding))
@@ -60,7 +61,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                      str(contig_id), 1, len(sequences[-1]), "+" if not is_reverse else "-")
             )
             offset = sum((len(s) for s in sequences))
-
+        print(scaffold_name)
         out_names.append(scaffold_name)
         out_sequences.append(np.concatenate(sequences))
     for path in paths:
