@@ -10,11 +10,10 @@ from .interaction_matrix import SplitterMatrix, SplitterMatrix2
 from .dynamic_bin_distance_matrix import InteractionMatrixFactory
 from .plotting import px
 from .distance_distribution import calculate_distance_distritbution, distance_dist
-import plotly.express as _px
-
+# import plotly.express as _px
 from .scaffold_splitting.binned_bayes import Yahs
 
-
+_px = px(name='splitting')
 class ScaffoldSplitter:
     def __init__(self, contig_dict, bin_size):
         self._contig_dict = contig_dict
@@ -289,6 +288,7 @@ class YahsSplitter(ScaffoldSplitter3):
                            enumerate(zip(offsets[:-1], offsets[1:]))}
         assert all([start < stop for start, stop in start_stop_dict.values()])
         yahs = self.matrix_class(matrix, start_stop_dict)
+        yahs.save('matrix.npz')
         scores = yahs.score_vector()
         yahs.plot()
         _px.bar(y=scores, x=[str(e) for e in contig_path.edges]).show()

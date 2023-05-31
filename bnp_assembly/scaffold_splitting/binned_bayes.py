@@ -4,13 +4,14 @@ import numpy as np
 from functools import lru_cache
 
 import pandas as pd
-import plotly.express as px
+import plotly.express as _px
 import typing as tp
-
+from ..plotting import px as px_func
 import scipy
 
-from ..interaction_matrix import InteractionMatrix
+px = px_func(name='splitting')
 
+from ..interaction_matrix import InteractionMatrix
 
 class Yahs:
     def __init__(self, count_matrix: np.ndarray,
@@ -20,6 +21,18 @@ class Yahs:
         n_bins = len(self._count_matrix)
         assert all(start < n_bins and stop <= n_bins for start, stop in self._contig_start_stops.values()), (
             n_bins, self._contig_start_stops)
+
+    def save(self, filename: str):
+        np.savez(filename, count_matrix=self._count_matrix, contig_ids=np.array(list(self._contig_start_stops.keys())),
+                 start_stops = np.array(list(self._contig_start_stops.values())))
+
+    @classmethod
+    def load(cls, filename):
+        with np.load(filename) as f:
+            return cls(f['count_matrix'], dict(zip(f['contig_ids'], f['start_stops'])))
+
+    def plot(self):
+        pass
 
     def contig_matrix(self, n):
         start, stop = self._contig_start_stops[n]
@@ -150,7 +163,7 @@ class Yahs:
 class BinnedBayes(Yahs):
     def __init__(self, count_matrix, contig_start_stops):
         self._count_matrix = count_matrix
-        px.imshow(count_matrix).show()
+        px.imshow(count_matrix)
         self._contig_start_stops = contig_start_stops
 
     @lru_cache()
@@ -195,7 +208,7 @@ class BinnedBayes(Yahs):
         for m in range(self.n_contigs):
             for i in range(self.b(m) - d):
                 ratios.append(self.c(m, i, i + d) / self.rate_non_edge(m, m, i, i + d))
-        # px.histogram(ratios, nbins=100, title=f'distance{d}').show()
+        # px(name = 'splitting').histogram(ratios, nbins=100, title=f'distance{d}')
         return np.mean(ratios)
 
     @lru_cache()
@@ -210,8 +223,8 @@ class BinnedBayes(Yahs):
               in range(self.n_contigs)
               for i in range(self.b(m) - d)]
         local_estimates = [d / ds for d, ds in zip(diffs, ds)]
-        px.histogram(diffs, nbins=100, title=f'distance{d}').show()
-        px.histogram(local_estimates, nbins=100, title=f'L-distance{d}').show()
+        px.histogram(diffs, nbins=100, title=f'distance{d}')
+        px.histogram(local_estimates, nbins=100, title=f'L-distance{d}')
         return np.median(local_estimates)
 
     @lru_cache()
@@ -246,6 +259,12 @@ class BinnedBayes(Yahs):
         return [(i, j) for i in range(max(self.b(m) - self.D - 1, 0), self.b(m))
                 for j in range(min(self.b(n), self.D + 1)) if 1 <= self.delta(m, n, i, j) <= self.D]
 
+    def all_intra_indices(self, d):
+        return [(m, m) + idx for m in range(self.n_contigs) for idx in self.intra_indices(m, d)]
+
+    def intra_indices(self, m, d):
+        return [(i, i + d) for i in range(self.b(m) - d)]
+
     @lru_cache()
     def s(self, m, n):
         assert m + 1 == n
@@ -257,15 +276,15 @@ class BinnedBayes(Yahs):
         return log_prob
 
     def plot(self):
-        px.scatter(self._count_matrix.sum(axis=1) / 2, title='bin_counts').show()
-        px.histogram(self._count_matrix.sum(axis=1) / 2, title='bin_counts').show()
+        px.scatter(self._count_matrix.sum(axis=1) / 2, title='bin_counts')
+        px.histogram(self._count_matrix.sum(axis=1) / 2, title='bin_counts')
         height = self.D + 1
         edge_matrix = np.zeros((height, (self.D + 1) * self.n_contigs), dtype=float)
 
         non_edge_matrix = np.zeros_like(edge_matrix)
         count_matrix = np.zeros_like(edge_matrix)
         rate_matrix = np.zeros_like(edge_matrix)
-        ratenon_matrix = np.zeros_like(edge_matrix)
+        rate_non_matrix = np.zeros_like(edge_matrix)
         table = defaultdict(list)
         for m in range(self.n_contigs - 1):
             n = m + 1
@@ -284,20 +303,22 @@ class BinnedBayes(Yahs):
                 non_edge_matrix[x, y] = self.log_prob_count_given_non_edge(m, n, i, j)
                 count_matrix[x, y] = self.c(m, n, i, j)
                 rate_matrix[x, y] = self.rate_edge(m, n, i, j)
-                ratenon_matrix[x, y] = self.rate_non_edge(m, n, i, j)
+                rate_non_matrix[x, y] = self.rate_non_edge(m, n, i, j)
         df = pd.DataFrame(table)
         df['ratio'] = df['count'] / df['rate']
         df['bin_size'] = [self.b(m) for m in df['m']]
-        px.scatter(df, x='rate', y='ratio', color='bin_size', facet_col='d').show()
+        df.to_csv('summary.csv', index=False)
+        print(df)
+        px.scatter(df, x='rate', y='ratio', color='bin_size', facet_col='d')
         f = lambda v: np.log2(v + 1)
 
-        px.imshow(f(count_matrix)).show()
-        px.imshow(f(rate_matrix)).show()
-        px.imshow(f(ratenon_matrix)).show()
-        px.imshow(edge_matrix).show()
-        # px.imshow(indicator_matrix).show()
-        px.imshow(non_edge_matrix).show()
-        px.imshow(edge_matrix - np.logaddexp(edge_matrix, non_edge_matrix)).show()
+        px.imshow(f(count_matrix))
+        px.imshow(f(rate_matrix))
+        px.imshow(f(rate_non_matrix))
+        px.imshow(edge_matrix)
+        # px.imshow(indicator_matrix)
+        px.imshow(non_edge_matrix)
+        px.imshow(edge_matrix - np.logaddexp(edge_matrix, non_edge_matrix))
 
     @lru_cache()
     def down_sampling_factor(self, m, n, i, j):
@@ -307,3 +328,12 @@ class BinnedBayes(Yahs):
     @lru_cache()
     def mean_bin_count(self):
         return np.mean(self._count_matrix.sum(axis=0))
+
+    @lru_cache()
+    def sorted_intra_counts(self, d):
+        return np.sort([self.c(*idx[1:]) for idx in self.all_intra_indices(d)])
+
+    @lru_cache()
+    def qs(self, m, n, i, j):
+        sorted_intra_counts = self.sorted_intra_counts(self.delta(m, n, i, j))
+        return np.searchsorted(sorted_intra_counts, self.c(m, n, i, j)) / len(sorted_intra_counts)
