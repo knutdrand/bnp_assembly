@@ -1,4 +1,5 @@
 """Console script for bnp_assembly."""
+
 import os
 
 # todo
@@ -16,17 +17,21 @@ from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging
+from . import plotting
 logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
 
+
 @app.command()
-def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0):
+def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0, logging_folder: str = None, bin_size: int=5000):
     '''
     Simple function
 
     >>> main()
 
     '''
+    if logging_folder is not None:
+        plotting.register(splitting=plotting.ResultFolder(logging_folder))
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     encoding = genome.get_genome_context().encoding
@@ -34,7 +39,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold)
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold, bin_size=bin_size)
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []

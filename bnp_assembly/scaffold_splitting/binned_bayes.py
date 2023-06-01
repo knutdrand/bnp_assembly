@@ -9,9 +9,8 @@ import typing as tp
 from ..plotting import px as px_func
 import scipy
 
-px = px_func(name='splitting')
-
 from ..interaction_matrix import InteractionMatrix
+
 
 class Yahs:
     def __init__(self, count_matrix: np.ndarray,
@@ -24,10 +23,10 @@ class Yahs:
 
     def save(self, filename: str):
         np.savez(filename, count_matrix=self._count_matrix, contig_ids=np.array(list(self._contig_start_stops.keys())),
-                 start_stops = np.array(list(self._contig_start_stops.values())))
+                 start_stops=np.array(list(self._contig_start_stops.values())))
 
     @classmethod
-    def load(cls, filename):
+    def load(cls, filename: str) -> 'Yahs':
         with np.load(filename) as f:
             return cls(f['count_matrix'], dict(zip(f['contig_ids'], f['start_stops'])))
 
@@ -163,7 +162,8 @@ class Yahs:
 class BinnedBayes(Yahs):
     def __init__(self, count_matrix, contig_start_stops):
         self._count_matrix = count_matrix
-        px.imshow(count_matrix)
+        self.px = px_func(name='splitting')
+        self.px.imshow(count_matrix, title='count matrix')
         self._contig_start_stops = contig_start_stops
 
     @lru_cache()
@@ -223,8 +223,8 @@ class BinnedBayes(Yahs):
               in range(self.n_contigs)
               for i in range(self.b(m) - d)]
         local_estimates = [d / ds for d, ds in zip(diffs, ds)]
-        px.histogram(diffs, nbins=100, title=f'distance{d}')
-        px.histogram(local_estimates, nbins=100, title=f'L-distance{d}')
+        self.px.histogram(diffs, nbins=100, title=f'distance{d}')
+        self.px.histogram(local_estimates, nbins=100, title=f'L-distance{d}')
         return np.median(local_estimates)
 
     @lru_cache()
@@ -259,6 +259,9 @@ class BinnedBayes(Yahs):
         return [(i, j) for i in range(max(self.b(m) - self.D - 1, 0), self.b(m))
                 for j in range(min(self.b(n), self.D + 1)) if 1 <= self.delta(m, n, i, j) <= self.D]
 
+    def all_triangle_indices(self):
+        return [(m, m + 1) + idx for m in range(self.n_contigs - 1) for idx in self.triangle_indices(m, m + 1)]
+
     def all_intra_indices(self, d):
         return [(m, m) + idx for m in range(self.n_contigs) for idx in self.intra_indices(m, d)]
 
@@ -275,7 +278,23 @@ class BinnedBayes(Yahs):
         print(likelihood_edge, likelihood_non_edge, log_prob)
         return log_prob
 
+    @lru_cache()
+    def triangle_table(self):
+        table = defaultdict(list)
+        for m, n, i, j in self.all_triangle_indices():
+            assert self._contig_start_stops[m][1] == self._contig_start_stops[n][0], self._contig_start_stops
+            table['m'].append(m)
+            table['d'].append(self.delta(m, n, i, j))
+            table['rate'].append(self.rate_edge(m, n, i, j))
+            table['count'].append(self.c(m, n, i, j))
+        df = pd.DataFrame(table)
+
+        df['ratio'] = df['count'] / df['rate']
+        df['bin_size'] = [self.b(m) for m in df['m']]
+        return df
+
     def plot(self):
+        px = self.px
         px.scatter(self._count_matrix.sum(axis=1) / 2, title='bin_counts')
         px.histogram(self._count_matrix.sum(axis=1) / 2, title='bin_counts')
         height = self.D + 1
@@ -286,32 +305,17 @@ class BinnedBayes(Yahs):
         rate_matrix = np.zeros_like(edge_matrix)
         rate_non_matrix = np.zeros_like(edge_matrix)
         table = defaultdict(list)
-        for m in range(self.n_contigs - 1):
-            n = m + 1
-            assert self._contig_start_stops[m][1] == self._contig_start_stops[n][0], self._contig_start_stops
-            indices = [(i, j) for i in range(max(self.b(m) - self.D - 1, 0), self.b(m))
-                       for j in range(min(self.D + 1, self.b(n)))
-                       if 1 <= self.delta(m, n, i, j) <= self.D]
-            for i, j in indices:
-                table['m'].append(m)
-                table['d'].append(self.delta(m, n, i, j))
-                table['rate'].append(self.rate_edge(m, n, i, j))
-                table['count'].append(self.c(m, n, i, j))
-                x = self.b(m) - i - 1
-                y = m * (self.D + 1) + j
-                edge_matrix[x, y] = self.log_prob_count_given_edge(m, n, i, j)
-                non_edge_matrix[x, y] = self.log_prob_count_given_non_edge(m, n, i, j)
-                count_matrix[x, y] = self.c(m, n, i, j)
-                rate_matrix[x, y] = self.rate_edge(m, n, i, j)
-                rate_non_matrix[x, y] = self.rate_non_edge(m, n, i, j)
-        df = pd.DataFrame(table)
-        df['ratio'] = df['count'] / df['rate']
-        df['bin_size'] = [self.b(m) for m in df['m']]
-        df.to_csv('summary.csv', index=False)
-        print(df)
-        px.scatter(df, x='rate', y='ratio', color='bin_size', facet_col='d')
+        for m, n, i, j in self.all_triangle_indices():
+            x = self.b(m) - i - 1
+            y = m * (self.D + 1) + j
+            edge_matrix[x, y] = self.log_prob_count_given_edge(m, n, i, j)
+            non_edge_matrix[x, y] = self.log_prob_count_given_non_edge(m, n, i, j)
+            count_matrix[x, y] = self.c(m, n, i, j)
+            rate_matrix[x, y] = self.rate_edge(m, n, i, j)
+            rate_non_matrix[x, y] = self.rate_non_edge(m, n, i, j)
+        # df.to_csv('summary.csv', index=False)
+        # px.scatter(df, x='rate', y='ratio', color='bin_size', facet_col='d')
         f = lambda v: np.log2(v + 1)
-
         px.imshow(f(count_matrix))
         px.imshow(f(rate_matrix))
         px.imshow(f(rate_non_matrix))

@@ -37,7 +37,7 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
 #     return LinearSplitter(contig_dict).split(contig_path, locations_pair, threshold)
 
 
-def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, **distance_kwargs):
+def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0,bin_size=5000, **distance_kwargs):
     if distance_measure == 'window':
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
         split_matrix=original_distance_matrix
@@ -58,6 +58,6 @@ def scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='wind
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
             path = ContigPath.from_node_sides(mapping.popitem()[1])
-            paths = split_contig(path, contig_dict, -threshold, 5000, read_pairs)
+            paths = split_contig(path, contig_dict, -threshold, bin_size, read_pairs)
             return paths
     assert len(mapping) == 0, mapping

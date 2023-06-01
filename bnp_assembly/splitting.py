@@ -289,6 +289,7 @@ class YahsSplitter(ScaffoldSplitter3):
         assert all([start < stop for start, stop in start_stop_dict.values()])
         yahs = self.matrix_class(matrix, start_stop_dict)
         yahs.save('matrix.npz')
+        np.save('contig_path.npy', [dn.node_id for dn in contig_path.directed_nodes])
         scores = yahs.score_vector()
         yahs.plot()
         _px.bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
@@ -313,3 +314,4 @@ class YahsSplitter(ScaffoldSplitter3):
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
+

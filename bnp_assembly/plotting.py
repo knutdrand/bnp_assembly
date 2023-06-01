@@ -7,6 +7,8 @@ from pathlib import PurePath
 
 
 import re
+
+import pandas as pd
 import plotly.express as _px
 
 
@@ -46,18 +48,19 @@ def register(**kwargs):
 
 
 def px(level=logging.INFO, name=None):
-    if isinstance(level, str):
-        level = level_dict[level.lower()]
-    if logging.root.level <= level:
-        return _px
     if name is not None and name in _registered_names:
         return _registered_names[name]
+    if isinstance(level, str):
+        level = level_dict[level]
+    if level >= logging.getLogger().level:
+        return _px
     return Dummy()
 
 
 @dataclass
 class ResultsFolder:
     path: PurePath
+
 
 def urlify(s):
     # Remove all non-word characters (everything except numbers and letters)
@@ -73,6 +76,11 @@ class FolderSaver:
     def __init__(self, folder_name: str):
         self._folder_name = folder_name
         self._file_names =[]
+
+    def table(self, df, title):
+        filename = f'{self._folder_name}/{title}.csv'
+        pd.DataFrame(df).to_csv(filename)
+        return df
 
     def decorator(self, func):
         @wraps(func)
