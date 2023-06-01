@@ -8,6 +8,7 @@ from scipy.stats import poisson
 from .plotting import px
 import typing as tp
 
+
 def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
     F = distance_dist(location_pairs, contig_dict)
     px("debug").line(F).show()
@@ -17,10 +18,11 @@ def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair
     #                                      if a.contig_id == b.contig_id])
     return count_window_combinastions(contig_dict, location_pairs, CumulativeSideWeight(F))
 
+
 def get_node_side_counts(pair_counts):
     node_sides = {edge.from_node_side for edge in pair_counts} | {edge.to_node_side for edge in pair_counts}
-    return {node_side: sum((pair_counts[Edge(node_side, node_side2)]+pair_counts[Edge(node_side2, node_side)])/2 for node_side2 in node_sides if True or node_side2.node_id != node_side.node_id) for node_side in node_sides}
-#     return {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in node_sides}
+    return {node_side: sum((pair_counts[Edge(node_side, node_side2)]+pair_counts[Edge(node_side2, node_side)])/2 for node_side2 in node_sides if node_side2.node_id != node_side.node_id) for node_side in node_sides}
+    #return {node_side: sum(value for key, value in pair_counts.items() if key.from_node_side == node_side) for node_side in node_sides}
 
 def calculate_distance_matrices(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
     pair_counts = get_pair_counts(contig_dict, location_pairs)
@@ -74,6 +76,7 @@ class CumulativeSideWeight:
         wR = (1-self.F[size-position-1])
         wL = (1-self.F[position])
         return wR/(wR+wL)
+
 
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, side_weight_func=_naive_side_weight) -> tp.Tuple[Counter, Counter]:
     node_sides = [NodeSide(i, d) for i in range(len(contig_dict)) for d in ('l', 'r')]
