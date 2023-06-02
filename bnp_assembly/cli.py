@@ -31,7 +31,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 
     '''
     if logging_folder is not None:
-        # plotting.register(splitting=plotting.ResultFolder(logging_folder))
+        plotting.register(splitting=plotting.ResultFolder(logging_folder))
         plotting.register(joining=plotting.ResultFolder(logging_folder))
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
@@ -40,6 +40,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
+
     paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold, bin_size=bin_size)
     sequence_dict = genome.read_sequence()
     out_names = []
@@ -84,8 +85,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
-    if bin_size == 0:
-        bin_size = max(1000, genome.size // 1000)
+    print(bin_size)
+    bin_size = max(bin_size, genome.size // 1000, 1000)
     print("Using bin size", bin_size)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)

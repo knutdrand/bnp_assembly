@@ -1,9 +1,14 @@
+from dataclasses import dataclass
+
 import numpy as np
+import bionumpy as bnp
 import pytest
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices, count_window_combinastions, NodeSide, Edge
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.path_finding import best_path
+from bnp_assembly.simulation.hic_read_simulation import simulate, simulate_raw
+
 np.random.seed(42)
 
 
@@ -125,3 +130,14 @@ def test_random(n_nodes, s):
     print(correct_path, pairs)
     graph = calculate_distance_matrices(contig_dict, pairs)
     assert best_path(graph) == [correct_path]
+
+@dataclass
+class Dummy:
+    sequence: str
+
+def test_hic_simulation_acceptance():
+
+    contigs = bnp.as_encoded_array(['A'*1000, 'B'*500, 'C'*700])
+    contigs= Dummy(contigs)
+    contigs1, contigs2, positions1, positions2, base_qualities = simulate_raw(contigs, 200, 100, 20, 0.5)
+

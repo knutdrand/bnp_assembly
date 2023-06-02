@@ -3,11 +3,12 @@ import pickle
 import numpy as np
 import pandas as pd
 import typer
+from scipy.stats import poisson, norm
 
 from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes
 import plotly.express as px
-
+from sklearn.linear_model import PoissonRegressor, LinearRegression
 
 def main(table_name, edge_info_name):
     edges = pickle.load(open(edge_info_name, 'rb'))
@@ -18,11 +19,29 @@ def main(table_name, edge_info_name):
     table = pd.read_csv(table_name)
     boundry_mask = np.array([str(node) in {str(n) for n in boudry_node_sides} for node in table['node_side']])
     print(table.length[boundry_mask])
+    table['boundary'] = boundry_mask
+    table['z'] = table['node_side_count']-table['length']
+
     x = table['length']
-    y= table['node_side_count']
+    X = np.log(x.to_numpy()[:, None])
+    y = table['node_side_count']
+
+    poisson_regression_model = PoissonRegressor(alpha=0)
+    poisson_regression_model.fit(X, y)
+    rate = poisson_regression_model.predict(X)
+    print(rate)
+    px.scatter(rate, y).show()
+    p = poisson.logpmf(y, rate)
+    print(p)
+    table['p'] = p
+    #     px.histogram(table, x='p', color='boundary', barmode='overlay').show()
+
     linear_regression_model = np.polyfit(x, y, 1)
     residuals = y - np.polyval(linear_regression_model, x)
-    px.scatter(x=x, y=residuals/np.polyval(linear_regression_model, x)).show()
+    z_score = residuals/np.sqrt(np.polyval(linear_regression_model, x))
+    table['z_score'] = z_score
+    px.histogram(table, x='z_score', color='boundary', barmode='overlay').show()
+    # px.scatter(x=x, y=residuals/np.polyval(linear_regression_model, x)).show()
     return table
 
 

@@ -13,7 +13,7 @@ from .distance_distribution import calculate_distance_distritbution, distance_di
 # import plotly.express as _px
 from .scaffold_splitting.binned_bayes import Yahs
 
-_px = px(name='splitting')
+
 class ScaffoldSplitter:
     def __init__(self, contig_dict, bin_size):
         self._contig_dict = contig_dict
@@ -233,6 +233,7 @@ class LinearSplitter2(LinearSplitter):
         scores = [(count + alpha / 2) / expected for count, expected in zip(edge_counts.values(), expected)]
         threshold = 0.3 * np.quantile(scores, 0.7)
         print(scores)
+        _px = px(name='splitting')
         _px.bar(y=list(edge_counts.values()), x=[str(e) for e in self._contig_path.edges]).show()
         _px.bar(y=expected, x=[str(e) for e in self._contig_path.edges]).show()
         _px.bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
@@ -242,6 +243,7 @@ class LinearSplitter2(LinearSplitter):
 
 class LinearSplitter3(LinearSplitter2):
     def split(self, location_pair):
+        _px = px(name='splitting')
         noise_factor = 0.5
         window_size = self._window_size
         locations_pair = [self._scaffold_map.translate_locations(locations)
@@ -275,6 +277,7 @@ class YahsSplitter(ScaffoldSplitter3):
         self._bin_size = min(bin_size, max(contig_dict.values())//2)
 
     def split(self, contig_path, locations_pair, threshold=0.5):
+        _px = px(name='splitting')
         orientation_dict = {dn.node_id: dn.orientation for dn in contig_path.directed_nodes}
         oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict)
                                                  for locations in
@@ -299,6 +302,7 @@ class YahsSplitter(ScaffoldSplitter3):
         return contig_path.split_on_edges(split_edges)
 
     def _split(self, contig_path, locations_pair, threshold=0.5):
+        _px = px(name='splitting')
         global_locations_pair = self._get_global_location(contig_path, locations_pair)
         interaction_matrix = SplitterMatrix.from_locations_pair(global_locations_pair, self._bin_size)
         matrix = interaction_matrix.data

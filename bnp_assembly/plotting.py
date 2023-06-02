@@ -114,6 +114,7 @@ class FolderSaver:
         html = html.replace('{{body}}', body)
         return html
 
+
 class Report:
     def __init__(self, foldername, names=[]):
         self._filepath = filepath
