@@ -24,7 +24,6 @@ class Scaffold:
         start_to_node_side_dict = {(str(alignment.scaffold_id), int(alignment.scaffold_start)): NodeSide(str(alignment.contig_id),
                                                                                                          'l' if str(alignment.orientation) == '+' else 'r')
                                    for alignment in self._scaffold_alignments}
-        print(end_to_node_side_dict)
         for alignment in self._scaffold_alignments:
             start_side = NodeSide(str(alignment.contig_id), 'l')
             end_side = NodeSide(str(alignment.contig_id), 'r')
