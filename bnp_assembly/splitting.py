@@ -35,13 +35,12 @@ class ScaffoldSplitter:
         offsets = np.cumsum([self._contig_dict[dn.node_id] for dn in contig_path.directed_nodes])[:-1]
         scores = [normalized.get_triangle_score(offset // self._bin_size, 10) for offset in offsets]
         print(scores)
-        px('info').histogram(scores).show()
-        px('info').bar(scores).show()
+        px('info').histogram(scores)
+        px('info').bar(scores)
         indices = [i for i, score in enumerate(scores) if score < threshold]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
-
 
 
 class ScaffoldSplitter2:
@@ -62,7 +61,7 @@ class ScaffoldSplitter2:
         global_locations_pair = self._get_global_location(contig_path, locations_pair)
         interaction_matrix = SplitterMatrix2.from_locations_pair(global_locations_pair, self._bin_size)
         normalized = interaction_matrix.normalize_matrix()  # .normalize_diagonals(n_bins)
-        normalized.plot().show()
+        normalized.plot()
         return normalized
 
     def split(self, contig_path, locations_pair, threshold=0.5, n_bins=20):
@@ -79,9 +78,9 @@ class ScaffoldSplitter2:
         threshold = threshold * q
         print(scores)
         print(threshold, q)
-        # px('info').histogram(scores).show()
-        px('info').bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
-        # px('info').bar(scores).show()
+        # px('info').histogram(scores)
+        px('info').bar(y=scores, x=[str(e) for e in contig_path.edges])
+        # px('info').bar(scores)
         indices = [i for i, score in enumerate(scores) if score < threshold]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
@@ -109,7 +108,7 @@ class ScaffoldSplitter3(ScaffoldSplitter2):
         self._factory = InteractionMatrixFactory(contig_dict, self._bin_size)
         interaction_matrix = self._factory.create_from_location_pairs(oriented_locations_pair)
         matrix = interaction_matrix.normalize_matrix()
-        matrix.plot().show()
+        matrix.plot()
         return self._split_on_matrix(contig_path, matrix, threshold, n_bins)
 
 
@@ -179,7 +178,7 @@ class LinearSplitter(ScaffoldSplitter):
         boundry_distance_to_weight = self._calculate_boundry_weights(location_pair)
         edge_counts_dict = self._get_edge_counts(contig_path, location_pair)
         edge_counts = self._get_counts_for_path(contig_path, edge_counts_dict)
-        px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges]).show()
+        px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges])
         unfinished = [(contig_path, edge_counts)]
         finished = []
         i = 0
@@ -193,7 +192,7 @@ class LinearSplitter(ScaffoldSplitter):
             if len(split_paths) == 1:
                 finished.append(contig_path)
             else:
-                # px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges]).show()
+                # px('info').bar(y=edge_counts, x=[str(e) for e in contig_path.edges])
 
                 unfinished += [(cp, self._get_counts_for_path(cp, edge_counts_dict)) for cp in split_paths]
         return list(finished)[::-1]
@@ -234,9 +233,9 @@ class LinearSplitter2(LinearSplitter):
         threshold = 0.3 * np.quantile(scores, 0.7)
         print(scores)
         _px = px(name='splitting')
-        _px.bar(y=list(edge_counts.values()), x=[str(e) for e in self._contig_path.edges]).show()
-        _px.bar(y=expected, x=[str(e) for e in self._contig_path.edges]).show()
-        _px.bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
+        _px.bar(y=list(edge_counts.values()), x=[str(e) for e in self._contig_path.edges])
+        _px.bar(y=expected, x=[str(e) for e in self._contig_path.edges])
+        _px.bar(y=scores, x=[str(e) for e in self._contig_path.edges])
         split_edges = [edge for score, edge in zip(scores, self._contig_path.edges) if score < threshold]
         return self._contig_path.split_on_edges(split_edges)
 
@@ -255,8 +254,8 @@ class LinearSplitter3(LinearSplitter2):
         possible_edge_pairs = np.asarray(count_possible_edge_pairs(locations, self._edge_indices, window_size)) * 2
         total_possible_pairs = (n_locations ** 2)
         sampled_pairs = len(locations_pair[0])
-        _px.density_heatmap(x=locations_pair[0], y=locations_pair[1], nbinsx=100, nbinsy=100).show()
-        # _px.scatter(*locations_pair, ).show()
+        _px.density_heatmap(x=locations_pair[0], y=locations_pair[1], nbinsx=100, nbinsy=100)
+        # _px.scatter(*locations_pair, )
         print(possible_edge_pairs, total_possible_pairs, sampled_pairs, n_locations)
         expected = np.array(possible_edge_pairs) / total_possible_pairs * sampled_pairs * noise_factor
         edge_values = np.asarray(count_edge_overlaps(*locations_pair, self._edge_indices, window_size))
@@ -265,16 +264,18 @@ class LinearSplitter3(LinearSplitter2):
         p_values = scipy.stats.poisson.sf(edge_values - 1, expected)
         threshold = 0.05
         _px.scatter(x=expected, y=edge_values, labels={'x': 'expected', 'y': 'observed'},
-                    title='expected vs observed').show()
-        _px.bar(y=p_values, x=[str(e) for e in self._contig_path.edges]).show()
+                    title='expected vs observed')
+        _px.bar(y=p_values, x=[str(e) for e in self._contig_path.edges])
         split_edges = [edge for p_value, edge in zip(p_values, self._contig_path.edges) if p_value > threshold]
         return self._contig_path.split_on_edges(split_edges)
 
+
 class YahsSplitter(ScaffoldSplitter3):
     matrix_class = Yahs
+
     def __init__(self, contig_dict, bin_size):
         super().__init__(contig_dict, bin_size)
-        self._bin_size = min(bin_size, max(contig_dict.values())//2)
+        self._bin_size = min(bin_size, max(contig_dict.values()) // 2)
 
     def split(self, contig_path, locations_pair, threshold=0.5):
         _px = px(name='splitting')
@@ -286,7 +287,7 @@ class YahsSplitter(ScaffoldSplitter3):
         factory = InteractionMatrixFactory(contig_dict, self._bin_size)
         interaction_matrix = factory.create_from_location_pairs(oriented_locations_pair)
         matrix = interaction_matrix.data
-        offsets = factory.get_edge_bin_ids()+[len(matrix)]
+        offsets = factory.get_edge_bin_ids() + [len(matrix)]
         start_stop_dict = {i: (start, stop) for i, (start, stop) in
                            enumerate(zip(offsets[:-1], offsets[1:]))}
         assert all([start < stop for start, stop in start_stop_dict.values()])
@@ -295,7 +296,7 @@ class YahsSplitter(ScaffoldSplitter3):
         np.save('contig_path.npy', [dn.node_id for dn in contig_path.directed_nodes])
         scores = yahs.score_vector()
         yahs.plot()
-        _px.bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
+        _px.bar(y=scores, x=[str(e) for e in contig_path.edges])
         indices = [i for i, score in enumerate(scores) if score < np.log(threshold)]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
@@ -313,9 +314,8 @@ class YahsSplitter(ScaffoldSplitter3):
         assert all([start < stop for start, stop in start_stop_dict.values()])
         yahs = Yahs(matrix, start_stop_dict)
         scores = yahs.score_vector()
-        _px.bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
+        _px.bar(y=scores, x=[str(e) for e in contig_path.edges])
         indices = [i for i, score in enumerate(scores) if score < threshold]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
-

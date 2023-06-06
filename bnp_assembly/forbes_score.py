@@ -23,7 +23,7 @@ def get_chromosome_end_probabilities(contig_dict: tp.Dict[str, int], node_side_c
 
 def get_pair_counts(contig_dict: tp.Dict[str, int], location_pairs: LocationPair, **kwargs):
     F = distance_dist(location_pairs, contig_dict)
-    px(name='joining').line(F, title='distance').show()
+    px(name='joining').line(F, title='distance')
     # calculate_distance_distritbution(list(contig_dict.values()),
     # [np.abs(a.offset-b.offset)
     #                                      for a, b in zip(location_pairs.location_a, location_pairs.location_b)
@@ -118,5 +118,5 @@ def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: L
                 pair_counts[Edge(a_side, b_side)] += p_a * p_b
                 pair_counts[Edge(b_side, a_side)] += p_a * p_b
     for name, locations in out_locations.items():
-        px(name='joining').histogram(locations, title=str(name), nbins = contig_dict[name]//1000).show()
+        px(name='joining').histogram(locations, title=str(name), nbins = contig_dict[name]//1000)
     return pair_counts

@@ -24,7 +24,7 @@ def get_distance_matrix(simulation_params, rng, distance_measure='window', **dis
     elif distance_measure == 'forbes':
         p = get_pair_counts(contig_dict, read_pairs)
         n = get_node_side_counts(p)
-        get_pscore_matrix(p, n).plot().show()
+        get_pscore_matrix(p, n).plot()
         return forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
 
 

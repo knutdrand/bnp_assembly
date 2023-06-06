@@ -69,7 +69,7 @@ def test_random_locations():
     print(edge_counts, possible)
 
     expected = np.array(possible)/(len(positions)**2/2) * len(locations_a)
-    px.scatter(x =expected, y=edge_counts).show()
+    px.scatter(x =expected, y=edge_counts)
 
 
     # assert False
