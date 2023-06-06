@@ -22,6 +22,8 @@ class NodeSide:
         return self.__class__(self.node_id, 'r' if self.side == 'l' else 'l')
 
     def __hash__(self):
+        if isinstance(self.node_id, str):
+            return hash((self.node_id, self.side))
         return self.numeric_index
 
     def __repr__(self):
@@ -38,6 +40,8 @@ class Edge:
                 self.to_node_side.numeric_index)
 
     def __hash__(self):
+        if any(isinstance(v.node_id, str) for v in (self.to_node_side, self.from_node_side)):
+            return hash((self.from_node_side, self.to_node_side))
         return hash(self.numeric_index)
 
     @classmethod

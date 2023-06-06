@@ -9,6 +9,7 @@ import typer
 import bionumpy as bnp
 
 from bnp_assembly.agp import ScaffoldAlignments
+from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from .io import get_read_pairs, get_genomic_read_pairs
 from .path_finding import best_path, PathFinder
 from .hic_distance_matrix import calculate_distance_matrices
@@ -18,12 +19,14 @@ from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging
 from . import plotting
+
 logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
 
 
 @app.command()
-def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0, logging_folder: str = None, bin_size: int=5000):
+def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
+             logging_folder: str = None, bin_size: int = 5000):
     '''
     Simple function
 
@@ -36,12 +39,13 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     encoding = genome.get_genome_context().encoding
-    contig_dict= genome.get_genome_context().chrom_sizes
+    contig_dict = genome.get_genome_context().chrom_sizes
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
-    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
+    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
 
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold, bin_size=bin_size)
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold,
+                          bin_size=bin_size)
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []
@@ -50,7 +54,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 
     for i, path in enumerate(paths):
         sequences = []
-        scaffold_name = f'scaffold{i}_'+':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
+        scaffold_name = f'scaffold{i}_' + ':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
         offset = 0
         print(path.directed_nodes)
         for j, dn in enumerate(path.directed_nodes):
@@ -64,8 +68,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
             sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
 
             alignments.append(
-                    (scaffold_name, offset+1, offset+len(sequences[-1]),
-                     str(contig_id), 1, len(sequences[-1]), "+" if not is_reverse else "-")
+                (scaffold_name, offset + 1, offset + len(sequences[-1]),
+                 str(contig_id), 1, len(sequences[-1]), "+" if not is_reverse else "-")
             )
             offset = sum((len(s) for s in sequences))
         print(scaffold_name)
@@ -111,14 +115,23 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
 
 
 @app.command()
-def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, out_base_name: str, read_name_prefix: str):
-    hic_read_simulation.simulate(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name, read_name_prefix)
+def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
+                 out_base_name: str, read_name_prefix: str):
+    hic_read_simulation.simulate(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
+                                 read_name_prefix)
+
+
+@app.command()
+def evalate_agp(estimated_agp_path: str, true_agp_path: str):
+    estimated_agp = ScaffoldAlignments.from_agp(estimated_agp_path)
+    true_agp = ScaffoldAlignments.from_agp(true_agp_path)
+    comparison = ScaffoldComparison(estimated_agp, true_agp)
+    print('edge_recall\t{comparison.edge_recall()}')
 
 
 def main():
     app()
 
+
 if __name__ == "__main__":
     main()
-
-
