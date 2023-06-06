@@ -4,11 +4,14 @@ import numpy as np
 import logging
 from ..agp import ScaffoldAlignments
 from dataclasses import dataclass
+import typing as tp
 
 @dataclass
 class SimulatedContigs:
     contigs: bnp.datatypes.SequenceEntry
     alignment: ScaffoldAlignments
+    inter_chromosome_splits: tp.Dict[str, tp.List[str]]
+    intra_chromosome_splits: tp.Dict[str, tp.List[str]]
 
 
 def random_spaced_locations(start, stop, n, min_space=1000, rng=np.random.default_rng()):
@@ -33,7 +36,7 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
     splits_at_contig = np.bincount(np.sort(
         rng.choice(np.arange(len(genome)), n_splits, p=weights)), minlength=len(genome))
 
-    inter_chromsome_splits = []
+    inter_chromosome_splits = []
     intra_chromosome_splits = []
     prev_contig_name = None
 
@@ -62,7 +65,7 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
 
             if split_i == 0:
                 if prev_contig_name is not None:
-                    inter_chromsome_splits.append((prev_contig_name, contig_name))
+                    inter_chromosome_splits.append((prev_contig_name, contig_name))
             else:
                 intra_chromosome_splits.append((prev_contig_name, contig_name))
 
@@ -74,4 +77,5 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
         zip(new_contig_names, new_contig_sequences)
     )
     logging.info(f"Ended up with {len(new_fasta)} genome")
-    return SimulatedContigs(new_fasta, ScaffoldAlignments.from_entry_tuples(scaffold_alignments))
+    return SimulatedContigs(new_fasta, ScaffoldAlignments.from_entry_tuples(scaffold_alignments),
+                            inter_chromosome_splits, intra_chromosome_splits)
