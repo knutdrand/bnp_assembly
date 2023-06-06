@@ -18,9 +18,9 @@ class ScaffoldAlignments:
         with open(file_name, "w") as f:
             counters = defaultdict(lambda: 1)
             for entry in self:
-                f.write(f"{entry.scaffold_id.to_string()}\t{entry.scaffold_start}\t{entry.scaffold_end}\t"
+                f.write(f"{entry.scaffold_id.to_string()}\t{entry.scaffold_start+1}\t{entry.scaffold_end+1}\t"
                         f"{counters[entry.scaffold_id.to_string()]}\tW\t{entry.contig_id.to_string()}"
-                        f"\t{entry.contig_start}\t{entry.contig_end}\t{entry.orientation.to_string()}\n")
+                        f"\t{entry.contig_start+1}\t{entry.contig_end+1}\t{entry.orientation.to_string()}\n")
                 counters[entry.scaffold_id.to_string()] += 1
 
     @classmethod
@@ -31,11 +31,11 @@ class ScaffoldAlignments:
                 line = line.strip().split()
                 entries.append(
                     (line[0],
-                    int(line[1]),
-                    int(line[2]),
+                    int(line[1])-1,
+                    int(line[2])-1,
                     line[5],
-                    int(line[6]),
-                    int(line[7]),
+                    int(line[6])-1,
+                    int(line[7])-1,
                     line[8])
                 )
         return cls.from_entry_tuples(entries)

@@ -68,8 +68,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
             sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
 
             alignments.append(
-                (scaffold_name, offset + 1, offset + len(sequences[-1]),
-                 str(contig_id), 1, len(sequences[-1]), "+" if not is_reverse else "-")
+                (scaffold_name, offset, offset + len(sequences[-1]),
+                 translation_dict[contig_id], 0, len(sequences[-1]), "+" if not is_reverse else "-")
             )
             offset = sum((len(s) for s in sequences))
         print(scaffold_name)
@@ -126,7 +126,7 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str):
     estimated_agp = ScaffoldAlignments.from_agp(estimated_agp_path)
     true_agp = ScaffoldAlignments.from_agp(true_agp_path)
     comparison = ScaffoldComparison(estimated_agp, true_agp)
-    print('edge_recall\t{comparison.edge_recall()}')
+    print(f'edge_recall\t{comparison.edge_recall()}')
 
 
 def main():
