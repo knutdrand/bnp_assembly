@@ -2,9 +2,12 @@ from .graph_objects import NodeSide, Edge
 import numpy as np
 from .plotting import px, DummyPlot, level_dict
 import logging
+from .plotting import px as px_func
+
 
 class DirectedDistanceMatrix:
     def __init__(self, n_nodes):
+        self.px = px_func(name='joining')
         n_sides = n_nodes*2
         self._matrix = np.zeros((n_sides, n_sides))
         self._fill_infs()
@@ -32,17 +35,17 @@ class DirectedDistanceMatrix:
     def __setitem__(self, edge: Edge, score: float):
         if edge.from_node_side.node_id == edge.to_node_side.node_id:
             # logging.warning(f'Illegal edge set in distance_matrix: {edge}')
-            return 
+            return
         self._matrix[edge.numeric_index] = score
 
     def __getitem__(self, edge: Edge):
         return self._matrix[edge.numeric_index]
 
-    def plot(self, level=logging.INFO):
-        if isinstance(level, str):
-            level = level_dict[level.lower()]
-        if level<logging.root.level:
-            return DummyPlot()
+    def plot(self, level=logging.INFO, name=''):
+        #if isinstance(level, str):
+        #    level = level_dict[level.lower()]
+        ##if level<logging.root.level:
+        #    return DummyPlot()
         n_nodes = len(self)//2
         new_matrix = np.empty((n_nodes, n_nodes))
         max_value = self.data.max()
@@ -55,11 +58,12 @@ class DirectedDistanceMatrix:
                 new_matrix[node_id, node_id_2] = self[edge]
                 edge_r = Edge(NodeSide(node_id, 'l'), NodeSide(node_id_2, 'r'))
                 new_matrix[node_id_2, node_id] = self[edge_r]
-        fig = px(level).imshow(new_matrix)
+        return self.px.imshow(new_matrix, zmax=0, title=name)
+        # fig = px(level).imshow(new_matrix)
         #go = self._genome_context.global_offset
         #fig = px.imshow(self._transform(self._data))
         #names = go.names()
         #offsets=go.get_offset(names)//self._bin_sizep
         #fig.update_layout(xaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names),
         #                  yaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names))
-        return fig
+        # return fig

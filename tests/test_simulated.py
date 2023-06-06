@@ -3,6 +3,8 @@ from bnp_assembly.simulation.hic import simulate_split_contig_reads, SimulationP
 from bnp_assembly.location import LocationPair
 from bnp_assembly.scaffold import scaffold
 from bnp_assembly.evaluate_scaffold import score_scaffolding, run_simulated_experiment, run_simulated_split_experiment
+from bnp_assembly.splitting import YahsSplitter
+from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes
 import logging
 logging.basicConfig(level='info')
 
@@ -54,9 +56,9 @@ def test_simulated2(n_reads, n_nodes, method):
 # @pytest.mark.parametrize('method', ['forbes'])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
 def test_simulated_split(n_reads, n_nodes):
+    YahsSplitter.matrix_class = BinnedBayes
     rng = np.random.default_rng(seed=100)
-    true_paths, paths = run_simulated_split_experiment(SimulationParams(n_nodes, n_reads, n_chromosomes=2),
-                                                       rng)
+    true_paths, paths = run_simulated_split_experiment(SimulationParams(n_nodes, n_reads, n_chromosomes=2), rng)
     print('predicted', [path.directed_nodes for path in paths])
     print('true',[path.directed_nodes for path in true_paths])
     assert true_paths == paths

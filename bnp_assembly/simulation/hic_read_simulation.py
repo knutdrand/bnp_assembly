@@ -9,74 +9,32 @@ import typer
 def _random_genome_locations(contigs, n_reads, read_length):
     genome_size = np.sum(contigs.sequence.shape[1])
     contig_weights = contigs.sequence.shape[1] / genome_size
-    contig_names = contigs.name.tolist()
-
-    drawn_contigs = []
-    drawn_positions = []
-
-    n_reads_per_contig = np.random.multinomial(n_reads, contig_weights)
-    for i, n in enumerate(n_reads_per_contig):
-        contig_length = len(contigs.sequence[i])
-        drawn_positions.append(np.random.randint(0, contig_length - read_length, n))
-        drawn_contigs.append(np.zeros(n, dtype=int)+i)
-
-    drawn_positions = np.concatenate(drawn_positions)
-    drawn_contigs = np.concatenate(drawn_contigs)
+    # drawn_contigs = []
+    # drawn_positions = []
+    contig_lengths= contigs.sequence.shape[1]
+    # n_reads_per_contig = np.random.multinomial(n_reads, contig_weights)
+    drawn_contigs = np.random.choice(np.arange(len(contigs.sequence)), size=n_reads, p=contig_weights)
+    drawn_positions = np.random.randint(0, contig_lengths[drawn_contigs] - read_length)
     return drawn_positions, drawn_contigs
+    # for i, n in enumerate(n_reads_per_contig):
+    #     contig_length = len(contigs.sequence[i])
+    #     drawn_positions.append(np.random.randint(0, contig_length - read_length, n))
+    #     drawn_contigs.append(np.zeros(n, dtype=int)+i)
+    #
+    # drawn_positions = np.concatenate(drawn_positions)
+    # drawn_contigs = np.concatenate(drawn_contigs)
+    # return drawn_positions, drawn_contigs
 
 
 def simulate(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, out_base_name: str, read_name_prefix: str):
     contigs = bnp.open(contigs).read()
-    print("Contigs", contigs)
     # signal is ratio of reads that are not noise
 
-    n_reads_signal = int(n_reads * signal)
-    n_reads_noise = n_reads - n_reads_signal
-    logging.info(f"Will simulate {n_reads_signal} reads with signal and {n_reads_noise} noise reads")
-    contig_sizes = contigs.sequence.shape[1]
+    all_contigs1, all_contigs2, all_positions1, all_positions2, base_qualities = simulate_raw(contigs,
+                                                                                              fragment_size_mean,
+                                                                                              n_reads, read_length,
+                                                                                              signal)
 
-    all_positions1 = []
-    all_contigs1 = []
-    all_positions2 = []
-    all_contigs2 = []
-
-    for type, n_reads in [("signal", n_reads_signal), ("noise", n_reads_noise)]:
-        # draw half of reads at random positions
-        positions1, contigs1 = _random_genome_locations(contigs, n_reads//2, read_length)
-
-        if type == "signal":
-            # draw other half at an insert size away from the first half with the same contig id
-            insert_sizes = np.random.geometric(1/fragment_size_mean, n_reads//2)
-            logging.info("Using insert sizes: %s" % insert_sizes)
-            positions2 = positions1 + insert_sizes
-            contigs2 = contigs1.copy()
-
-        elif type == "noise":
-            # draw other half at random locations
-            positions2, contigs2 = _random_genome_locations(contigs, n_reads//2, read_length)
-
-        all_contigs1.append(contigs1)
-        all_contigs2.append(contigs2)
-        all_positions1.append(positions1)
-        all_positions2.append(positions2)
-
-    all_contigs1 = np.concatenate(all_contigs1)
-    all_positions1 = np.concatenate(all_positions1)
-    all_contigs2 = np.concatenate(all_contigs2)
-    all_positions2 = np.concatenate(all_positions2)
-
-    # mask out read pairs where one read is outside of the contig
-    mask = (all_positions1 < contig_sizes[all_contigs1]-read_length) & \
-           (all_positions2 < contig_sizes[all_contigs2]-read_length)
-
-    logging.info(f"Removing {np.sum(mask==0)} reads that are outside contigs")
-
-    all_positions1 = all_positions1[mask]
-    all_contigs1 = all_contigs1[mask]
-    all_positions2 = all_positions2[mask]
-    all_contigs2 = all_contigs2[mask]
-
-    base_qualities = "I" * read_length
     for i, (contig_names, positions) in enumerate([[all_contigs1, all_positions1], [all_contigs2, all_positions2]]):
         out_sequences = []
         logging.info(f"Writing {len(contig_names)} reads contig number {i}")
@@ -89,6 +47,50 @@ def simulate(contigs: str, n_reads: int, read_length: int, fragment_size_mean: i
         with bnp.open(out_base_name + f"{i+1}.fq.gz", "w") as f:
             f.write(data)
 
+
+def simulate_raw(contigs, fragment_size_mean, n_reads, read_length, signal):
+    n_reads_signal = int(n_reads * signal)
+    n_reads_noise = n_reads - n_reads_signal
+    logging.info(f"Will simulate {n_reads_signal} reads with signal and {n_reads_noise} noise reads")
+    contig_sizes = contigs.sequence.shape[1]
+    all_positions1 = []
+    all_contigs1 = []
+    all_positions2 = []
+    all_contigs2 = []
+    for type, n_reads in [("signal", n_reads_signal), ("noise", n_reads_noise)]:
+        # draw half of reads at random positions
+        positions1, contigs1 = _random_genome_locations(contigs, n_reads // 2, read_length)
+
+        if type == "signal":
+            # draw other half at an insert size away from the first half with the same contig id
+            insert_sizes = np.random.geometric(1 / fragment_size_mean, n_reads // 2)
+            logging.info("Using insert sizes: %s" % insert_sizes)
+            positions2 = positions1 + insert_sizes * np.random.choice([1, -1], size=len(insert_sizes))  # right bias
+            contigs2 = contigs1.copy()
+
+        elif type == "noise":
+            # draw other half at random locations
+            positions2, contigs2 = _random_genome_locations(contigs, n_reads // 2, read_length)
+
+        all_contigs1.append(contigs1)
+        all_contigs2.append(contigs2)
+        all_positions1.append(positions1)
+        all_positions2.append(positions2)
+    all_contigs1 = np.concatenate(all_contigs1)
+    all_positions1 = np.concatenate(all_positions1)
+    all_contigs2 = np.concatenate(all_contigs2)
+    all_positions2 = np.concatenate(all_positions2)
+    # mask out read pairs where one read is outside of the contig
+    mask = (all_positions1 < contig_sizes[all_contigs1] - read_length) & \
+           (all_positions2 < contig_sizes[all_contigs2] - read_length)
+    mask &= (all_positions1 >=0) & (all_positions2>=0)
+    logging.info(f"Removing {np.sum(mask == 0)} reads that are outside contigs")
+    all_positions1 = all_positions1[mask]
+    all_contigs1 = all_contigs1[mask]
+    all_positions2 = all_positions2[mask]
+    all_contigs2 = all_contigs2[mask]
+    base_qualities = "I" * read_length
+    return all_contigs1, all_contigs2, all_positions1, all_positions2, base_qualities
 
 
 if __name__ == "__main__":

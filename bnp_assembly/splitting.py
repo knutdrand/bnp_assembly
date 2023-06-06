@@ -10,8 +10,7 @@ from .interaction_matrix import SplitterMatrix, SplitterMatrix2
 from .dynamic_bin_distance_matrix import InteractionMatrixFactory
 from .plotting import px
 from .distance_distribution import calculate_distance_distritbution, distance_dist
-import plotly.express as _px
-
+# import plotly.express as _px
 from .scaffold_splitting.binned_bayes import Yahs
 
 
@@ -234,6 +233,7 @@ class LinearSplitter2(LinearSplitter):
         scores = [(count + alpha / 2) / expected for count, expected in zip(edge_counts.values(), expected)]
         threshold = 0.3 * np.quantile(scores, 0.7)
         print(scores)
+        _px = px(name='splitting')
         _px.bar(y=list(edge_counts.values()), x=[str(e) for e in self._contig_path.edges]).show()
         _px.bar(y=expected, x=[str(e) for e in self._contig_path.edges]).show()
         _px.bar(y=scores, x=[str(e) for e in self._contig_path.edges]).show()
@@ -243,6 +243,7 @@ class LinearSplitter2(LinearSplitter):
 
 class LinearSplitter3(LinearSplitter2):
     def split(self, location_pair):
+        _px = px(name='splitting')
         noise_factor = 0.5
         window_size = self._window_size
         locations_pair = [self._scaffold_map.translate_locations(locations)
@@ -270,11 +271,13 @@ class LinearSplitter3(LinearSplitter2):
         return self._contig_path.split_on_edges(split_edges)
 
 class YahsSplitter(ScaffoldSplitter3):
+    matrix_class = Yahs
     def __init__(self, contig_dict, bin_size):
         super().__init__(contig_dict, bin_size)
         self._bin_size = min(bin_size, max(contig_dict.values())//2)
 
     def split(self, contig_path, locations_pair, threshold=0.5):
+        _px = px(name='splitting')
         orientation_dict = {dn.node_id: dn.orientation for dn in contig_path.directed_nodes}
         oriented_locations_pair = LocationPair(*(self._get_oriented_offsets(locations, orientation_dict)
                                                  for locations in
@@ -284,18 +287,22 @@ class YahsSplitter(ScaffoldSplitter3):
         interaction_matrix = factory.create_from_location_pairs(oriented_locations_pair)
         matrix = interaction_matrix.data
         offsets = factory.get_edge_bin_ids()+[len(matrix)]
-        start_stop_dict = {dn.node_id: (start, stop) for (dn, start, stop) in
-                           zip(contig_path.directed_nodes, offsets[:-1], offsets[1:])}
+        start_stop_dict = {i: (start, stop) for i, (start, stop) in
+                           enumerate(zip(offsets[:-1], offsets[1:]))}
         assert all([start < stop for start, stop in start_stop_dict.values()])
-        yahs = Yahs(matrix, start_stop_dict)
+        yahs = self.matrix_class(matrix, start_stop_dict)
+        yahs.save('matrix.npz')
+        np.save('contig_path.npy', [dn.node_id for dn in contig_path.directed_nodes])
         scores = yahs.score_vector()
+        yahs.plot()
         _px.bar(y=scores, x=[str(e) for e in contig_path.edges]).show()
-        indices = [i for i, score in enumerate(scores) if score < threshold]
+        indices = [i for i, score in enumerate(scores) if score < np.log(threshold)]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)
 
     def _split(self, contig_path, locations_pair, threshold=0.5):
+        _px = px(name='splitting')
         global_locations_pair = self._get_global_location(contig_path, locations_pair)
         interaction_matrix = SplitterMatrix.from_locations_pair(global_locations_pair, self._bin_size)
         matrix = interaction_matrix.data

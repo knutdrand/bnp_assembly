@@ -1,4 +1,5 @@
 """Console script for bnp_assembly."""
+
 import os
 
 # todo
@@ -16,17 +17,22 @@ from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging
+from . import plotting
 logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
 
+
 @app.command()
-def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0):
+def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0, logging_folder: str = None, bin_size: int=5000):
     '''
     Simple function
 
     >>> main()
 
     '''
+    if logging_folder is not None:
+        plotting.register(splitting=plotting.ResultFolder(logging_folder))
+        plotting.register(joining=plotting.ResultFolder(logging_folder))
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     encoding = genome.get_genome_context().encoding
@@ -34,7 +40,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value  in contig_dict.items()}
     reads = get_read_pairs(genome, read_filename)
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold)
+
+    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold, bin_size=bin_size)
     sequence_dict = genome.read_sequence()
     out_names = []
     out_sequences = []
@@ -45,8 +52,9 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         sequences = []
         scaffold_name = f'scaffold{i}_'+':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
         offset = 0
-        for j, (contig_id, is_reverse) in enumerate(path.to_list()):
-
+        print(path.directed_nodes)
+        for j, dn in enumerate(path.directed_nodes):
+            (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
             if j > 0:
                 # adding 200 Ns between contigs
                 sequences.append(bnp.as_encoded_array('N' * 200, bnp.encodings.ACGTnEncoding))
@@ -60,7 +68,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                      str(contig_id), 1, len(sequences[-1]), "+" if not is_reverse else "-")
             )
             offset = sum((len(s) for s in sequences))
-
+        print(scaffold_name)
         out_names.append(scaffold_name)
         out_sequences.append(np.concatenate(sequences))
     for path in paths:
@@ -77,8 +85,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
-    if bin_size == 0:
-        bin_size = max(1000, genome.size // 1000)
+    print(bin_size)
+    bin_size = max(bin_size, genome.size // 1000, 1000)
     print("Using bin size", bin_size)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)
