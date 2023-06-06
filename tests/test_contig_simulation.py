@@ -21,3 +21,4 @@ def test_simulate_contigs(genome):
     print(simulated.alignment)
     alignment = simulated.alignment
     assert np.all(alignment.scaffold_end - alignment.scaffold_start == alignment.contig_end - alignment.contig_start)
+
