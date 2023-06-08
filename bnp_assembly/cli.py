@@ -11,10 +11,7 @@ import bionumpy as bnp
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from .io import get_read_pairs, get_genomic_read_pairs
-from .path_finding import best_path, PathFinder
-from .hic_distance_matrix import calculate_distance_matrices
 from .scaffold import scaffold as scaffold_func
-from .datatypes import GenomicLocationPair
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging

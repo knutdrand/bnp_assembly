@@ -1,4 +1,9 @@
+import itertools
+from collections import defaultdict
 from functools import lru_cache
+
+import more_itertools
+
 from ..graph_objects import NodeSide, Edge
 import typing as tp
 
@@ -16,6 +21,23 @@ class Scaffold:
     @property
     @lru_cache(maxsize=None)
     def edges(self):
+        edges = set()
+        contigs = defaultdict(list)
+        print(self._scaffold_alignments)
+        for alignment in self._scaffold_alignments:
+            contigs[str(alignment.scaffold_id)].append(alignment)
+        for contig, alignments in contigs.items():
+            alignments.sort(key=lambda x: x.contig_start)
+            print(alignments)
+            for a, b in more_itertools.pairwise(alignments):
+                node_side_a = NodeSide(str(a.contig_id), 'r' if a.orientation == '+' else 'l')
+                node_side_b = NodeSide(str(b.contig_id), 'l' if b.orientation == '+' else 'r')
+                edge = Edge(node_side_a, node_side_b)
+                edges.add(edge)
+                edges.add(edge.reverse())
+        return edges
+
+    def _edges(self):
         edges = set()
         end_to_node_side_dict = {
             (str(alignment.scaffold_id), int(alignment.scaffold_end)): NodeSide(str(alignment.contig_id),
@@ -59,4 +81,5 @@ class ScaffoldComparison:
         pass
 
     def edge_recall(self) -> float:
+        print(self._true_scaffold.edges)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
