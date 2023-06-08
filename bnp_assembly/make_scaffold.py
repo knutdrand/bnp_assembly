@@ -16,20 +16,14 @@ PathFinder = nxPathFinder
 
 
 def _split_contig(distance_matrix, path, T=-0.1):
-    px('debug').histogram([distance_matrix[edge] for edge in path.edges if distance_matrix[edge]>-0.6], nbins=15).show()
+    px_func('debug').histogram([distance_matrix[edge] for edge in path.edges if distance_matrix[edge]>-0.6], nbins=15).show()
     split_edges = (edge for edge in path.edges if distance_matrix[edge] >= T)
     return path.split_on_edges(split_edges)
 
 
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
-    # return LinearSplitter3(contig_dict,  contig_path).split(locations_pair)
-    #return LinearSplitter2(contig_dict,  contig_path).split(locations_pair)
     YahsSplitter.matrix_class = BinnedBayes
-    return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair)
-
-    #return ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
-
-    # return LinearSplitter(contig_dict, threshold).iterative_split(contig_path, locations_pair)
+    return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold=threshold)
 
 
 def make_scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, bin_size=5000, **distance_kwargs):
@@ -49,8 +43,6 @@ def make_scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure=
         DirectedDistanceMatrix.from_edge_dict(len(contig_dict), pair_counts).plot(name='pair counts')
         px.bar(x=[str(ns) for ns in node_side_counts.keys()], y=list(node_side_counts.values()), title='node side counts')
         original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
-        # split_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
-        # split_matrix = get_pscore_matrix(pair_counts, node_side_counts)
         original_distance_matrix.plot(name='forbes')
 
     distance_matrix = original_distance_matrix

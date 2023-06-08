@@ -17,7 +17,8 @@ def _random_genome_locations(contigs, n_reads, read_length):
     return drawn_positions, drawn_contigs
 
 
-def simulate(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, out_base_name: str,
+def simulate(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
+             out_base_name: str,
              read_name_prefix: str):
     contigs_file_name = bnp.open(contigs_file_name).read()
 
@@ -40,7 +41,8 @@ def simulate(contigs_file_name: str, n_reads: int, read_length: int, fragment_si
             f.write(data)
 
 
-def simulate_raw(contigs: bnp.datatypes.SequenceEntry, fragment_size_mean: float, n_reads: int, read_length: int, signal: float):
+def simulate_raw(contigs: bnp.datatypes.SequenceEntry, fragment_size_mean: float, n_reads: int, read_length: int,
+                 signal: float):
     n_reads_signal = int(n_reads * signal)
     n_reads_noise = n_reads - n_reads_signal
     logging.info(f"Will simulate {n_reads_signal} reads with signal and {n_reads_noise} noise reads")
@@ -84,7 +86,7 @@ def simulate_raw(contigs: bnp.datatypes.SequenceEntry, fragment_size_mean: float
     all_contigs2 = all_contigs2[mask]
     base_qualities = "I" * read_length
     return all_contigs1, all_contigs2, all_positions1, all_positions2, base_qualities
-p
+
 
 if __name__ == "__main__":
     typer.run(simulate)

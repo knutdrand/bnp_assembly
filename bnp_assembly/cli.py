@@ -1,14 +1,16 @@
 """Console script for bnp_assembly."""
-
+import dataclasses
 import os
-
+import typing as tp
 # todo
 import numpy as np
 
 import typer
 import bionumpy as bnp
+from bionumpy.genomic_data import GenomicSequence
 
 from bnp_assembly.agp import ScaffoldAlignments
+from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from .io import get_read_pairs, get_genomic_read_pairs
 from bnp_assembly.make_scaffold import make_scaffold as scaffold_func
@@ -44,34 +46,14 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold,
                           bin_size=bin_size)
     sequence_dict = genome.read_sequence()
-    out_names = []
-    out_sequences = []
-
-    alignments = []
-
-    for i, path in enumerate(paths):
-        sequences = []
-        scaffold_name = f'scaffold{i}_' + ':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
-        offset = 0
-        print(path.directed_nodes)
-        for j, dn in enumerate(path.directed_nodes):
-            (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
-            if j > 0:
-                # adding 200 Ns between contigs
-                sequences.append(bnp.as_encoded_array('N' * 200, bnp.encodings.ACGTnEncoding))
-            seq = sequence_dict[translation_dict[contig_id]]
-            if is_reverse:
-                seq = bnp.sequence.get_reverse_complement(seq)
-            sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
-
-            alignments.append(
-                (scaffold_name, offset, offset + len(sequences[-1]),
-                 translation_dict[contig_id], 0, len(sequences[-1]), "+" if not is_reverse else "-")
-            )
-            offset = sum((len(s) for s in sequences))
-        print(scaffold_name)
-        out_names.append(scaffold_name)
-        out_sequences.append(np.concatenate(sequences))
+    paths_object = Paths(paths, translation_dict)
+    alignments = paths_object.get_agp(contig_dict)
+    alignments.to_agp(out_directory + "/scaffolds.agp")
+    sequence_entries = paths_object.get_sequence_entries(sequence_dict)
+    with bnp.open(out_file_name, "w") as f:
+        f.write(sequence_entries)
+    return
+    alignments, out_names, out_sequences = convert_paths(paths, sequence_dict, translation_dict)
     for path in paths:
         logging.info(path.directed_nodes)
     with bnp.open(out_file_name, "w") as f:
@@ -81,6 +63,59 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 
     alignments = ScaffoldAlignments.from_entry_tuples(alignments)
     alignments.to_agp(out_directory + "/scaffolds.agp")
+
+
+@dataclasses.dataclass
+class Paths:
+    paths: tp.List[ContigPath]
+    translation_dict: tp.Dict[int, str]
+    padding: int = 200
+
+    def get_agp(self, contig_dict: tp.Dict[str, int]):
+        alignments = []
+        for i, path in enumerate(self.paths):
+            scaffold_name = self.get_scaffold_name(i, path)
+            offset = 0
+            for j, dn in enumerate(path.directed_nodes):
+                (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
+                contig_name = self.translation_dict[contig_id]
+                length = contig_dict[contig_name]
+                if j > 0:
+
+                    length += self.padding
+                alignments.append(
+                    (scaffold_name, offset, offset + length,
+                     contig_name, 0, length, "+" if not is_reverse else "-")
+                )
+                offset += length
+        return ScaffoldAlignments.from_entry_tuples(alignments)
+
+    def get_sequence_entries(self, sequence_dict: GenomicSequence):
+        paths = self.paths
+        out_names = []
+        out_sequences = []
+
+        for i, path in enumerate(paths):
+            sequences = []
+            scaffold_name = self.get_scaffold_name(i, path)
+            offset = 0
+            for j, dn in enumerate(path.directed_nodes):
+                (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
+                if j > 0:
+                    # adding 200 Ns between contigs
+                    sequences.append(bnp.as_encoded_array('N' * self.padding, bnp.encodings.ACGTnEncoding))
+                seq = sequence_dict[self.translation_dict[contig_id]]
+                if is_reverse:
+                    seq = bnp.sequence.get_reverse_complement(seq)
+                sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
+
+            out_names.append(scaffold_name)
+            out_sequences.append(np.concatenate(sequences))
+        return bnp.datatypes.SequenceEntry.from_entry_tuples(zip(out_names, out_sequences))
+
+    def get_scaffold_name(self, i, path):
+        return f'scaffold{i}_' + ':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
+
 
 
 @app.command()
