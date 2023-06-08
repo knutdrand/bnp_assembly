@@ -1,7 +1,7 @@
 import pytest
 from bnp_assembly.simulation.hic import simulate_split_contig_reads, SimulationParams
 from bnp_assembly.location import LocationPair
-from bnp_assembly.scaffold import scaffold
+from bnp_assembly.make_scaffold import make_scaffold
 from bnp_assembly.evaluate_scaffold import score_scaffolding, run_simulated_experiment, run_simulated_split_experiment
 from bnp_assembly.splitting import YahsSplitter
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes

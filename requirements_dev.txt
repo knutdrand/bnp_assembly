@@ -11,12 +11,12 @@ hypothesis~=6.75.3
 coverage
 pytest-cov
 build
-numpy~=1.23.5
-bionumpy~=0.2.21
+numpy
+bionumpy
 more-itertools
-scipy~=1.10.1
+scipy
 networkx~=3.1
 
-plotly~=5.14.1
+plotly
 setuptools~=67.0.0
-pandas~=2.0.1
+pandas
