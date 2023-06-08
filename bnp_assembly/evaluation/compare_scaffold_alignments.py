@@ -37,29 +37,6 @@ class Scaffold:
                 edges.add(edge.reverse())
         return edges
 
-    def _edges(self):
-        edges = set()
-        end_to_node_side_dict = {
-            (str(alignment.scaffold_id), int(alignment.scaffold_end)): NodeSide(str(alignment.contig_id),
-                                                                                       'r' if alignment.orientation == '+' else 'l')
-            for alignment in self._scaffold_alignments}
-        start_to_node_side_dict = {(str(alignment.scaffold_id), int(alignment.scaffold_start)): NodeSide(str(alignment.contig_id),
-                                                                                                         'l' if str(alignment.orientation) == '+' else 'r')
-                                   for alignment in self._scaffold_alignments}
-        for alignment in self._scaffold_alignments:
-            start_side = NodeSide(str(alignment.contig_id), 'l')
-            end_side = NodeSide(str(alignment.contig_id), 'r')
-            if alignment.orientation == '-':
-                start_side, end_side = end_side, start_side
-            if alignment.scaffold_start != 0:
-                start_match = end_to_node_side_dict[(str(alignment.scaffold_id), int(alignment.scaffold_start))]
-                edges.add(Edge(start_side, start_match))
-            if alignment.scaffold_end != self.scaffold_size(str(alignment.scaffold_id)):
-                end_match = start_to_node_side_dict[(str(alignment.scaffold_id), int(alignment.scaffold_end))]
-                edges.add(Edge(end_side, end_match))
-
-        return edges
-
     def has_edge(self, edge: Edge) -> bool:
         return edge in self.edges
 

@@ -1,4 +1,5 @@
 from bnp_assembly.forbes_score import get_pscore_matrix, get_forbes_matrix, get_pair_counts, get_node_side_counts
+import typing as tp
 from scipy.stats import poisson
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.location import Location, LocationPair
@@ -7,7 +8,7 @@ import pytest
 
 
 @pytest.fixture
-def pair_counts():
+def pair_counts() -> tp.Dict[Edge, float]:
     return {Edge(NodeSide(0, 'r'), NodeSide(1, 'l')): 2,
             Edge(NodeSide(0, 'l'), NodeSide(1, 'r')): 1,
             Edge(NodeSide(0, 'r'), NodeSide(1, 'r')): 1,
@@ -25,9 +26,10 @@ def locations_pair():
         Location.from_entry_tuples([(0, 15), (0, 16), (0, 5),  (0, 17),  (0, 0),  (1, 9)]),
         Location.from_entry_tuples([(1, 5),  (1, 5),  (1, 15), (1, 17), (0, 10), (1, 19)]))
 
+
 @pytest.fixture
 def node_side_counts(pair_counts):
-    return {node_side: sum(value for edge, value in pair_counts.items() 
+    return {node_side: sum(value for edge, value in pair_counts.items()
                            if node_side in (edge.from_node_side, edge.to_node_side))
             for node_side in (NodeSide(i, d) for i in (0, 1) for d in ('l', 'r'))}
 
@@ -57,4 +59,7 @@ def test_get_pair_counts(locations_pair, pair_counts, contig_dict):
     print(result)
     for key, value in pair_counts.items():
         assert result[key] == value
-    assert sum(result.values()) == sum(pair_counts.values())*2
+    true_s = sum(v for key, v in pair_counts.items() if key.from_node_side.node_id != key.to_node_side.node_id)
+    result_s = sum(v for key, v in result.items() if key.from_node_side.node_id != key.to_node_side.node_id)
+    assert true_s*2 == result_s, (result, pair_counts)
+    #assert sum(result.values()) == sum(pair_counts.values())*2

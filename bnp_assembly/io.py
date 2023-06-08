@@ -4,10 +4,10 @@ from .datatypes import GenomicLocationPair
 import bionumpy as bnp
 
 
-def get_read_pairs(genome: bnp.Genome, bam_file_name):
+def get_read_pairs(genome: bnp.Genome, bam_file_name: str, mapq_threshold=10) -> LocationPair:
     alignments = bnp.open(bam_file_name).read()
     print(alignments)
-    mask = alignments.mapq > 10
+    mask = alignments.mapq > mapq_threshold
     interval = bnp.alignments.alignment_to_interval(alignments)
     print(interval)
     reads = genome.get_intervals(interval)

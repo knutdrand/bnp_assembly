@@ -9,5 +9,5 @@ def genome():
 
 
 def test_read_pairs(genome):
-    location_pairs = get_read_pairs(genome, 'example_data/hic.sorted_by_read_name.bam')
+    location_pairs = get_read_pairs(genome, 'example_data/hic.sorted_by_read_name.bam', mapq_threshold=0)
     assert len(location_pairs.location_a) == 481
