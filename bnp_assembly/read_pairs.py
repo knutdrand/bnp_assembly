@@ -1,12 +1,6 @@
 import numpy as np
-from .location import LocationPair
+from .location import LocationPair, Location
 import bionumpy as bnp
-
-
-@bnp.bnpdataclass.bnpdataclass
-class Location:
-    contig_id: str
-    offset: int
 
 
 def get_read_pairs(bam_file_name):
@@ -14,4 +8,4 @@ def get_read_pairs(bam_file_name):
     locations = Location(reads.chromosome, np.where(reads.strand == '+',
                                                     reads.stop, reads.start))
     return LocationPair(locations[::2], locations[1::2])
-                         
+

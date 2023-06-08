@@ -139,7 +139,7 @@ class ContigGraph:
         self._rl_edges = rl_edges
         self._rr_edges = rr_edges
         self._ll_edges = ll_edges
-        
+
     @property
     def nodes(self):
         return self._nodes

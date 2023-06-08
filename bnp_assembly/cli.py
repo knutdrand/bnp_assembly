@@ -13,7 +13,7 @@ from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from .io import get_read_pairs, get_genomic_read_pairs
-from bnp_assembly.make_scaffold import make_scaffold as scaffold_func
+from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging
@@ -37,6 +37,15 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         plotting.register(joining=plotting.ResultFolder(logging_folder))
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
+    reads = get_genomic_read_pairs(genome, read_filename)
+    scaffold = make_scaffold(genome, reads, window_size=2500, distance_measure='forbes', threshold=threshold)
+    alignments = scaffold.to_scaffold_alignments(genome, 200)
+    alignments.to_agp(out_directory + "/scaffolds.agp")
+    sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
+    with bnp.open(out_file_name, "w") as f:
+        f.write(sequence_entries)
+    return
+
     encoding = genome.get_genome_context().encoding
     contig_dict = genome.get_genome_context().chrom_sizes
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
@@ -52,17 +61,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     sequence_entries = paths_object.get_sequence_entries(sequence_dict)
     with bnp.open(out_file_name, "w") as f:
         f.write(sequence_entries)
-    return
-    alignments, out_names, out_sequences = convert_paths(paths, sequence_dict, translation_dict)
-    for path in paths:
-        logging.info(path.directed_nodes)
-    with bnp.open(out_file_name, "w") as f:
-        f.write(bnp.datatypes.SequenceEntry.from_entry_tuples(
-            zip(out_names, out_sequences)
-        ))
-
-    alignments = ScaffoldAlignments.from_entry_tuples(alignments)
-    alignments.to_agp(out_directory + "/scaffolds.agp")
 
 
 @dataclasses.dataclass

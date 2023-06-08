@@ -1,7 +1,9 @@
 import pandas as pd
+from bionumpy import Genome
 from numpy.testing import assert_array_equal
 
 from bnp_assembly.contig_graph import ContigPath
+from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
@@ -9,6 +11,7 @@ from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.location import LocationPair
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.plotting import px as px_func
+from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes
 from bnp_assembly.splitting import YahsSplitter
 
@@ -26,7 +29,17 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold=threshold)
 
 
-def make_scaffold(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, bin_size=5000, **distance_kwargs):
+def make_scaffold(genome: Genome, genomic_location_pair: GenomicLocationPair, *args, **kwargs) -> Scaffolds:
+    encoding = genome.get_genome_context().encoding
+    contig_dict = genome.get_genome_context().chrom_sizes
+    translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
+    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
+    numeric_locations_pair = genomic_location_pair.get_numeric_locations()
+    contig_paths = make_scaffold_numeric(numeric_contig_dict, numeric_locations_pair, *args, **kwargs)
+    scaffold = Scaffolds.from_contig_paths(contig_paths, translation_dict)
+    return scaffold
+
+def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, bin_size=5000, **distance_kwargs):
     px = px_func(name='joining')
     if distance_measure == 'window':
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)

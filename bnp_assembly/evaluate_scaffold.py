@@ -6,7 +6,7 @@ from bnp_assembly.splitting import LinearSplitter2, LinearSplitter3, YahsSplitte
 from bnp_assembly.simulation.hic import simulate_merged_contig_reads, simulate_many_contigs, SimulationParams, \
     full_simulation
 from bnp_assembly.location import LocationPair
-from .make_scaffold import make_scaffold
+from .make_scaffold import make_scaffold_numeric
 from dataclasses import dataclass
 import numpy as np
 
@@ -32,11 +32,11 @@ def run_simulated_experiment(simulation_params, rng, distance_measure='window'):
     n_nodes, n_reads = (simulation_params.n_nodes, simulation_params.n_reads)
     split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
     assert len(split_and_pairs.split.starts) == n_nodes
-    paths = make_scaffold(split_and_pairs.split.get_contig_dict(),
-                          LocationPair(split_and_pairs.location_a,
+    paths = make_scaffold_numeric(split_and_pairs.split.get_contig_dict(),
+                                  LocationPair(split_and_pairs.location_a,
                                   split_and_pairs.location_b),
-                          distance_measure=distance_measure,
-                          window_size=30)
+                                  distance_measure=distance_measure,
+                                  window_size=30)
     true_paths = split_and_pairs.split.get_paths()
     return true_paths, paths
 
