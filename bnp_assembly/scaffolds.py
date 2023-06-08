@@ -18,6 +18,9 @@ class Scaffold:
         self._path = path
         self._name = name
 
+    def __repr__(self):
+        return f'{self.name}: {self._path}'
+
     @property
     def name(self):
         return self._name
@@ -76,6 +79,9 @@ class Scaffold:
 class Scaffolds:
     def __init__(self, scaffolds: tp.List[Scaffold]):
         self._scaffolds = scaffolds
+
+    def __repr__(self):
+        return '\n'.join(repr(scaffold) for scaffold in self._scaffolds)
 
     @property
     @lru_cache(maxsize=None)
