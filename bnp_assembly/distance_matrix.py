@@ -41,14 +41,25 @@ class DirectedDistanceMatrix:
     def __getitem__(self, edge: Edge):
         return self._matrix[edge.numeric_index]
 
+    def inversion_plot(self, name):
+        n_nodes = len(self)//2
+        table = {'from_node': [], 'to_node': [], 'score': [], 'orientation': []}
+        for node_id in range(n_nodes-1):
+            node_id2  = node_id + 1
+            for dir_a in 'rl':
+                for dir_b in 'lr':
+                    edge = Edge(NodeSide(node_id, dir_a), NodeSide(node_id2, dir_b))
+                    table['from_node'].append(node_id)
+                    table['to_node'].append(node_id2)
+                    table['score'].append(self[edge])
+                    table['orientation'].append(f'{dir_a}{dir_b}')
+        self.px.line(table, x='from_node', y='score', color='orientation', title=f'Inversion plot-{name}')
+
     def plot(self, level=logging.INFO, name=''):
-        #if isinstance(level, str):
-        #    level = level_dict[level.lower()]
-        ##if level<logging.root.level:
-        #    return DummyPlot()
         n_nodes = len(self)//2
         new_matrix = np.empty((n_nodes, n_nodes))
         max_value = self.data.max()
+        matrices = {'{dira}{dirb}'}
         for node_id in range(n_nodes):
             for node_id_2 in range(n_nodes):
                 if node_id == node_id_2:
@@ -58,6 +69,7 @@ class DirectedDistanceMatrix:
                 new_matrix[node_id, node_id_2] = self[edge]
                 edge_r = Edge(NodeSide(node_id, 'l'), NodeSide(node_id_2, 'r'))
                 new_matrix[node_id_2, node_id] = self[edge_r]
+
         return self.px.imshow(new_matrix, zmax=0, title=name)
         # fig = px(level).imshow(new_matrix)
         #go = self._genome_context.global_offset
