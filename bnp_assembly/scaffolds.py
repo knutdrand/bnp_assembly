@@ -105,8 +105,8 @@ class Scaffolds:
         return cls(scaffolds)
 
     @classmethod
-    def create_name(cls, i, path):
-        return f'scaffold{i}_' + ':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
+    def create_name(cls, i, path=None):
+        return f'scaffold{i}'
 
     @classmethod
     def from_contig_paths(cls, contig_paths: tp.List[ContigPath], translation_dict: tp.Dict[int, str]):

@@ -27,6 +27,8 @@ class ScaffoldAlignments:
         with open(file_name) as f:
             for line in f:
                 line = line.strip().split()
+                if line[-1] == 'proximity_ligation':
+                    continue
                 entries.append(
                     (line[0],
                      int(line[1]) - 1,
