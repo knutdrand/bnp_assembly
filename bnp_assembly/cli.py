@@ -152,11 +152,12 @@ def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mea
 
 
 @app.command()
-def evaluate_agp(estimated_agp_path: str, true_agp_path: str):
+def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str):
     estimated_agp = ScaffoldAlignments.from_agp(estimated_agp_path)
     true_agp = ScaffoldAlignments.from_agp(true_agp_path)
     comparison = ScaffoldComparison(estimated_agp, true_agp)
-    print(f'edge_recall\t{comparison.edge_recall()}')
+    with open(out_file_name, "w") as f:
+        f.write(f'edge_recall\t{comparison.edge_recall()}\n')
 
 
 def main():
