@@ -5,7 +5,7 @@ watchdog==0.9.0
 flake8==3.7.8
 twine==1.14.0
 Sphinx
-typer~=0.9.0
+typer
 pytest~=7.3.1
 hypothesis~=6.75.3
 coverage
@@ -15,7 +15,7 @@ numpy
 bionumpy
 more-itertools
 scipy
-networkx~=3.1
+networkx
 
 plotly
 setuptools~=67.0.0
