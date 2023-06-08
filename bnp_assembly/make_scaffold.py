@@ -39,6 +39,7 @@ def make_scaffold(genome: Genome, genomic_location_pair: GenomicLocationPair, *a
     scaffold = Scaffolds.from_contig_paths(contig_paths, translation_dict)
     return scaffold
 
+
 def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, bin_size=5000, **distance_kwargs):
     px = px_func(name='joining')
     if distance_measure == 'window':
