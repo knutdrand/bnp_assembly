@@ -8,6 +8,7 @@ from pathlib import PurePath
 
 import re
 
+import numpy as np
 import pandas as pd
 import plotly.express as _px
 
@@ -77,6 +78,11 @@ class FolderSaver:
         self._folder_name = folder_name
         self._file_names =[]
 
+    def array(self, arr, title):
+        filename = f'{self._folder_name}/{title}.npy'
+        np.save(filename, arr)
+        return arr
+
     def table(self, df, title):
         filename = f'{self._folder_name}/{title}.csv'
         pd.DataFrame(df).to_csv(filename)
@@ -133,11 +139,15 @@ html_string = '''
     </head>
     <body>
         {{body}}
+        <iframe width="1000" height="550" name="plot" frameborder="0" seamless="seamless" scrolling="no" \
+src="{{plot_url}}"></iframe>
+
     </body>
 </html>'''
 
-image_template = '''<iframe width="1000" height="550" frameborder="0" seamless="seamless" scrolling="no" \
-src="{{plot_url}}"></iframe>'''
+#image_template = '''<iframe width="1000" height="550" name="plot" frameborder="0" seamless="seamless" scrolling="no" \
+#src="{{plot_url}}"></iframe>'''
+image_template = '''<a href="{{plot_url}}" target="plot">{{plot_url}}</a>'''
 # .embed?width=800&height=550
 body_template = '''
         <h1>{{name}}</h1>

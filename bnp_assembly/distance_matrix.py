@@ -53,7 +53,7 @@ class DirectedDistanceMatrix:
                     table['to_node'].append(node_id2)
                     table['score'].append(self[edge])
                     table['orientation'].append(f'{dir_a}{dir_b}')
-        self.px.line(table, x='from_node', y='score', color='orientation', title=f'Inversion plot-{name}')
+        self.px.line(table, x='from_node', y='score', line_shape='hv', color='orientation', title=f'Inversion plot-{name}')
 
     def plot(self, level=logging.INFO, name=''):
         n_nodes = len(self)//2
