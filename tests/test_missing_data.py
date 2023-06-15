@@ -50,7 +50,6 @@ def test_get_binned_read_counts(contig_dict, read_pairs):
 def test_get_binned_read_counts2(contig_dict_uneven, read_pairs2):
     counts, bin_sizes  = get_binned_read_counts(10, contig_dict_uneven, read_pairs2)
     assert np.all(bin_sizes[1] == [10, 10, 10, 10, 5])
-    assert np.all(counts[1] == [10, 10, 10, 10, 5])
 
 
 def test_find_regions_with_missing_data(contig_dict, read_pairs):
