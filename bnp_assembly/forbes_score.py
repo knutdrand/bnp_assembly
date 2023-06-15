@@ -12,6 +12,7 @@ from .distance_distribution import distance_dist
 from collections import Counter, defaultdict
 from scipy.stats import poisson
 
+from .missing_data import find_missing_data_and_adjust
 from .orientation_distribution import OrientationDistribution
 from .plotting import px
 import typing as tp
@@ -346,6 +347,12 @@ class Forbes2:
             return 1
         return self._cumulative_distance_distribution[distance]
 
+
+class ForbesWithMissingData(Forbes2):
+    def calculate_log_prob_weighted_counts(self):
+        counts = super().calculate_log_prob_weighted_counts()
+        adjusted_counts = find_missing_data_and_adjust(counts, self._contig_dict, self._read_pairs, self._cumulative_distance_distribution, 1000)
+        return adjusted_counts
 
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair,
                                side_weight_func=_naive_side_weight) -> tp.Tuple[Counter, Counter]:

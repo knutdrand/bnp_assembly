@@ -5,7 +5,8 @@ from numpy.testing import assert_array_equal
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
-from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix, Forbes2
+from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix, Forbes2, \
+    ForbesWithMissingData
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.location import LocationPair
@@ -61,6 +62,9 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
     elif distance_measure == 'forbes2':
         original_distance_matrix = Forbes2(contig_dict, read_pairs).get_distance_matrix()
         original_distance_matrix.plot(name='forbes2')
+    elif distance_measure == 'forbes3':
+        original_distance_matrix = ForbesWithMissingData(contig_dict, read_pairs).get_distance_matrix()
+        original_distance_matrix.plot(name='forbes3')
     original_distance_matrix.inversion_plot('forbes2')
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
