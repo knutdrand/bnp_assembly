@@ -60,12 +60,14 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
         original_distance_matrix.plot(name='forbes')
     elif distance_measure == 'forbes2':
         original_distance_matrix = Forbes2(contig_dict, read_pairs).get_distance_matrix()
+        original_distance_matrix.plot(name='forbes2')
     original_distance_matrix.inversion_plot('forbes2')
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
     mapping = None
     for _ in range(len(distance_matrix)//2):
         paths = PathFinder(distance_matrix).run()
+        print([path.directed_nodes for path in paths])
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
             path = ContigPath.from_node_sides(mapping.popitem()[1])
