@@ -146,7 +146,8 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
 
 @app.command()
 def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
-                 out_base_name: str, read_name_prefix: str):
+                 out_base_name: str, read_name_prefix: str, seed: int = 1):
+    np.random.seed(seed)
     hic_read_simulation.simulate(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
                                  read_name_prefix)
 
