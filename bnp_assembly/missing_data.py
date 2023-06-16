@@ -73,8 +73,8 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
             start, end = region
             midpoint = (end - start) // 2 + start
 
-            p_left = 0.5 * (1 - cumulative_length_distribution[midpoint])
-            p_right = 0.5 * (1 - cumulative_length_distribution[contig_size - midpoint + 1])
+            p_left = 0.5 * (1 - cumulative_length_distribution[min(midpoint, len(cumulative_length_distribution) - 1)])
+            p_right = 0.5 * (1 - cumulative_length_distribution[max(0, contig_size - midpoint + 1)])
 
             expected_reads_in_region = reads_per_bp * (end - start)
 
