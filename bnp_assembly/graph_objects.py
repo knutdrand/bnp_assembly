@@ -64,8 +64,6 @@ class Edge:
 
     @classmethod
     def from_string(cls, s):
-        print(s.strip()[2:-1])
         t = s.strip()[2:-1].split('--')
-        print(t)
         return cls(*(NodeSide.from_string(v) for v in t))
 

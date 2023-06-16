@@ -2,6 +2,8 @@ from functools import lru_cache
 
 import typing as tp
 
+import numpy as np
+
 from ..agp import ScaffoldAlignments
 from ..scaffolds import Scaffolds
 
@@ -18,9 +20,16 @@ class ScaffoldComparison:
     def _estimated_edge_dict(self) -> tp.Dict[str, tp.List[int]]:
         pass
 
+    def edge_precision(self) -> float:
+        return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._estimated_scaffold.edges)
+
     def edge_recall(self) -> float:
         print(self._true_scaffold.edges-self._estimated_scaffold.edges)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
 
     def missing_edges(self) -> tp.Set[str]:
         return self._true_scaffold.edges - self._estimated_scaffold.edges
+
+    def false_edges(self):
+        return self._estimated_scaffold.edges - self._true_scaffold.edges
+

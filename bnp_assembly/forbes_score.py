@@ -131,8 +131,11 @@ class Forbes2:
     def get_distance_matrix(self, method='logprob'):
         if method == 'logprob':
             pair_counts = self.calculate_log_prob_weighted_counts()
-            node_side_counts = {node_side: 1 for node_side in self._expected_node_side_counts}
-            return get_forbes_matrix(pair_counts, node_side_counts)
+            distance_matrix = DirectedDistanceMatrix(len(self._contig_dict))
+            for edge, value in pair_counts.items():
+                distance_matrix[edge] = -np.log(value)
+                distance_matrix[edge.reverse()] = -np.log(value)
+            return distance_matrix
         else:
             pair_counts = self.calculate_observed_pair_count()
         return get_forbes_matrix(pair_counts, self._expected_node_side_counts)

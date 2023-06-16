@@ -22,7 +22,7 @@ class DirectedDistanceMatrix:
     def from_edge_dict(cls, n_nodes, d):
         mat = cls(n_nodes)
         for edge, value in d.items():
-            mat[edge] =value
+            mat[edge] = value
         return mat
 
     @property

@@ -1,10 +1,14 @@
+import numpy as np
 import pandas as pd
 from bionumpy import Genome
 from numpy.testing import assert_array_equal
+from scipy.stats import poisson
 
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.datatypes import GenomicLocationPair
+from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
+from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix, Forbes2, \
     ForbesWithMissingData
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
@@ -14,15 +18,38 @@ from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.plotting import px as px_func
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes
-from bnp_assembly.splitting import YahsSplitter
+from bnp_assembly.splitting import YahsSplitter, split_on_scores
 
 PathFinder = nxPathFinder
 
 
 def _split_contig(distance_matrix, path, T=-0.1):
-    px_func('debug').histogram([distance_matrix[edge] for edge in path.edges if distance_matrix[edge]>-0.6], nbins=15).show()
+    px_func('debug').histogram([distance_matrix[edge] for edge in path.edges if distance_matrix[edge] > -0.6],
+                               nbins=15).show()
     split_edges = (edge for edge in path.edges if distance_matrix[edge] >= T)
     return path.split_on_edges(split_edges)
+
+
+def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs):
+    expected_edge_counts = ExpectedEdgeCounts(contig_dict, cumulative_distribution)
+    p_value_func = lambda observed, expected: poisson.cdf(observed, expected)
+    observed = {edge: np.exp(-distance_matrix[edge]) for edge in contig_path.edges}
+    expected = {edge: expected_edge_counts.get_expected_edge_count(edge) for edge in contig_path.edges}
+
+    # ratio = sum(observed.values())/sum(expected.values())
+    expected= {edge: expected[edge]*n_read_pairs for edge in contig_path.edges}
+    table = [(str(edge), contig_dict[edge.from_node_side.node_id], contig_dict[edge.to_node_side.node_id],
+              observed[edge], expected[edge])
+             for edge in contig_path.edges]
+    frame = pd.DataFrame(table, columns=['name', 'length_a', 'length_b', 'observed', 'expected'])
+    px_func(name='splitting').scatter(data_frame=frame, x='length_a', y='length_b', color='observed', size='expected',
+                                      title='sizedep')
+    px_func(name='splitting').scatter(data_frame=frame, x='observed', y='expected', title='observed vs expected')
+
+    edge_scores = {
+        edge: p_value_func(observed[edge], expected[edge])
+        for edge in contig_path.edges}
+    return split_on_scores(contig_path, edge_scores, threshold, keep_over=True)
 
 
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
@@ -41,7 +68,8 @@ def make_scaffold(genome: Genome, genomic_location_pair: GenomicLocationPair, *a
     return scaffold
 
 
-def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0, bin_size=5000, **distance_kwargs):
+def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0,
+                          bin_size=5000, splitting_method='poisson', **distance_kwargs):
     px = px_func(name='joining')
     if distance_measure == 'window':
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
@@ -56,7 +84,8 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
             d['node_side'].append(str(node_side))
         pd.DataFrame(d).to_csv('node_side_counts.csv')
         DirectedDistanceMatrix.from_edge_dict(len(contig_dict), pair_counts).plot(name='pair counts')
-        px.bar(x=[str(ns) for ns in node_side_counts.keys()], y=list(node_side_counts.values()), title='node side counts')
+        px.bar(x=[str(ns) for ns in node_side_counts.keys()], y=list(node_side_counts.values()),
+               title='node side counts')
         original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
         original_distance_matrix.plot(name='forbes')
     elif distance_measure == 'forbes2':
@@ -69,12 +98,19 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
     distance_matrix = original_distance_matrix
     assert_array_equal(distance_matrix.data.T, distance_matrix.data)
     mapping = None
-    for _ in range(len(distance_matrix)//2):
+    for _ in range(len(distance_matrix) // 2):
         paths = PathFinder(distance_matrix).run()
         print([path.directed_nodes for path in paths])
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)
         if len(mapping) == 1:
             path = ContigPath.from_node_sides(mapping.popitem()[1])
-            paths = split_contig(path, contig_dict, -threshold, bin_size, read_pairs)
-            return paths
-    assert len(mapping) == 0, mapping
+            break
+    if splitting_method == 'poisson':
+        cumulative_distribution = CumulativeDistribution(
+            distance_dist(read_pairs, contig_dict),
+            p_noise=0.01,
+            genome_size=sum(contig_dict.values()))
+        paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix, len(read_pairs.location_b))
+    else:
+        paths = split_contig(path, contig_dict, -threshold, bin_size, read_pairs)
+    return paths

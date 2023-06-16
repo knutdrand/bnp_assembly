@@ -10,11 +10,12 @@ from bnp_assembly.make_scaffold import make_scaffold
 @pytest.mark.parametrize("folder_name", ["../example_data/simulated_perfect_join"])
 def test_perfect_join(folder_name):
     plotting.register(joining=plotting.ResultFolder('./tmp/'))
+    plotting.register(splitting=plotting.ResultFolder('./tmp/'))
     genome_file_name = folder_name + "/contigs.chrom.sizes"
     genome = bnp.Genome.from_file(genome_file_name)
     bam_file_name = folder_name + "/reads.bam"
     reads = get_genomic_read_pairs(genome, bam_file_name)
-    scaffold = make_scaffold(genome, reads, distance_measure='forbes3', threshold=1000, window_size=2500)
+    scaffold = make_scaffold(genome, reads, distance_measure='forbes3', threshold=0.001, window_size=2500)
     alignments = scaffold.to_scaffold_alignments(genome, 200)
     true_alignments = ScaffoldAlignments.from_agp(folder_name + "/truth.agp")
     for key, group in bnp.groupby(alignments, 'scaffold_id'):
@@ -28,3 +29,4 @@ def test_perfect_join(folder_name):
     #@print(alignments)
     #@print(true_alignments)
     assert comparison.edge_recall() == 1
+    assert comparison.edge_precision() == 1, comparison.false_edges()

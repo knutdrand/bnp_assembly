@@ -14,6 +14,15 @@ from .distance_distribution import calculate_distance_distritbution, distance_di
 from .scaffold_splitting.binned_bayes import Yahs
 
 
+def split_on_scores(contig_path, edge_scores, threshold, keep_over=True):
+    px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores')
+    if keep_over:
+        edges = [edge for edge, score in edge_scores.items() if score < threshold]
+    else:
+        edges = [edge for edge, score in edge_scores.items() if score >= threshold]
+    return contig_path.split_on_edges(edges)
+
+
 class ScaffoldSplitter:
     def __init__(self, contig_dict, bin_size):
         self._contig_dict = contig_dict
