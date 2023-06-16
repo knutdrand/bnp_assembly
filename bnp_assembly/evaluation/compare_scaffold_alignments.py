@@ -22,3 +22,5 @@ class ScaffoldComparison:
         print(self._true_scaffold.edges-self._estimated_scaffold.edges)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
 
+    def missing_edges(self) -> tp.Set[str]:
+        return self._true_scaffold.edges - self._estimated_scaffold.edges
