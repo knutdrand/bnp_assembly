@@ -21,3 +21,4 @@ class ScaffoldComparison:
     def edge_recall(self) -> float:
         print(self._true_scaffold.edges-self._estimated_scaffold.edges)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
+
