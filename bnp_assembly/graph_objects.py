@@ -29,6 +29,13 @@ class NodeSide:
     def __repr__(self):
         return f'N({self.node_id}, {self.side})'
 
+    @classmethod
+    def from_string(cls, s):
+        print(s.strip()[2:-1])
+        node_id, side = s.strip()[2:-1].split(', ')
+        return cls(int(node_id), side)
+
+
 @dataclass
 class Edge:
     from_node_side: NodeSide
@@ -53,4 +60,12 @@ class Edge:
                               self.from_node_side)
 
     def __repr__(self):
-        return f'E({self.from_node_side}, {self.to_node_side})'
+        return f'E({self.from_node_side}--{self.to_node_side})'
+
+    @classmethod
+    def from_string(cls, s):
+        print(s.strip()[2:-1])
+        t = s.strip()[2:-1].split('--')
+        print(t)
+        return cls(*(NodeSide.from_string(v) for v in t))
+

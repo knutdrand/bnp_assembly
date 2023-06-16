@@ -10,6 +10,7 @@ from .plotting import px
 
 logger = logging.getLogger(__name__)
 
+
 def find_regions_with_missing_data(contig_dict: Dict[int, int], read_pairs: LocationPair, bin_size=100) -> Dict[
     str, Tuple]:
     """
@@ -23,11 +24,13 @@ def find_regions_with_missing_data(contig_dict: Dict[int, int], read_pairs: Loca
                               in counts}
 
     positions_with_missing_data = {contig_id: [] for contig_id in counts}
-    px(name='joining').histogram(np.concatenate([counts[contig_id] / bin_sizes[contig_id] for contig_id in counts]), title='missing')
+    px(name='joining').histogram(np.concatenate([counts[contig_id] / bin_sizes[contig_id] for contig_id in counts]),
+                                 title='missing')
     for contig, contig_size in bins_with_missing_data.items():
         for bin in bins_with_missing_data[contig]:
             positions_with_missing_data[contig].append((bin * bin_size, (bin + 1) * bin_size))
-    logger.info('Found %d regions with missing data', sum(len(positions) for positions in positions_with_missing_data.values()))
+    logger.info('Found %d regions with missing data',
+                sum(len(positions) for positions in positions_with_missing_data.values()))
     return positions_with_missing_data, average_bin_count
 
 
@@ -45,10 +48,12 @@ def get_binned_read_counts(bin_size, contig_dict, read_pairs):
     return counts, actual_bin_sizes
 
 
-def find_missing_data_and_adjust(existing_counts: Counter, contig_dict: Dict[str, int], read_pairs: LocationPair, cumulative_length_distribution,
+def find_missing_data_and_adjust(existing_counts: Counter, contig_dict: Dict[str, int], read_pairs: LocationPair,
+                                 cumulative_length_distribution,
                                  bin_size):
     regions, reads_per_bp = find_regions_with_missing_data(contig_dict, read_pairs, bin_size)
-    return adjust_counts_by_missing_data(existing_counts, contig_dict, regions, cumulative_length_distribution, reads_per_bp)
+    return adjust_counts_by_missing_data(existing_counts, contig_dict, regions, cumulative_length_distribution,
+                                         reads_per_bp)
 
 
 def adjust_counts_by_missing_data(existing_counts: Counter,
@@ -77,7 +82,8 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
                 expected_reads = prob * expected_reads_in_region
                 edges = [Edge(NodeSide(contig_id, dir), other_node_side) for other_node_side in other_node_sides]
                 total_counts = sum([existing_counts[edge] for edge in edges])
-                edge_proportions = {edge: existing_counts[edge] / total_counts if total_counts>0 else 0 for edge in edges}
+                edge_proportions = {edge: existing_counts[edge] / total_counts if total_counts > 0 else 0 for edge in
+                                    edges}
                 for edge in edges:
                     missing_counts[edge] = edge_proportions[edge] * expected_reads
     for edge in existing_counts:
