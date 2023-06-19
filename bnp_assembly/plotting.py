@@ -98,7 +98,6 @@ class FolderSaver:
             fig = func(*args, **kwargs)
             filename=f'{self._folder_name}/{func.__name__}{title}.html'
             fig.write_html(filename)
-            print(filename)
             self._file_names.append(f'./{func.__name__}{title}.html')
             self.write_report()
             return fig
@@ -114,7 +113,6 @@ class FolderSaver:
 
     def generate_html(self):
         html = html_string
-        print(self._file_names)
         images = [image_template.replace('{{plot_url}}', plot_url) for plot_url in self._file_names]
         body = body_template.replace('{{name}}', 'Plots').replace('{{images}}', '\n'.join(images))
         html = html.replace('{{body}}', body)

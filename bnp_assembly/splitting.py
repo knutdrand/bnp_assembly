@@ -12,7 +12,7 @@ from .plotting import px
 from .distance_distribution import calculate_distance_distritbution, distance_dist
 # import plotly.express as _px
 from .scaffold_splitting.binned_bayes import Yahs
-
+import logging
 
 def split_on_scores(contig_path, edge_scores, threshold, keep_over=True):
     px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores')
@@ -275,6 +275,7 @@ class LinearSplitter3(LinearSplitter2):
         _px.scatter(x=expected, y=edge_values, labels={'x': 'expected', 'y': 'observed'},
                     title='expected vs observed')
         _px.bar(y=p_values, x=[str(e) for e in self._contig_path.edges])
+        logging.info("Splitting with p-value threshold %f", threshold)
         split_edges = [edge for p_value, edge in zip(p_values, self._contig_path.edges) if p_value > threshold]
         return self._contig_path.split_on_edges(split_edges)
 

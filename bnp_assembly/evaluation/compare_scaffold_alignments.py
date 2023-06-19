@@ -21,10 +21,12 @@ class ScaffoldComparison:
         pass
 
     def edge_precision(self) -> float:
+        if len(self._estimated_scaffold.edges) == 0:
+            return 0
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._estimated_scaffold.edges)
 
     def edge_recall(self) -> float:
-        print(self._true_scaffold.edges-self._estimated_scaffold.edges)
+        print("Edges not found: ", self._true_scaffold.edges-self._estimated_scaffold.edges)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
 
     def missing_edges(self) -> tp.Set[str]:
