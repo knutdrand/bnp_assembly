@@ -15,6 +15,7 @@ from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.location import LocationPair
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
+from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes
@@ -33,11 +34,23 @@ def _split_contig(distance_matrix, path, T=-0.1):
 def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs):
     expected_edge_counts = ExpectedEdgeCounts(contig_dict, cumulative_distribution)
     p_value_func = lambda observed, expected: poisson.cdf(observed, expected)
+    log_prob_func = lambda observed, expected: poisson.logpmf(observed.astype(int), expected)
+    noise_distribution = NoiseDistribution(contig_dict, distance_matrix, contig_path)
+    px_func(name='splitting').histogram(noise_distribution.get_non_neighbour_scores(), nbins=100, title='non_neighbours')
+    edge_scores = [np.exp(-distance_matrix[edge])/noise_distribution.size_factor(edge) for edge in contig_path.edges]
+    non_edge_probabilities = np.array([noise_distribution.edge_probability(edge) for edge in contig_path.edges])
+    px_func(name='splitting').bar(edge_scores, title='noise_scores')
+    px_func(name='splitting').bar(noise_distribution.cdf(edge_scores), title='noise_cumulative')
+
     observed = {edge: np.exp(-distance_matrix[edge]) for edge in contig_path.edges}
     expected = {edge: expected_edge_counts.get_expected_edge_count(edge) for edge in contig_path.edges}
 
+
     # ratio = sum(observed.values())/sum(expected.values())
     expected= {edge: expected[edge]*n_read_pairs for edge in contig_path.edges}
+    px_func(name='splitting').scatter(y=list(expected.values()), x=[noise_distribution.rate(edge) for edge in contig_path.edges], title='rates')
+    edge_probabililities = np.array([log_prob_func(observed[edge], expected[edge]) for edge in contig_path.edges])
+    assert np.all(~np.isinf(edge_probabililities)), edge_probabililities
     table = [(str(edge), contig_dict[edge.from_node_side.node_id], contig_dict[edge.to_node_side.node_id],
               observed[edge], expected[edge])
              for edge in contig_path.edges]
@@ -49,6 +62,16 @@ def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, thre
     edge_scores = {
         edge: p_value_func(observed[edge], expected[edge])
         for edge in contig_path.edges}
+
+    a = np.array(list(edge_scores.values()))
+    ratio = np.exp(edge_probabililities- np.logaddexp(non_edge_probabilities,
+                                                      edge_probabililities))
+    edge_scores = dict(zip(contig_path.edges, ratio))
+    px_func(name='splitting').bar(y=ratio, x=[str(e) for e in contig_path.edges], title='posterior')
+    px_func(name='splitting').bar(y=np.exp(edge_probabililities), x=[str(e) for e in contig_path.edges],
+                                  title='edge-likelihood')
+    px_func(name='splitting').bar(y=np.exp(non_edge_probabilities), x=[str(e) for e in contig_path.edges],
+                                  title='non-edge-likelihood')
     return split_on_scores(contig_path, edge_scores, threshold, keep_over=True)
 
 
