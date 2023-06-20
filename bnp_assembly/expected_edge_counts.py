@@ -40,6 +40,7 @@ class PairWithinContigDistribution:
 
 
 class ExpectedEdgeCounts:
+    distance_cutoff = 50000
     def __init__(self, contig_dict, cumulative_distribution):
         self._contig_dict = contig_dict
         self._cumulative_distribution = cumulative_distribution
@@ -57,11 +58,14 @@ class ExpectedEdgeCounts:
         assert np.all(probs) <= 1
         return np.insert(probs, 0, 0)
 
+    def get_truncated_node_size(self, node_id):
+        return min(self._contig_dict[node_id], self.distance_cutoff)
+
     def get_expected_edge_count(self, edge):
         probs = self._prob_pair_within_region_size
-        node_sizes = [self._contig_dict[node_side.node_id] for node_side in (edge.from_node_side, edge.to_node_side)]
+        node_sizes = [self.get_truncated_node_size(node_side.node_id) for node_side in (edge.from_node_side, edge.to_node_side)]
         expected_on_both = probs[sum(node_sizes)]
         assert expected_on_both > 0, (expected_on_both, sum(node_sizes))
         expected_within_each = sum(probs[node_size] for node_size in node_sizes)
         assert expected_within_each < expected_on_both, (expected_on_both, expected_within_each)
-        return (expected_on_both - expected_within_each)/ 2
+        return (expected_on_both - expected_within_each) / 2

@@ -9,6 +9,7 @@ from bnp_assembly.plotting import px
 
 
 class NoiseDistribution:
+    distance_cutoff = 50000
     def __init__(self, contig_dict, distance_matrix, contig_path):
         self._contig_dict = contig_dict
         self._distance_matrix = distance_matrix
@@ -59,5 +60,8 @@ class NoiseDistribution:
         return np.sort(np.array(scores) / np.array(size_factors))
         # return np.sort([np.exp(-self._distance_matrix[edge]) / self.size_factor(edge) for edge in self.get_non_neighbour_edges()])
 
+    def truncated_node_size(self, node_id):
+        return min(self._contig_dict[node_id], self.distance_cutoff*2)
+
     def size_factor(self, edge):
-        return self._contig_dict[edge.from_node_side.node_id] * self._contig_dict[edge.to_node_side.node_id]
+        return self.truncated_node_size(edge.from_node_side.node_id) * self.truncated_node_size(edge.to_node_side.node_id)

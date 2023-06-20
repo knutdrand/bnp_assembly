@@ -189,6 +189,7 @@ class Forbes2:
         m, n = self._contig_dict[i], self._contig_dict[i + 1]
 
     def calculate_log_prob_weighted_counts(self):
+        cutoff_distance = 50000
         node_pair_counts = Counter()
         edge_log_probs = Counter()
         positions = defaultdict(list)
@@ -200,6 +201,10 @@ class Forbes2:
                                      node_id_a, node_id_b in product(self._contig_dict, repeat=2)}
         counts = Counter()
         for a, b in zip(self._read_pairs.location_a, self._read_pairs.location_b):
+            if a.offset > cutoff_distance and a.offset<self._contig_dict[int(a.contig_id)]-cutoff_distance:
+                continue
+            if b.offset > cutoff_distance and b.offset<self._contig_dict[int(b.contig_id)]-cutoff_distance:
+                continue
             pair = (int(a.contig_id), int(b.contig_id))
             orientation_distribution = orientation_distributions[pair]
             probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
