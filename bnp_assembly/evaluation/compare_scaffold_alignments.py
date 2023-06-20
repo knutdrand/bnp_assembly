@@ -6,7 +6,8 @@ import numpy as np
 
 from ..agp import ScaffoldAlignments
 from ..scaffolds import Scaffolds
-
+import logging
+logger = logging.getLogger(__name__)
 
 class ScaffoldComparison:
     def __init__(self, estimated_alignments: ScaffoldAlignments, true_alignments: ScaffoldAlignments):
@@ -23,10 +24,11 @@ class ScaffoldComparison:
     def edge_precision(self) -> float:
         if len(self._estimated_scaffold.edges) == 0:
             return 0
+        logger.info(f'False edges: {self.false_edges()}')
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._estimated_scaffold.edges)
 
     def edge_recall(self) -> float:
-        print("Edges not found: ", self._true_scaffold.edges-self._estimated_scaffold.edges)
+        logger.info(f'Edges not found: {self.missing_edges()}')
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
 
     def missing_edges(self) -> tp.Set[str]:

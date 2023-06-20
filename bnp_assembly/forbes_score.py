@@ -189,7 +189,7 @@ class Forbes2:
         m, n = self._contig_dict[i], self._contig_dict[i + 1]
 
     def calculate_log_prob_weighted_counts(self):
-        cutoff_distance = 50000
+        cutoff_distance = 200000
         node_pair_counts = Counter()
         edge_log_probs = Counter()
         positions = defaultdict(list)

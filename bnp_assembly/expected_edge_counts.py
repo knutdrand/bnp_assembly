@@ -40,7 +40,7 @@ class PairWithinContigDistribution:
 
 
 class ExpectedEdgeCounts:
-    distance_cutoff = 50000
+    distance_cutoff = 200000
     def __init__(self, contig_dict, cumulative_distribution):
         self._contig_dict = contig_dict
         self._cumulative_distribution = cumulative_distribution

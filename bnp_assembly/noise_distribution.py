@@ -9,7 +9,7 @@ from bnp_assembly.plotting import px
 
 
 class NoiseDistribution:
-    distance_cutoff = 50000
+    distance_cutoff = 200000
     def __init__(self, contig_dict, distance_matrix, contig_path):
         self._contig_dict = contig_dict
         self._distance_matrix = distance_matrix
@@ -30,7 +30,7 @@ class NoiseDistribution:
 
     @lru_cache()
     def _mean_rate(self):
-        return np.mean(self.get_non_neighbour_scores())
+        return np.median(self.get_non_neighbour_scores())
 
     def log_probability(self, count):
         return self._dist(count)
