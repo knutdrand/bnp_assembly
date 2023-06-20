@@ -54,7 +54,7 @@ def test_get_binned_read_counts2(contig_dict_uneven, read_pairs2):
 
 def test_find_regions_with_missing_data(contig_dict, read_pairs):
     bin_size = 10
-    regions = find_regions_with_missing_data(contig_dict, read_pairs, bin_size)
+    regions, avg_coverage = find_regions_with_missing_data(contig_dict, read_pairs, bin_size)
 
     correct = {0: [(10, 20)],
                1: [(10, 20), (20, 30)]}
@@ -64,10 +64,12 @@ def test_find_regions_with_missing_data(contig_dict, read_pairs):
 
 def test_find_regions_with_missing_data2(contig_dict_uneven, read_pairs2):
     bin_size = 10
-    regions = find_regions_with_missing_data(contig_dict_uneven, read_pairs2, bin_size)
+    regions, average_coverage = find_regions_with_missing_data(contig_dict_uneven, read_pairs2, bin_size)
 
     correct = {
         0: [(10, 20)],
         1: [(40, 45)]
     }
+
+    assert regions == correct
 

@@ -160,6 +160,7 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str
     missing_edges = comparison.missing_edges()
     with open(out_file_name, "w") as f:
         f.write(f'edge_recall\t{comparison.edge_recall()}\n')
+        f.write(f'edge_precision\t{comparison.edge_precision()}\n')
     with open(out_file_name+".missing_edges", "w") as f:
         f.write('\n'.join([str(e) for e in missing_edges]))
 

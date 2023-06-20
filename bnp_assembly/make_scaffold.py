@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import pandas as pd
 from bionumpy import Genome
@@ -32,6 +34,7 @@ def _split_contig(distance_matrix, path, T=-0.1):
 
 
 def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs):
+    logging.info(f"Splitting with threshold {threshold}")
     expected_edge_counts = ExpectedEdgeCounts(contig_dict, cumulative_distribution)
     p_value_func = lambda observed, expected: poisson.cdf(observed, expected)
     log_prob_func = lambda observed, expected: poisson.logpmf(observed.astype(int), expected)
@@ -97,6 +100,7 @@ def make_scaffold(genome: Genome, genomic_location_pair: GenomicLocationPair, *a
 def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0,
                           bin_size=5000, splitting_method='poisson', **distance_kwargs):
     px = px_func(name='joining')
+    logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")
     if distance_measure == 'window':
         original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
         split_matrix = original_distance_matrix
@@ -134,8 +138,9 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
     if splitting_method == 'poisson':
         cumulative_distribution = CumulativeDistribution(
             distance_dist(read_pairs, contig_dict),
-            p_noise=0.01,
+            p_noise=0.7,
             genome_size=sum(contig_dict.values()))
+        logging.info("Paths before splitting: %s" % paths)
         paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix, len(read_pairs.location_b))
     else:
         paths = split_contig(path, contig_dict, -threshold, bin_size, read_pairs)
