@@ -220,10 +220,10 @@ class Forbes2:
                 positions[pair].append((a.offset, b.offset))
                 scores[pair].append(probability_dict[('r', 'l')])
             else:
-
                 positions[pair[::-1]].append((b.offset, a.offset))
                 scores[pair[::-1]].append(probability_dict[('l', 'r')])
-
+        self.positions = positions
+        self.scores = scores
         self.plot_scores(positions, scores)
         table = pd.DataFrame([{'nodeid': node_id,
                                'p': counts[Edge(NodeSide(node_id, dir_a), NodeSide(node_id + 1, dir_b))],
@@ -271,14 +271,20 @@ class Forbes2:
                 scores[(contig_id, a_contig_id)].append(t[Edge(NodeSide(a_contig_id, 'l'), NodeSide(contig_id, 'r'))])
            '''
 
-    def plot_scores(self, positions, scores):
-        for i in range(len(self._contig_dict) - 1):
-            p = positions[(i, i + 1)]
-            s = scores[(i, i + 1)]
+    def plot_scores(self, positions, scores, edges=None):
+        if edges is None:
+            pairs = [(i, i + 1) for i in range(len(self._contig_dict) - 1)]
+        else:
+            pairs = [(edge.from_node_side.node_id, edge.to_node_side.node_id) for edge in edges]
+        for i, j in pairs:
+            i, j = min(i, j), max(i, j)
+            p = positions[(i, j)]
+            s = scores[(i, j)]
+            print(i, j, len(p))
             if len(p):
                 x, y = zip(*p)
                 x = self._contig_dict[i] - np.array(x)
-                px(name='joining').scatter(x=x, y=y, title=f'{i}-{i + 1}', color=s)
+                px(name='joining').scatter(x=x, y=y, title=f'{i}to{j}', color=s)
 
         '''
         weights = {}

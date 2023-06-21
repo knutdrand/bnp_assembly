@@ -126,7 +126,8 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
         original_distance_matrix = Forbes2(contig_dict, read_pairs).get_distance_matrix()
         original_distance_matrix.plot(name='forbes2')
     elif distance_measure == 'forbes3':
-        original_distance_matrix = ForbesWithMissingData(contig_dict, read_pairs).get_distance_matrix()
+        forbes_obj = ForbesWithMissingData(contig_dict, read_pairs)
+        original_distance_matrix = forbes_obj.get_distance_matrix()
         original_distance_matrix.plot(name='forbes3')
     original_distance_matrix.inversion_plot('forbes2')
     distance_matrix = original_distance_matrix
@@ -145,6 +146,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
             p_noise=0.4,
             genome_size=sum(contig_dict.values()))
         logging.info("Paths before splitting: %s" % paths)
+        forbes_obj.plot_scores(forbes_obj.positions, forbes_obj.scores,edges=path.edges)
         paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix, len(read_pairs.location_b))
     else:
         paths = split_contig(path, contig_dict, -threshold, bin_size, read_pairs)

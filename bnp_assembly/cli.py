@@ -39,7 +39,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     genome = bnp.Genome.from_file(contig_file_name)
     reads = get_genomic_read_pairs(genome, read_filename)
     scaffold = make_scaffold(genome, reads, window_size=2500, distance_measure='forbes3', threshold=threshold)
-    alignments = scaffold.to_scaffold_alignments(genome, 200)
+    alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_directory + "/scaffolds.agp")
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
     with bnp.open(out_file_name, "w") as f:
