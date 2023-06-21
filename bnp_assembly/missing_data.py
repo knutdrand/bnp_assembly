@@ -1,3 +1,4 @@
+from .distance_distribution import DISTANCE_CUTOFF
 from .graph_objects import NodeSide, Edge
 from .location import LocationPair
 from typing import Dict, Tuple
@@ -64,7 +65,7 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
     """
     Adjusts the counts in existing_counts by estimating counts from missing data
     """
-    distance_cutoff = 50000
+    distance_cutoff = DISTANCE_CUTOFF
 
     adjusted_counts = Counter()
     missing_counts = Counter()

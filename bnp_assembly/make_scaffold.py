@@ -62,23 +62,27 @@ def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, thre
               observed[edge], expected[edge])
              for edge in contig_path.edges]
     frame = pd.DataFrame(table, columns=['name', 'length_a', 'length_b', 'observed', 'expected'])
+    frame['ratio'] = frame['observed'] / frame['expected']
     px_func(name='splitting').scatter(data_frame=frame, x='length_a', y='length_b', color='observed', size='expected',
                                       title='sizedep')
     px_func(name='splitting').scatter(data_frame=frame, x='observed', y='expected', title='observed vs expected')
-
+    px_func(name='splitting').scatter(data_frame=frame, x='expected', y='ratio', title='ratio vs expected')
+    ratio_func = lambda observed, expected: observed/expected*1.5
     edge_scores = {
         edge: p_value_func(observed[edge], expected[edge])
         for edge in contig_path.edges}
 
     a = np.array(list(edge_scores.values()))
     ratio = np.exp(edge_probabililities - np.logaddexp(non_edge_probabilities, edge_probabililities))
+
     edge_scores = dict(zip(contig_path.edges, ratio))
+    ratio_scores = {edge: ratio_func(observed[edge], expected[edge]) for edge in contig_path.edges}
     px_func(name='splitting').bar(y=ratio, x=[str(e) for e in contig_path.edges], title='posterior')
     px_func(name='splitting').bar(y=np.exp(edge_probabililities), x=[str(e) for e in contig_path.edges],
                                   title='edge-likelihood')
     px_func(name='splitting').bar(y=np.exp(non_edge_probabilities), x=[str(e) for e in contig_path.edges],
                                   title='non-edge-likelihood')
-    return split_on_scores(contig_path, edge_scores, threshold, keep_over=True)
+    return split_on_scores(contig_path, ratio_scores, threshold, keep_over=True)
 
 
 def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
@@ -138,7 +142,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
     if splitting_method == 'poisson':
         cumulative_distribution = CumulativeDistribution(
             distance_dist(read_pairs, contig_dict),
-            p_noise=0.7,
+            p_noise=0.4,
             genome_size=sum(contig_dict.values()))
         logging.info("Paths before splitting: %s" % paths)
         paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix, len(read_pairs.location_b))

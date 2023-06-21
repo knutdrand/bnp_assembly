@@ -313,9 +313,10 @@ class Forbes2:
     @property
     @lru_cache()
     def _point_probs(self):
+        np.save('cumulative_distance_distribution.npy', self._cumulative_distance_distribution)
         base = np.diff(self._cumulative_distance_distribution)
-        # smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
-        smoothed = smooth_sklearn(base)
+        smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
+        # smoothed = smooth_sklearn(base)
         px(name='joining').line(smoothed, title='smoothed')
         '''
         px(name='joining').array(base[:100000], title='distribution')
@@ -324,6 +325,9 @@ class Forbes2:
         px(name='joining').line(smoothed, title='smoothed')
         '''
         smoothed[-1] = 0
+        for i in range(1, len(smoothed)//DISTANCE_CUTOFF+1):
+            s = slice(i * DISTANCE_CUTOFF, (i + 1) * DISTANCE_CUTOFF)
+            smoothed[s] = np.mean(smoothed[s])
         smoothed = smoothed + 0.000001 / len(smoothed)
         px(name='joining').line(smoothed / np.sum(smoothed), title='smoothed2')
         return smoothed / np.sum(smoothed)
