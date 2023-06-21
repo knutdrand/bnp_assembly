@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy
 
+from .curve_smoothing import _monotonic_smooth, monotonic_smooth, smooth_sklearn
 from .location import LocationPair, Location
 from .graph_objects import NodeSide, Edge
 from .distance_matrix import DirectedDistanceMatrix
@@ -16,6 +17,7 @@ from .missing_data import find_missing_data_and_adjust
 from .orientation_distribution import OrientationDistribution
 from .plotting import px
 import typing as tp
+DISTANCE_CUTOFF = 50000
 
 
 def get_chromosome_end_probabilities(contig_dict: tp.Dict[str, int], node_side_counts: tp.Dict[NodeSide, int]):
@@ -118,6 +120,8 @@ class DistanceDistribution:
     def save(self, filename):
         np.save(filename, self._log_probabilities)
 
+    def plot(self):
+        px(name='joining').line(self._log_probabilities, title='distance distribution')
 
 class Forbes2:
     def __init__(self, contig_dict, read_pairs):
@@ -126,6 +130,7 @@ class Forbes2:
         self._expected_node_side_counts = self.calculate_expected_node_side_counts()
         self._side_weights = CumulativeSideWeight(self._cumulative_distance_distribution)
         self._distance_distribution = DistanceDistribution(self._log_probs)
+        self._distance_distribution.plot()
         self._distance_distribution.save('distance_distribution.npy')
 
     def get_distance_matrix(self, method='logprob'):
@@ -310,7 +315,8 @@ class Forbes2:
     @lru_cache()
     def _point_probs(self):
         base = np.diff(self._cumulative_distance_distribution)
-        smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
+        # smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
+        smoothed = smooth_sklearn(base)
         px(name='joining').line(smoothed, title='smoothed')
         '''
         px(name='joining').array(base[:100000], title='distribution')

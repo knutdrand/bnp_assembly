@@ -30,7 +30,7 @@ class NoiseDistribution:
 
     @lru_cache()
     def _mean_rate(self):
-        return np.median(self.get_non_neighbour_scores())
+        return np.mean(self.get_non_neighbour_scores())
 
     def log_probability(self, count):
         return self._dist(count)
