@@ -16,6 +16,7 @@ bionumpy
 more-itertools
 scipy
 networkx
+sklearn
 
 plotly
 setuptools~=67.0.0
