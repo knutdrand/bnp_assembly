@@ -315,6 +315,7 @@ class Forbes2:
     @lru_cache()
     def _point_probs(self):
         base = np.diff(self._cumulative_distance_distribution)
+        np.save('distance_distribution_raw.npy', base)
         # smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
         smoothed = smooth_sklearn(base)
         px(name='joining').line(smoothed, title='smoothed')
