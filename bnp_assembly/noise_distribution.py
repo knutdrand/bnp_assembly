@@ -6,10 +6,11 @@ import scipy.stats
 
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.plotting import px
+from bnp_assembly.distance_distribution import DISTANCE_CUTOFF
 
 
 class NoiseDistribution:
-    distance_cutoff = 50000
+    distance_cutoff = DISTANCE_CUTOFF
     def __init__(self, contig_dict, distance_matrix, contig_path):
         self._contig_dict = contig_dict
         self._distance_matrix = distance_matrix

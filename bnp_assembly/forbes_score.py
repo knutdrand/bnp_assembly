@@ -9,7 +9,7 @@ from .curve_smoothing import _monotonic_smooth, monotonic_smooth, smooth_sklearn
 from .location import LocationPair, Location
 from .graph_objects import NodeSide, Edge
 from .distance_matrix import DirectedDistanceMatrix
-from .distance_distribution import distance_dist
+from .distance_distribution import distance_dist, DISTANCE_CUTOFF
 from collections import Counter, defaultdict
 from scipy.stats import poisson
 
@@ -17,7 +17,6 @@ from .missing_data import find_missing_data_and_adjust
 from .orientation_distribution import OrientationDistribution
 from .plotting import px
 import typing as tp
-DISTANCE_CUTOFF = 50000
 
 
 def get_chromosome_end_probabilities(contig_dict: tp.Dict[str, int], node_side_counts: tp.Dict[NodeSide, int]):
@@ -194,7 +193,7 @@ class Forbes2:
         m, n = self._contig_dict[i], self._contig_dict[i + 1]
 
     def calculate_log_prob_weighted_counts(self):
-        cutoff_distance = 50000
+        cutoff_distance = DISTANCE_CUTOFF
         node_pair_counts = Counter()
         edge_log_probs = Counter()
         positions = defaultdict(list)

@@ -1,4 +1,5 @@
 import numpy as np
+DISTANCE_CUTOFF = 50000
 
 
 def distance_dist(location_pairs, contig_dict):

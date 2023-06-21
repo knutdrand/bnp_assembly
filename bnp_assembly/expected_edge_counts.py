@@ -2,6 +2,7 @@ from functools import lru_cache
 
 import numpy as np
 
+from bnp_assembly.distance_distribution import DISTANCE_CUTOFF
 from bnp_assembly.plotting import px
 
 
@@ -40,7 +41,7 @@ class PairWithinContigDistribution:
 
 
 class ExpectedEdgeCounts:
-    distance_cutoff = 50000
+    distance_cutoff = DISTANCE_CUTOFF
     def __init__(self, contig_dict, cumulative_distribution):
         self._contig_dict = contig_dict
         self._cumulative_distribution = cumulative_distribution
