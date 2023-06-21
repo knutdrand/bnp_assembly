@@ -306,8 +306,8 @@ class YahsSplitter(ScaffoldSplitter3):
         np.save('contig_path.npy', [dn.node_id for dn in contig_path.directed_nodes])
         scores = yahs.score_vector()
         yahs.plot()
-        _px.bar(y=scores, x=[str(e) for e in contig_path.edges])
-        indices = [i for i, score in enumerate(scores) if score < np.log(threshold)]
+        _px.bar(y=scores, x=[str(e) for e in contig_path.edges], title='scores')
+        indices = [i for i, score in enumerate(scores) if score < threshold]#  np.log(threshold)]
         edges = contig_path.edges
         split_edges = [edges[i] for i in indices]
         return contig_path.split_on_edges(split_edges)

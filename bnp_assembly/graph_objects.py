@@ -11,6 +11,10 @@ class NodeSide:
     side: str
 
     @property
+    def contig_id(self):
+        return self.node_id
+
+    @property
     def numeric_index(self):
         return int(self.node_id*2 + (self.side == 'r'))
 
