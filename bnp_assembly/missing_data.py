@@ -64,6 +64,8 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
     """
     Adjusts the counts in existing_counts by estimating counts from missing data
     """
+    distance_cutoff = 50000
+
     adjusted_counts = Counter()
     missing_counts = Counter()
     for contig_id, regions in missing_data.items():
@@ -71,6 +73,9 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
         other_node_sides = [NodeSide(c, direction) for c in contig_dict for direction in ['l', 'r']]
         for region in regions:
             start, end = region
+            if start > distance_cutoff and end < contig_size - distance_cutoff:
+                continue
+
             midpoint = (end - start) // 2 + start
 
             p_left = 0.5 * (1 - cumulative_length_distribution[min(midpoint, len(cumulative_length_distribution) - 1)])

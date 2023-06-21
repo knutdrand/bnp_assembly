@@ -9,7 +9,7 @@ from bnp_assembly.plotting import px
 
 
 class NoiseDistribution:
-    distance_cutoff = 200000
+    distance_cutoff = 50000
     def __init__(self, contig_dict, distance_matrix, contig_path):
         self._contig_dict = contig_dict
         self._distance_matrix = distance_matrix
