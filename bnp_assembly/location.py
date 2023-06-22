@@ -11,7 +11,11 @@ class Location:
         return cls(genomic_location.chromosome.raw(), genomic_location.position)
 
 
+
 @dataclass
 class LocationPair:
     location_a: Location
     location_b: Location
+
+    def __iter__(self):
+        return (LocationPair(*p) for p in zip(self.location_a, self.location_b))

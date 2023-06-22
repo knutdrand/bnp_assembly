@@ -241,11 +241,7 @@ class BinnedBayes(Yahs):
 
     @lru_cache()
     def rate_edge(self, m, n, i, j):
-        return self.rate_non_edge(m, n, i, j) + self.signal_rate(self.delta(m, n, i, j)) * self.down_sampling_factor(m,
-                                                                                                                     n,
-                                                                                                                     i,
-                                                                                                                     j)
-        # return self.rate_non_edge(m, n, i, j) * self.ratio(self.delta(m, n, i, j))
+        return self.rate_non_edge(m, n, i, j) + self.signal_rate(self.delta(m, n, i, j)) * self.down_sampling_factor(m,n, i, j)
 
     def prob(self, count, rate):
         return scipy.stats.poisson.logpmf(count, rate)
@@ -341,3 +337,71 @@ class BinnedBayes(Yahs):
     def qs(self, m, n, i, j):
         sorted_intra_counts = self.sorted_intra_counts(self.delta(m, n, i, j))
         return np.searchsorted(sorted_intra_counts, self.c(m, n, i, j)) / len(sorted_intra_counts)
+
+
+class NewSplitter(BinnedBayes):
+    @lru_cache()
+    def truncated_count(self, m, n, i, j):
+        return min(self.c(m, n, i, j), self.rate_edge(m, n, i, j)*1.5)
+
+    @lru_cache()
+    def s(self, m, n):
+        indices = self.triangle_indices(m, n)
+        count = sum(self.truncated_count(m, n, i, j) for i, j in indices)
+        expexted = sum(self.rate_edge(m, n, i, j) for i, j in indices)
+        return count / expexted
+
+    @lru_cache()
+    def _rate_edge(self, m, n, i, j):
+        return self.signal_rate(self.delta(m, n, i, j)) * self.down_sampling_factor(m, n, i, j)
+
+    @lru_cache()
+    def _signal_rate(self, d):
+        '''
+        count_ij = Poisson(noise_rate_ij + signal_s_d(i, j)*donw_sampling_factor_i*down_sampling_factor_j)
+        '''
+        diffs = [self.c(m, i, i + d) for m
+                 in range(self.n_contigs)
+                 for i in range(self.b(m) - d)]
+        ds = [self.down_sampling_factor(m, m, i, i + d) for m
+              in range(self.n_contigs)
+              for i in range(self.b(m) - d)]
+        local_estimates = [d / ds for d, ds in zip(diffs, ds)]
+        self.px.histogram(diffs, nbins=100, title=f'distance{d}')
+        self.px.histogram(local_estimates, nbins=100, title=f'L-distance{d}')
+        return np.median(local_estimates)
+
+    @property
+    def D(self):
+        return 10
+
+    def plot(self):
+        px = self.px
+        height = self.D + 1
+        edge_matrix = np.zeros((height, (self.D + 1) * self.n_contigs), dtype=float)
+
+        non_edge_matrix = np.zeros_like(edge_matrix)
+        count_matrix = np.zeros_like(edge_matrix)
+        truncated_count_matrix = np.zeros_like(edge_matrix)
+        rate_matrix = np.zeros_like(edge_matrix)
+        rate_non_matrix = np.zeros_like(edge_matrix)
+        table = defaultdict(list)
+        for m, n, i, j in self.all_triangle_indices():
+            x = self.b(m) - i - 1
+            y = m * (self.D + 1) + j
+            edge_matrix[x, y] = self.log_prob_count_given_edge(m, n, i, j)
+            non_edge_matrix[x, y] = self.log_prob_count_given_non_edge(m, n, i, j)
+            count_matrix[x, y] = self.c(m, n, i, j)
+            truncated_count_matrix[x, y] = self.truncated_count(m, n, i, j)
+            rate_matrix[x, y] = self.rate_edge(m, n, i, j)
+            rate_non_matrix[x, y] = self.rate_non_edge(m, n, i, j)
+        # df.to_csv('summary.csv', index=False)
+        # px.scatter(df, x='rate', y='ratio', color='bin_size', facet_col='d')
+        f = lambda v: np.log2(v + 1)
+        px.imshow(f(count_matrix))
+        px.imshow(f(rate_matrix), title='rate_matrix')
+        px.imshow(f(rate_non_matrix), title='rate_non_matrix')
+        px.imshow(edge_matrix)
+        px.imshow(truncated_count_matrix, title='truncated_count_matrix')
+        px.imshow(non_edge_matrix)
+        px.imshow(edge_matrix - np.logaddexp(edge_matrix, non_edge_matrix))
