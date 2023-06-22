@@ -54,6 +54,7 @@ class DistanceDistribution:
         return cls.from_cumulative_distribution(distance_dist(read_pairs, contig_dict))
 
     def log_probability(self, distance):
+        distance= np.asanyarray(distance)
         return self._log_probabilities[np.where(distance < len(self._log_probabilities), distance, -1)]
 
     @classmethod

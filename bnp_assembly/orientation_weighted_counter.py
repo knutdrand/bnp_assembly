@@ -16,6 +16,20 @@ from bnp_assembly.orientation_distribution import OrientationDistribution
 from bnp_assembly.plotting import px
 
 
+class OrientationDistributions:
+    def __init__(self, contig_sizes: ContigSizes, distance_distribution: DistanceDistribution):
+        self._contig_sizes = contig_sizes
+        self._distance_distribution = distance_distribution
+        self._orientation_distributions = {
+            (node_id_a, node_id_b): OrientationDistribution(self._contig_sizes[node_id_a],
+                                                            self._contig_sizes[node_id_b],
+                                                            self._distance_distribution) for
+            node_id_a, node_id_b in product(self._contig_sizes, repeat=2)}
+
+    def __getitem__(self, pair):
+        return self._orientation_distributions[pair]
+
+
 class OrientationWeightedCounter(EdgeScorer):
     def __init__(self, contig_dict, read_pairs, cumulative_length_distribution=None):
         self._contig_dict = ContigSizes.from_dict(contig_dict)
@@ -26,7 +40,8 @@ class OrientationWeightedCounter(EdgeScorer):
         self._distance_distribution = DistanceDistribution.from_cumulative_distribution(
             self._cumulative_distance_distribution)
         self._distance_distribution.plot()
-        self.orientation_distributions = {
+        self.orientation_distributions = OrientationDistributions(self._contig_dict, self._distance_distribution)
+        self.__orientation_distributions = {
             (node_id_a, node_id_b): OrientationDistribution(self._contig_dict[int(node_id_a)],
                                                             self._contig_dict[int(node_id_b)],
                                                             self._distance_distribution) for
@@ -80,7 +95,8 @@ class OrientationWeightedCounter(EdgeScorer):
         orientation_distribution = self.orientation_distributions[pair]
         probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
         for (dir_a, dir_b), probability in probability_dict.items():
-            edge = Edge(NodeSide(int(a.contig_id), dir_a), NodeSide(int(b.contig_id), dir_b))
+            edge = Edge(NodeSide(int(a.contig_id), dir_a),
+                        NodeSide(int(b.contig_id), dir_b))
             self._counts[edge] += probability
             self._counts[edge.reverse()] += probability
 
