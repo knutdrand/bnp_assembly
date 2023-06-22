@@ -1,6 +1,7 @@
 import numpy as np
 
 from bnp_assembly.coordinate_system import CoordinateSystem
+from bnp_assembly.graph_objects import Edge
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.plotting import px
 from bnp_assembly.splitting import split_on_scores
@@ -54,27 +55,90 @@ class SplitterInterface:
         return int(np.ceil(min(self._max_distance, self._contig_dict[node_id]) / self._bin_size))
 
     def _register_intra_pair(self, location_pair):
+        """
+        Register a pair of locations that are on the same contig.
+        This is used to build the histogram of distances between locations on the same contig.
+        Parameters
+        ----------
+        location_pair
+
+        Returns
+        -------
+
+        """
         d = abs(location_pair.location_a.offset // self._bin_size - location_pair.location_b.offset // self._bin_size)
         if d >= self._n_bins * 2:
             return
         self.distance_counts[d] += 1
 
-    def score_matrix(self, observed, expected):
+    def score_matrix(self, observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->float:
+        """
+        Score a matrix of observed counts against a matrix of expected counts.
+        This method should take account for both bands of overrepresntation and underrepresentation.
+
+        Parameters
+        ----------
+        observed
+        expected
+        edge
+
+        Returns
+        -------
+
+        """
         shape = observed.shape
         expected = expected[:shape[0], :shape[1]]
-        observed = np.minimum(observed, expected)
+        observed = np.minimum(observed, expected) # Take the minimum here to avoid giving impact to high values
+        px(name='splitting').imshow(observed, title=f'truncated{edge}')
         expected_a = np.sum(expected, axis=1)
         expected_b = np.sum(expected, axis=0)
         a = np.sum(observed, axis=1) / expected_a
         b = np.sum(observed, axis=0) / expected_b
-        px(name='splitting').histogram(np.concatenate([a, b]), nbins=20)
-        return weighted_median(np.concatenate([a, b]), np.concatenate([expected_a, expected_b]))
+        ratio = np.concatenate([a, b]) # These are a lot of column and row sums
+        # If we take the average of these, we give impact to high bands
+        # Taking the median or a more robust measure should be better
+        px(name='splitting').histogram(ratio, nbins=20, title=f'edge {edge}')
+        expected = np.concatenate([expected_a, expected_b])
+        '''
+        args = np.argsort(ratio)
+        ratio = ratio[args]
+        expected = expected[args]
+        cut_n = len(ratio)//8
+        ratio = ratio[cut_n:-cut_n]
+        expected = expected[cut_n:-cut_n]
+        '''
+        return weighted_median(ratio, expected)
 
-    def register_location_pair(self, location_pair):
-        if location_pair not in self._coordinate_system:
-            self._register_intra_pair(
-                location_pair)  # a, b = int(location_pair.location_a.contig_id), int(location_pair.location_b.contig_id)
-            return
+    def register_location_pair(self, location_pair: LocationPair):
+        """
+        Register a pair of locations
+
+        Parameters
+        ----------
+        location_pair
+
+        Returns
+        -------
+
+        """
+        if location_pair.location_a.contig_id == location_pair.location_b.contig_id:
+            return self._register_intra_pair(location_pair)
+        if location_pair in self._coordinate_system:
+            return self._register_inter_pair(location_pair)
+
+    def _register_inter_pair(self, location_pair: LocationPair):
+        """
+        Register a pair of locations that are on neighboring contigs.
+        Adds a count to the corresponding count matrix
+
+        Parameters
+        ----------
+        location_pair
+
+        Returns
+        -------
+
+        """
         edge, coordinates = self._coordinate_system.location_pair_coordinates(location_pair)
         if any(coord >= self._max_distance for coord in coordinates):
             return
@@ -92,9 +156,9 @@ class SplitterInterface:
         for i in range(self._n_bins):
             for j in range(self._n_bins):
                 expected[i, j] = distance_means[i + j + 1]
-
+        # Fill the expected matrix with the expected values according to distance
         px(name='splitting').imshow(expected, title='expected')
-        scores = {edge: self.score_matrix(self._node_histograms[edge], expected) for edge in self._contig_path.edges}
+        scores = {edge: self.score_matrix(self._node_histograms[edge], expected, edge) for edge in self._contig_path.edges}
         return split_on_scores(self._contig_path, scores, 0.1, keep_over=True)
 
     def plot(self):
@@ -102,10 +166,20 @@ class SplitterInterface:
             px(name='splitting').imshow(histogram, title=f'matrix{edge}')
 
     def _normalize_dist_counts(self, distance_counts):
+        """
+        Normalize distance counts by the number of cells that has that distance (i-j)==d
+
+        Parameters
+        ----------
+        distance_counts
+
+        Returns
+        -------
+
+        """
         n_attempts = np.zeros_like(distance_counts)
         for length in self._contig_dict.values():
             k = length // self._bin_size
             for i in range(min(k, n_attempts.size)):
                 n_attempts[i] += k - i
-            # n_attempts[:k] += 1# np.arange(k, 0, -1)[:k]
         return np.minimum.accumulate(distance_counts / n_attempts)

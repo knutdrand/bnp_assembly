@@ -14,6 +14,7 @@ from .distance_distribution import calculate_distance_distritbution, distance_di
 from .scaffold_splitting.binned_bayes import Yahs
 import logging
 
+
 def split_on_scores(contig_path, edge_scores, threshold, keep_over=True):
     px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores')
     if keep_over:
