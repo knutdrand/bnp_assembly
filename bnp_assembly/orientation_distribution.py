@@ -5,20 +5,46 @@ import scipy.special.cython_special
 
 
 class OrientationDistribution:
+
     def __init__(self, contig_length_a: int, contig_length_b: int, length_distribution: 'DistanceDistribution'):
         self._contig_length_a = contig_length_a
         self._contig_length_b = contig_length_b
         self._length_distribution = length_distribution
         self._combinations = [('l', 'l'), ('l', 'r'), ('r', 'l'), ('r', 'r')]
 
-    def distance(self, position_a: int, position_b: int, orientation_a: str, orientation_b: str):
+    def distance(self, position_a: int, position_b: int, orientation_a: str, orientation_b: str) -> int:
+        """
+        Return the distance between two positions on the two contigs, according to the orientations
+        Parameters
+        ----------
+        position_a
+        position_b
+        orientation_a
+        orientation_b
+
+        Returns
+        -------
+
+        """
         if orientation_a == 'r':
             position_a = self._contig_length_a - position_a - 1
         if orientation_b == 'r':
             position_b = self._contig_length_b - position_b - 1
         return position_a + position_b + 1
 
-    def orientation_distribution(self, position_a: int, position_b: int):
+    def orientation_distribution(self, position_a: int, position_b: int)-> tp.Dict[tp.Tuple[str, str], float]:
+        """
+        Return a dictionary of the probabilities of each orientation combination.
+        I.e. {('l', 'r'): 0.5, ('r', 'r'): 0.5, ('l', 'l'): 0, ('r', 'l'): 0}
+        Parameters
+        ----------
+        position_a
+        position_b
+
+        Returns
+        -------
+
+        """
         combination_probabilities = []
         for combination in self._combinations:
             distance = self.distance(position_a, position_b, *combination)

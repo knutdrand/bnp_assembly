@@ -1,12 +1,17 @@
+from typing import List
+
 import numpy as np
 
+from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.coordinate_system import CoordinateSystem
 from bnp_assembly.graph_objects import Edge
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.plotting import px
 from bnp_assembly.splitting import split_on_scores
 
+
 def weighted_median(values, weights):
+    ''' From stackoverflow'''
     i = np.argsort(values)
     c = np.cumsum(weights[i])
     return values[i[np.searchsorted(c, 0.5 * c[-1])]]
@@ -145,7 +150,12 @@ class SplitterInterface:
         coordinates = [coord // self._bin_size for coord in coordinates]
         self._node_histograms[edge][coordinates[0], coordinates[1]] += 1
 
-    def split(self):
+    def split(self) -> List[ContigPath]:
+        """
+        Split the contig on edges where the count matrices appears to not support an edge.
+        Returns
+        -------
+        """
         for a, b in zip(self._location_pairs.location_a, self._location_pairs.location_b):
             self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
                                                      Location.single_entry(int(b.contig_id), int(b.offset))))
@@ -159,7 +169,7 @@ class SplitterInterface:
         # Fill the expected matrix with the expected values according to distance
         px(name='splitting').imshow(expected, title='expected')
         scores = {edge: self.score_matrix(self._node_histograms[edge], expected, edge) for edge in self._contig_path.edges}
-        return split_on_scores(self._contig_path, scores, 0.1, keep_over=True)
+        return split_on_scores(self._contig_path, scores, 0.2, keep_over=True)
 
     def plot(self):
         for edge, histogram in self._node_histograms.items():

@@ -11,8 +11,8 @@ from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
-from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix, Forbes2, \
-    ForbesWithMissingData
+from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
+from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.iterative_join import create_merged_graph
@@ -124,10 +124,10 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
         original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
         original_distance_matrix.plot(name='forbes')
     elif distance_measure == 'forbes2':
-        original_distance_matrix = Forbes2(contig_dict, read_pairs).get_distance_matrix()
+        original_distance_matrix = OrientationWeightedCounter(contig_dict, read_pairs).get_distance_matrix()
         original_distance_matrix.plot(name='forbes2')
     elif distance_measure == 'forbes3':
-        forbes_obj = ForbesWithMissingData(contig_dict, read_pairs)
+        forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, read_pairs)
         original_distance_matrix = forbes_obj.get_distance_matrix()
         original_distance_matrix.plot(name='forbes3')
     original_distance_matrix.inversion_plot('forbes2')
