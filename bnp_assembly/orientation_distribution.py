@@ -59,12 +59,8 @@ class OrientationDistribution:
         -------
 
         """
-        combination_probabilities = []
+
         combination_probabilities = self._length_distribution.log_probability(self.distances(position_a, position_b))
-        # for combination in self._combinations:
-        #    distance = self.distance(position_a, position_b, *combination)
-        #    log_pmf = self._length_distribution.log_probability(distance)
-        #    combination_probabilities.append(log_pmf)
         total = scipy.special.logsumexp(combination_probabilities, axis=-1)
         probs = np.exp(combination_probabilities - total)
         return dict(zip(self._combinations, probs))

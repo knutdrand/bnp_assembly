@@ -1,5 +1,7 @@
 from collections import Counter, defaultdict
+from functools import singledispatchmethod
 from itertools import product
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,8 +28,19 @@ class OrientationDistributions:
                                                             self._distance_distribution) for
             node_id_a, node_id_b in product(self._contig_sizes, repeat=2)}
 
+    @singledispatchmethod
     def __getitem__(self, pair):
+        raise ValueError(f"Invalid index for {self.__class__.__name__}: {pair}")
+
+    @__getitem__.register
+    def _(self, pair: tuple):
         return self._orientation_distributions[pair]
+
+    @__getitem__.register
+    def _(self, pair: LocationPair):
+        node_ids = (int(pair.location_a.contig_id), int(pair.location_b.contig_id))
+        offsets = (pair.location_a.offset, pair.location_b.offset)
+        return self._orientation_distributions[node_ids].orientation_distribution(*offsets)
 
 
 class OrientationWeightedCounter(EdgeScorer):
@@ -77,6 +90,7 @@ class OrientationWeightedCounter(EdgeScorer):
         a, b = location_pair.location_a, location_pair.location_b
         pair = (int(a.contig_id), int(b.contig_id))
         orientation_distribution = self.orientation_distributions[pair]
+        # probabilities = orientation_distribution[location_pair]# (a.offset, b.offset)
         probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
         if a.contig_id < b.contig_id:
             self.positions[pair].append((a.offset, b.offset))
@@ -92,8 +106,9 @@ class OrientationWeightedCounter(EdgeScorer):
         if DISTANCE_CUTOFF < b.offset < self._contig_dict[int(b.contig_id)] - DISTANCE_CUTOFF:
             return
         pair = (int(a.contig_id), int(b.contig_id))
-        orientation_distribution = self.orientation_distributions[pair]
-        probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
+        # orientation_distribution = self.orientation_distributions[pair]
+        # probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
+        probability_dict = self.orientation_distributions[location_pair]
         for (dir_a, dir_b), probability in probability_dict.items():
             edge = Edge(NodeSide(int(a.contig_id), dir_a),
                         NodeSide(int(b.contig_id), dir_b))
