@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -95,12 +96,12 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold=threshold)
 
 
-def make_scaffold(genome: Genome, genomic_location_pair: GenomicLocationPair, *args, **kwargs) -> Scaffolds:
+def make_scaffold(genome: Genome, genomic_location_pairs: Iterable[GenomicLocationPair], *args, **kwargs) -> Scaffolds:
     encoding = genome.get_genome_context().encoding
     contig_dict = genome.get_genome_context().chrom_sizes
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
-    numeric_locations_pair = genomic_location_pair.get_numeric_locations()
+    numeric_locations_pair = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in genomic_location_pairs)
     contig_paths = make_scaffold_numeric(numeric_contig_dict, numeric_locations_pair, *args, **kwargs)
     scaffold = Scaffolds.from_contig_paths(contig_paths, translation_dict)
     return scaffold
@@ -116,12 +117,13 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def default_make_scaffold(contig_dict, read_pairs):
-    forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, read_pairs)
+def default_make_scaffold(contig_dict, read_pairs: LocationPair):
+    cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
+    forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     distance_matrix = forbes_obj.get_distance_matrix()
     distance_matrix.plot(name='forbes3')
     path = join_all_contigs(distance_matrix)
-    s = SplitterInterface(contig_dict, read_pairs, path, max_distance=100000, bin_size=5000)
+    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000)
     return s.split()
 
 
