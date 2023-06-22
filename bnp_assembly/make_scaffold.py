@@ -141,7 +141,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
         if len(mapping) == 1:
             path = ContigPath.from_node_sides(mapping.popitem()[1])
             break
-    forbes_obj.plot_scores(forbes_obj.positions, forbes_obj.scores, edges=path.edges)
+    #forbes_obj.plot_scores(forbes_obj.positions, forbes_obj.scores, edges=path.edges)
     if splitting_method == 'poisson':
         cumulative_distribution = CumulativeDistribution(
             distance_dist(read_pairs, contig_dict),
