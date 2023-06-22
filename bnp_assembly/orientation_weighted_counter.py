@@ -40,10 +40,11 @@ class OrientationDistributions:
     def _(self, pair: LocationPair):
         node_ids = (int(pair.location_a.contig_id), int(pair.location_b.contig_id))
         offsets = (pair.location_a.offset, pair.location_b.offset)
-        return self._orientation_distributions[node_ids].orientation_distribution(*offsets)
+        return self._orientation_distributions[node_ids].distribution_matrix(*offsets)
 
 
 class OrientationWeightedCounter(EdgeScorer):
+
     def __init__(self, contig_dict, read_pairs, cumulative_length_distribution=None):
         self._contig_dict = ContigSizes.from_dict(contig_dict)
         self._read_pairs = read_pairs
@@ -105,15 +106,17 @@ class OrientationWeightedCounter(EdgeScorer):
             return
         if DISTANCE_CUTOFF < b.offset < self._contig_dict[int(b.contig_id)] - DISTANCE_CUTOFF:
             return
+        probability_matrix = self.orientation_distributions[location_pair]
         pair = (int(a.contig_id), int(b.contig_id))
-        # orientation_distribution = self.orientation_distributions[pair]
-        # probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
-        probability_dict = self.orientation_distributions[location_pair]
+        self._counts[pair] += probability_matrix
+        self._counts[pair[::-1]] += probability_matrix.T# [::-1, ::-1]
+        '''
         for (dir_a, dir_b), probability in probability_dict.items():
             edge = Edge(NodeSide(int(a.contig_id), dir_a),
                         NodeSide(int(b.contig_id), dir_b))
             self._counts[edge] += probability
             self._counts[edge.reverse()] += probability
+        '''
 
     def plot_scores(self, positions, scores, edges=None):
         if edges is None:
