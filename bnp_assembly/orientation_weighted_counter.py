@@ -1,13 +1,13 @@
 from collections import Counter, defaultdict
-from functools import lru_cache
 from itertools import product
 
 import numpy as np
 import pandas as pd
-import scipy
 
+from bnp_assembly.contig_sizes import ContigSizes
 from bnp_assembly.distance_distribution import DISTANCE_CUTOFF, distance_dist, DistanceDistribution
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
+from bnp_assembly.edge_counts import EdgeCounts
 from bnp_assembly.edge_scorer import EdgeScorer
 from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.location import LocationPair
@@ -18,7 +18,7 @@ from bnp_assembly.plotting import px
 
 class OrientationWeightedCounter(EdgeScorer):
     def __init__(self, contig_dict, read_pairs, cumulative_length_distribution=None):
-        self._contig_dict = contig_dict
+        self._contig_dict = ContigSizes.from_dict(contig_dict)
         self._read_pairs = read_pairs
         if cumulative_length_distribution is None:
             cumulative_length_distribution = distance_dist(read_pairs, contig_dict)
@@ -31,7 +31,7 @@ class OrientationWeightedCounter(EdgeScorer):
                                                             self._contig_dict[int(node_id_b)],
                                                             self._distance_distribution) for
             node_id_a, node_id_b in product(self._contig_dict, repeat=2)}
-        self._counts = Counter()
+        self._counts = EdgeCounts(len(self._contig_dict))
         self.positions = defaultdict(list)
         self.scores = defaultdict(list)
 
@@ -45,7 +45,6 @@ class OrientationWeightedCounter(EdgeScorer):
         return distance_matrix
 
     def _calculate_log_prob_weighted_counts(self):
-        cutoff_distance = DISTANCE_CUTOFF
         for a, b in zip(self._read_pairs.location_a, self._read_pairs.location_b):
             self._register_location_pair(LocationPair(a, b))
             self._register_for_plots(LocationPair(a, b))
@@ -94,7 +93,6 @@ class OrientationWeightedCounter(EdgeScorer):
             i, j = min(i, j), max(i, j)
             p = positions[(i, j)]
             s = scores[(i, j)]
-            print(i, j, len(p))
             if len(p):
                 x, y = zip(*p)
                 x = self._contig_dict[i] - np.array(x)

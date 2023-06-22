@@ -93,6 +93,7 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
                 for edge in edges:
                     missing_counts[edge] = edge_proportions[edge] * expected_reads
     for edge in existing_counts:
+        print(edge)
         adjusted_counts[edge] = existing_counts[edge] + missing_counts[edge]
 
     return adjusted_counts
