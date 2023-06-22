@@ -97,24 +97,6 @@ class CumulativeSideWeight:
         return wR / (wR + wL)
 
 
-class DistanceDistribution:
-    def __init__(self, log_probabilities):
-        self._log_probabilities = log_probabilities
-
-    def log_probability(self, distance):
-        return self._log_probabilities[np.where(distance < len(self._log_probabilities), distance, -1)]
-
-    @classmethod
-    def load(cls, filename):
-        return cls(np.load(filename))
-
-    def save(self, filename):
-        np.save(filename, self._log_probabilities)
-
-    def plot(self):
-        px(name='joining').line(self._log_probabilities, title='distance distribution')
-
-
 def count_window_combinastions(contig_dict: tp.Dict[str, int], location_pairs: LocationPair,
                                side_weight_func=_naive_side_weight) -> tp.Tuple[Counter, Counter]:
     node_sides = [NodeSide(i, d) for i in range(len(contig_dict)) for d in ('l', 'r')]
