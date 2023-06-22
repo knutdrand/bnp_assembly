@@ -7,10 +7,13 @@ DISTANCE_CUTOFF = 100000
 
 
 def distance_dist(location_pairs, contig_dict):
-    return calculate_distance_distritbution(list(contig_dict.values()),
-                                            [np.abs(a.offset - b.offset)
-                                             for a, b in zip(location_pairs.location_a, location_pairs.location_b)
-                                             if a.contig_id == b.contig_id])
+    distances = get_intra_distances(location_pairs)
+    return calculate_distance_distritbution(list(contig_dict.values()), distances)
+
+
+def get_intra_distances(location_pairs):
+    a, b = location_pairs.location_a, location_pairs.location_b
+    return np.abs(a.offset - b.offset)[a.contig_id == b.contig_id]
 
 
 def calculate_distance_distritbution(contig_sizes, distances):
@@ -39,7 +42,7 @@ class DistanceDistribution:
         smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
         px(name='joining').line(smoothed, title='smoothed')
         smoothed[-1] = 0
-        for i in range(1, len(smoothed)//DISTANCE_CUTOFF+1):
+        for i in range(1, len(smoothed) // DISTANCE_CUTOFF + 1):
             s = slice(i * DISTANCE_CUTOFF, (i + 1) * DISTANCE_CUTOFF)
             smoothed[s] = np.mean(smoothed[s])
         smoothed = smoothed + 0.000001 / len(smoothed)

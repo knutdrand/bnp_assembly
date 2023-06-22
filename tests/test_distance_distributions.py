@@ -12,6 +12,7 @@ def test_distance_distribution():
     F = calculate_distance_distritbution(sizes, distances)
     assert_array_equal(F, [0, (1/3)/(4/3), 1])
 
+
 def test_distance_dist(contig_dict, read_pairs):
     dist = distance_dist(read_pairs, contig_dict)
     d = np.insert(np.diff(dist), 0, 0)

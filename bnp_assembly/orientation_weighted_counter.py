@@ -10,6 +10,7 @@ from bnp_assembly.distance_distribution import DISTANCE_CUTOFF, distance_dist, D
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_scorer import EdgeScorer
 from bnp_assembly.graph_objects import NodeSide, Edge
+from bnp_assembly.location import LocationPair
 from bnp_assembly.missing_data import find_missing_data_and_adjust
 from bnp_assembly.orientation_distribution import OrientationDistribution
 from bnp_assembly.plotting import px
@@ -22,11 +23,20 @@ class OrientationWeightedCounter(EdgeScorer):
         if cumulative_length_distribution is None:
             cumulative_length_distribution = distance_dist(read_pairs, contig_dict)
         self._cumulative_distance_distribution = cumulative_length_distribution
-        self._distance_distribution = DistanceDistribution.from_cumulative_distribution(self._cumulative_distance_distribution)
+        self._distance_distribution = DistanceDistribution.from_cumulative_distribution(
+            self._cumulative_distance_distribution)
         self._distance_distribution.plot()
+        self.orientation_distributions = {
+            (node_id_a, node_id_b): OrientationDistribution(self._contig_dict[int(node_id_a)],
+                                                            self._contig_dict[int(node_id_b)],
+                                                            self._distance_distribution) for
+            node_id_a, node_id_b in product(self._contig_dict, repeat=2)}
+        self._counts = Counter()
+        self.positions = defaultdict(list)
+        self.scores = defaultdict(list)
 
     def get_distance_matrix(self, method='logprob'):
-        assert method=='logprob', method
+        assert method == 'logprob', method
         pair_counts = self._calculate_log_prob_weighted_counts()
         distance_matrix = DirectedDistanceMatrix(len(self._contig_dict))
         for edge, value in pair_counts.items():
@@ -36,41 +46,44 @@ class OrientationWeightedCounter(EdgeScorer):
 
     def _calculate_log_prob_weighted_counts(self):
         cutoff_distance = DISTANCE_CUTOFF
-        positions = defaultdict(list)
-        scores = defaultdict(list)
-        orientation_distributions = {(node_id_a, node_id_b): OrientationDistribution(self._contig_dict[int(node_id_a)],
-                                                                                     self._contig_dict[int(node_id_b)],
-                                                                                     self._distance_distribution) for
-                                     node_id_a, node_id_b in product(self._contig_dict, repeat=2)}
-        counts = Counter()
         for a, b in zip(self._read_pairs.location_a, self._read_pairs.location_b):
-            if a.offset > cutoff_distance and a.offset<self._contig_dict[int(a.contig_id)]-cutoff_distance:
-                continue
-            if b.offset > cutoff_distance and b.offset<self._contig_dict[int(b.contig_id)]-cutoff_distance:
-                continue
-            pair = (int(a.contig_id), int(b.contig_id))
-            orientation_distribution = orientation_distributions[pair]
-            probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
-            for (dir_a, dir_b), probability in probability_dict.items():
-                edge = Edge(NodeSide(int(a.contig_id), dir_a), NodeSide(int(b.contig_id), dir_b))
-                counts[edge] += probability
-                counts[edge.reverse()] += probability
-            if a.contig_id < b.contig_id:
-                positions[pair].append((a.offset, b.offset))
-                scores[pair].append(probability_dict[('r', 'l')])
-            else:
-                positions[pair[::-1]].append((b.offset, a.offset))
-                scores[pair[::-1]].append(probability_dict[('l', 'r')])
-        self.positions = positions
-        self.scores = scores
-        self.plot_scores(positions, scores)
+            self._register_location_pair(LocationPair(a, b))
+            self._register_for_plots(LocationPair(a, b))
+
+        self.plot_scores(self.positions, self.scores)
         table = pd.DataFrame([{'nodeid': node_id,
-                               'p': counts[Edge(NodeSide(node_id, dir_a), NodeSide(node_id + 1, dir_b))],
+                               'p': self._counts[Edge(NodeSide(node_id, dir_a), NodeSide(node_id + 1, dir_b))],
                                'directions': f'{dir_a}->{dir_b}'}
                               for node_id in range(len(self._contig_dict) - 1) for dir_a, dir_b in
                               product('lr', repeat=2)])
         px(name='joining').bar(table, x='nodeid', y='p', color='directions', title='probs', barmode='group')
-        return counts
+        return self._counts
+
+    def _register_for_plots(self, location_pair):
+        a, b = location_pair.location_a, location_pair.location_b
+        pair = (int(a.contig_id), int(b.contig_id))
+        orientation_distribution = self.orientation_distributions[pair]
+        probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
+        if a.contig_id < b.contig_id:
+            self.positions[pair].append((a.offset, b.offset))
+            self.scores[pair].append(probability_dict[('r', 'l')])
+        else:
+            self.positions[pair[::-1]].append((b.offset, a.offset))
+            self.scores[pair[::-1]].append(probability_dict[('l', 'r')])
+
+    def _register_location_pair(self, location_pair):
+        a, b = location_pair.location_a, location_pair.location_b
+        if DISTANCE_CUTOFF < a.offset < self._contig_dict[int(a.contig_id)] - DISTANCE_CUTOFF:
+            return
+        if DISTANCE_CUTOFF < b.offset < self._contig_dict[int(b.contig_id)] - DISTANCE_CUTOFF:
+            return
+        pair = (int(a.contig_id), int(b.contig_id))
+        orientation_distribution = self.orientation_distributions[pair]
+        probability_dict = orientation_distribution.orientation_distribution(a.offset, b.offset)
+        for (dir_a, dir_b), probability in probability_dict.items():
+            edge = Edge(NodeSide(int(a.contig_id), dir_a), NodeSide(int(b.contig_id), dir_b))
+            self._counts[edge] += probability
+            self._counts[edge.reverse()] += probability
 
     def plot_scores(self, positions, scores, edges=None):
         if edges is None:
@@ -87,14 +100,10 @@ class OrientationWeightedCounter(EdgeScorer):
                 x = self._contig_dict[i] - np.array(x)
                 px(name='joining').scatter(x=x, y=y, title=f'{i}to{j}', color=s)
 
-    def __cumulative_distribution(self, distance):
-        if distance >= len(self._cumulative_distance_distribution):
-            return 1
-        return self._cumulative_distance_distribution[distance]
-
 
 class OrientationWeightedCountesWithMissing(OrientationWeightedCounter):
     def _calculate_log_prob_weighted_counts(self):
-        counts = super()._calculate_log_prob_weighted_counts()
-        adjusted_counts = find_missing_data_and_adjust(counts, self._contig_dict, self._read_pairs, self._cumulative_distance_distribution, 1000)
+        # counts = super()._calculate_log_prob_weighted_counts()
+        adjusted_counts = find_missing_data_and_adjust(self._counts, self._contig_dict, self._read_pairs,
+                                                       self._cumulative_distance_distribution, 1000)
         return adjusted_counts
