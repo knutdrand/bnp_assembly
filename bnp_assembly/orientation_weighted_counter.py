@@ -103,7 +103,7 @@ class OrientationWeightedCounter(EdgeScorer):
 
 class OrientationWeightedCountesWithMissing(OrientationWeightedCounter):
     def _calculate_log_prob_weighted_counts(self):
-        # counts = super()._calculate_log_prob_weighted_counts()
+        super()._calculate_log_prob_weighted_counts()
         adjusted_counts = find_missing_data_and_adjust(self._counts, self._contig_dict, self._read_pairs,
                                                        self._cumulative_distance_distribution, 1000)
         return adjusted_counts
