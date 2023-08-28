@@ -26,7 +26,13 @@ def random_spaced_locations(start, stop, n, min_space=1000, rng=np.random.defaul
 
 
 def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: int,
-                                 min_contig_size: int = 15000, rng=np.random.default_rng()) -> SimulatedContigs:
+                                 min_contig_size: int = 15000, rng=np.random.default_rng(),
+                                 also_split_at_ns=0) -> SimulatedContigs:
+    """
+    If also_split_at_ns > 0, genome will be split at contiguous Ns of this number (which are meant to give original scaffolds)
+    """
+    if also_split_at_ns > 0:
+        logging.info("Will split at contiguous Ns of length %d" % also_split_at_ns)
     
     new_contig_names = []
     new_contig_sequences = []
@@ -42,18 +48,32 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
 
     scaffold_alignments = []
 
-    for contig_id, n_splits in enumerate(splits_at_contig):
-        if n_splits == 0:
+    for contig_id, n_random_splits in enumerate(splits_at_contig):
+        old_contig_sequence = genome.sequence[contig_id]
+        split_positions = np.array([])
+        if also_split_at_ns > 0:
+            is_n = ((old_contig_sequence == "N") | (old_contig_sequence == "n")).astype(int)
+            split_positions = np.where(np.diff(is_n) == 1)[0] - 1
+            logging.info("Found %d split positions based on N: %s" % (len(split_positions), split_positions))
+
+        if n_random_splits == 0 and len(split_positions) == 0:
+            # will not split anywhere
             new_contig_names.append(f"contig{new_contig_id}")
             new_contig_sequences.append(genome.sequence[contig_id])
             new_contig_id += 1
             continue
 
-        old_contig_sequence = genome.sequence[contig_id]
-        split_positions = np.sort(random_spaced_locations(min_contig_size, len(old_contig_sequence)-min_contig_size,
-                                                          n_splits, min_space=min_contig_size, rng=rng))
+
+        random_split_positions = np.sort(random_spaced_locations(min_contig_size, len(old_contig_sequence)-min_contig_size,
+                                                          n_random_splits, min_space=min_contig_size, rng=rng))
+        logging.info("Introducing random split positions: %s" % random_split_positions)
+
+        split_positions = np.sort(np.concatenate([split_positions, random_split_positions]))
+        # add start and end of genome
         split_positions = np.insert(split_positions, 0, 0)
         split_positions = np.append(split_positions, len(old_contig_sequence))
+
+
         logging.info(f"Splitting contig {contig_id} between {split_positions}")
 
         for split_i, (start, end) in enumerate(zip(split_positions[0:-1], split_positions[1:])):
@@ -74,8 +94,16 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
 
 
     new_fasta = bnp.datatypes.SequenceEntry.from_entry_tuples(
-        zip(new_contig_names, new_contig_sequences)
+        zip(new_contig_names,
+            trim_contig_sequences_for_ns(new_contig_sequences))
     )
     logging.info(f"Ended up with {len(new_fasta)} genome")
     return SimulatedContigs(new_fasta, ScaffoldAlignments.from_entry_tuples(scaffold_alignments),
                             inter_chromosome_splits, intra_chromosome_splits)
+
+
+def trim_contig_sequences_for_ns(contig_sequences):
+    # removes Ns at start and end
+    return [
+        seq[(seq != "N") & (seq != "n")] for seq in contig_sequences
+    ]
