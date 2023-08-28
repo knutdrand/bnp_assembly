@@ -29,6 +29,9 @@ class ContigPath:
             return cls(node_ids, reverse_mask, node_names)
         assert False
 
+    def __repr__(self):
+        return f'ContigPath({self.to_list()})'
+
     def reverse(self):
         return self.__class__(self._node_ids[::-1], (1-self._reverse_mask)[::-1], self._node_names)
 

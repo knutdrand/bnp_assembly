@@ -6,6 +6,7 @@ from bnp_assembly.splitting import LinearSplitter2, LinearSplitter3, YahsSplitte
 from bnp_assembly.simulation.hic import simulate_merged_contig_reads, simulate_many_contigs, SimulationParams, \
     full_simulation
 from bnp_assembly.location import LocationPair
+from .interface import SplitterInterface
 from .make_scaffold import make_scaffold_numeric
 from dataclasses import dataclass
 import numpy as np
@@ -65,10 +66,13 @@ def run_simulated_split_experiment(simulation_params: SimulationParams, rng: obj
         DirectedNode(i, '+') for i in split_and_pairs.split.get_contig_dict())
 
     # split = ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
-    paths = YahsSplitter(contig_dict, bin_size=splitting_params.bin_size).split(contig_path,
-                                                                                LocationPair(split_and_pairs.location_a,
-                                                                                             split_and_pairs.location_b),
-                                                                                threshold=splitting_params.threshold)
+    read_pairs= LocationPair(split_and_pairs.location_a, split_and_pairs.location_b)
+    s = SplitterInterface(contig_dict, read_pairs, contig_path, max_distance=1000, bin_size=50)
+    paths = s.split()
+    # paths = YahsSplitter(contig_dict, bin_size=splitting_params.bin_size).split(contig_path,
+    #                                                                             LocationPair(split_and_pairs.location_a,
+    #                                                                                          split_and_pairs.location_b),
+    #                                                                             threshold=splitting_params.threshold)
     # splitter = LinearSplitter3(contig_dict, contig_path, window_size=100)
     # npaths = splitter.split(LocationPair(split_and_pairs.location_a,
     #                                    split_and_pairs.location_b))

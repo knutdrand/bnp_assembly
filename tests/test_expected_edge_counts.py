@@ -17,8 +17,8 @@ def test_cdf(cumulative_distribution):
     assert cumulative_distribution.cdf(9) == 0.75
 
 
-cumulative_distribution = np.ones(10)
-cumulative_distribution[0] = 0
+# cumulative_distribution = np.ones(10)
+# cumulative_distribution[0] = 0
 
 @pytest.fixture()
 def expected_edge_counts():
