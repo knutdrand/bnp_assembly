@@ -103,7 +103,7 @@ class SplitterInterface:
         # If we take the average of these, we give impact to high bands
         # Taking the median or a more robust measure should be better
         px(name='splitting').histogram(ratio, nbins=20, title=f'edge {edge}')
-        expected = np.concatenate([expected_a, expected_b])
+        new_expected = np.concatenate([expected_a, expected_b])
         '''
         args = np.argsort(ratio)
         ratio = ratio[args]
@@ -112,7 +112,7 @@ class SplitterInterface:
         ratio = ratio[cut_n:-cut_n]
         expected = expected[cut_n:-cut_n]
         '''
-        return weighted_median(ratio, expected)
+        return weighted_median(ratio, new_expected)
 
     def register_location_pair(self, location_pair: LocationPair):
         """
@@ -162,10 +162,12 @@ class SplitterInterface:
         self.plot()
         px(name='splitting').line(self.distance_counts, title='distance counts')
         distance_means = self._normalize_dist_counts(self.distance_counts)
+        assert np.all(~np.isnan(distance_means)), distance_means
         expected = np.zeros((self._n_bins, self._n_bins))
         for i in range(self._n_bins):
             for j in range(self._n_bins):
                 expected[i, j] = distance_means[i + j + 1]
+        assert np.all(~np.isnan(expected)), expected
         # Fill the expected matrix with the expected values according to distance
         px(name='splitting').imshow(expected, title='expected')
         scores = {edge: self.score_matrix(self._node_histograms[edge], expected, edge) for edge in self._contig_path.edges}
@@ -192,4 +194,4 @@ class SplitterInterface:
             k = length // self._bin_size
             for i in range(min(k, n_attempts.size)):
                 n_attempts[i] += k - i
-        return np.minimum.accumulate(distance_counts / n_attempts)
+        return np.minimum.accumulate(np.where(n_attempts>0, distance_counts / n_attempts, 0))
