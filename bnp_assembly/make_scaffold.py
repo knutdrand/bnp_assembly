@@ -131,7 +131,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
                           bin_size=5000, splitting_method='poisson', **distance_kwargs):
     if distance_measure == 'forbes3' and splitting_method != 'poisson':
         return default_make_scaffold(contig_dict, read_pairs)
-    assert False
+    # assert False
     px = px_func(name='joining')
     logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")
     if distance_measure == 'window':
@@ -168,7 +168,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
             distance_dist(read_pairs, contig_dict),
             p_noise=0.4,
             genome_size=sum(contig_dict.values()))
-        logging.info("Paths before splitting: %s" % paths)
+        #logging.info("Paths before splitting: %s" % paths)
         paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix,
                                      len(read_pairs.location_b))
     else:
