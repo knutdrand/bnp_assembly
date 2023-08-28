@@ -50,7 +50,7 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
 
     for contig_id, n_random_splits in enumerate(splits_at_contig):
         old_contig_sequence = genome.sequence[contig_id]
-        split_positions = np.array([])
+        split_positions = np.array([], dtype=int)
         if also_split_at_ns > 0:
             is_n = ((old_contig_sequence == "N") | (old_contig_sequence == "n")).astype(int)
             split_positions = np.where(np.diff(is_n) == 1)[0] - 1

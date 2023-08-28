@@ -16,6 +16,13 @@ class ScaffoldComparison:
         self._true_scaffold = Scaffolds.from_scaffold_alignments(true_alignments)
         self._estimated_scaffold = Scaffolds.from_scaffold_alignments(estimated_alignments)
 
+        print("Estimated scaffold:")
+        for a in estimated_alignments:
+            print(a)
+
+        print("True")
+        print(true_alignments)
+
     @property
     @lru_cache(maxsize=None)
     def _estimated_edge_dict(self) -> tp.Dict[str, tp.List[int]]:
