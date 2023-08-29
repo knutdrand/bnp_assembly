@@ -40,7 +40,7 @@ class ScaffolderInterface:
 
 
 class SplitterInterface:
-    def __init__(self, contig_dict, location_pairs, contig_path, max_distance=100000, bin_size=1000):
+    def __init__(self, contig_dict, location_pairs, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
         self._contig_dict = contig_dict
         self._location_pairs = location_pairs
         self._contig_path = contig_path
@@ -55,6 +55,7 @@ class SplitterInterface:
         self._node_histograms = {edge: np.zeros(self._hist_shapes[edge]) for edge in contig_path.edges}
         self._coordinate_system = CoordinateSystem(contig_dict, contig_path.edges)
         self.distance_counts = np.zeros(n_bins * 2)
+        self._threshold = threshold
 
     def count_bins(self, node_id):
         return int(np.ceil(min(self._max_distance, self._contig_dict[node_id]) / self._bin_size))
@@ -171,7 +172,7 @@ class SplitterInterface:
         # Fill the expected matrix with the expected values according to distance
         px(name='splitting').imshow(expected, title='expected')
         scores = {edge: self.score_matrix(self._node_histograms[edge], expected, edge) for edge in self._contig_path.edges}
-        return split_on_scores(self._contig_path, scores, 0.2, keep_over=True)
+        return split_on_scores(self._contig_path, scores, self._threshold, keep_over=True)
 
     def plot(self):
         for edge, histogram in self._node_histograms.items():

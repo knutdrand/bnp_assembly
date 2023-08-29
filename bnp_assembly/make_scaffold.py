@@ -119,21 +119,21 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def default_make_scaffold(contig_dict, read_pairs: LocationPair):
+def default_make_scaffold(contig_dict, read_pairs: LocationPair, threshold=0.2):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
     forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     distance_matrix = forbes_obj.get_distance_matrix()
     distance_matrix.plot(name='forbes3')
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
-    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000)
+    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000, threshold=threshold)
     return s.split()
 
 
-def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.0,
+def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.2,
                           bin_size=5000, splitting_method='poisson', **distance_kwargs):
     if distance_measure == 'forbes3' and splitting_method != 'poisson':
-        return default_make_scaffold(contig_dict, read_pairs)
+        return default_make_scaffold(contig_dict, read_pairs, threshold=threshold)
     # assert False
     px = px_func(name='joining')
     logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")
