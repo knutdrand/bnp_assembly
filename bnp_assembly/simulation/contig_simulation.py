@@ -98,3 +98,11 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
     logging.info(f"Ended up with {len(new_fasta)} genome")
     return SimulatedContigs(new_fasta, ScaffoldAlignments.from_entry_tuples(scaffold_alignments),
                             inter_chromosome_splits, intra_chromosome_splits)
+
+
+
+def trim_contig_sequences_for_ns(contig_sequences):
+    # removes Ns at start and end
+    return [
+        seq[(seq != "N") & (seq != "n")] for seq in contig_sequences
+    ]
