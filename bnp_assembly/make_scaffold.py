@@ -25,6 +25,8 @@ from bnp_assembly.plotting import px as px_func
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes, NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
+import logging
+logger = logging.getLogger(__name__)
 
 PathFinder = nxPathFinder
 
@@ -123,6 +125,7 @@ def default_make_scaffold(contig_dict, read_pairs: LocationPair):
     distance_matrix = forbes_obj.get_distance_matrix()
     distance_matrix.plot(name='forbes3')
     path = join_all_contigs(distance_matrix)
+    logger.info(f"Joined contigs: {path}")
     s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000)
     return s.split()
 
