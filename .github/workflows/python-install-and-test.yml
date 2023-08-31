@@ -27,6 +27,7 @@ jobs:
         python-version: "${{ matrix.python-version }}"
     - name: Install dependencies
       run: |
+        cd bnp_assembly
         python -m pip install --upgrade pip
         pip install -r requirements_dev.txt
 

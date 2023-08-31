@@ -1,0 +1,94 @@
+
+n_threads: 8
+
+
+genomes:
+  hg38:  # UCSC id of reference genome
+    hg002:  # a descriptive name [a-zA-z0-9]
+      simulated: False
+      # url to the genomic variants and truth regions for this individual
+      vcf_url: "https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark.vcf.gz"
+      truth_regions: "https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/release/AshkenazimTrio/HG002_NA24385_son/NISTv4.2.1/GRCh38/HG002_GRCh38_1_22_v4.2.1_benchmark_noinconsistent.bed"
+
+      # "genomes" that are used for benchmarking
+      # Specify small and medium for quicker runs.
+      # The big should be the full genome (* means all chromosomes)
+      small:
+        chromosomes: "chr20,chr21"
+        genome_size: 111154150
+      medium:
+        chromosomes: "chr17,chr18,chr19,chr20,chr21"
+        genome_size: 333402492
+      big:
+        chromosomes: "chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY"
+        genome_size: 3000000000
+    hg003:
+      # not implemented
+
+  # yeast
+  sacCer3:
+    convert_to_numeric: True  # Set to true if chromosome names should be converted to numeric names
+    simulated:
+      simulated: True
+      small:
+          chromosomes: "chrI"
+          genome_size: 230218
+      medium:
+        chromosomes: "chrI,chrII,chrIII"
+        #genome_size: 2623224
+      big:
+        chromosomes: "chrI,chrII,chrIII,chrIV,chrV"
+
+    real:
+      simulated: True # simply means that genomic variants are simulated. HiC-data can be real if specified with urls like below
+      hic_data:
+        - https://zenodo.org/record/5887339/files/SRR7126301_1.fastq.gz?download=1
+        - https://zenodo.org/record/5887339/files/SRR7126301_2.fastq.gz?download=1
+      small:
+        chromosomes: "chrI"
+      medium:
+        chromosomes: "chrI,chrII,chrIII,chrIV,chrV"
+      big:
+        chromosomes: "chrI,chrII,chrIII,chrIV,chrIX,chrV,chrVI,chrVII,chrVIII,chrX,chrXI,chrXII,chrXIII,chrXIV,chrXV,chrXVI,chrM"
+
+  athalia_rosea:
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/001/ERR6054981/ERR6054981_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/001/ERR6054981/ERR6054981_2.fastq.gz
+      big:
+        chromosomes: 1,2,3,4,5,6,7,8
+
+  # simulated genome sequence
+  simulated1:
+    genome_size: 10000000
+    n_chromosomes: 11
+
+    simulated:
+      simulated: True
+      small:
+        chromosomes: "chr1,chr2,chr3"
+      medium:
+        chromosomes: "chr0,chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9"
+  simulated2:
+    genome_size: 1000000
+    n_chromosomes: 10
+
+    simulated:
+      simulated: True
+      small:
+        chromosomes: "chr1,chr2,chr3"
+
+
+
+mason_variator_parameters:
+   "--snp-rate 0.002
+   --small-indel-rate 0.0005
+   --min-small-indel-size 2
+   --max-small-indel-size 25
+   --sv-indel-rate 0
+   --sv-inversion-rate 0
+   --sv-translocation-rate 0
+   --sv-duplication-rate 0
+   "

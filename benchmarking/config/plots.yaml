@@ -1,0 +1,151 @@
+
+test_plots: [
+
+]
+
+# Default parameter groups. Will be used for plotting if not overridden in plot config in plots.yaml
+default_parameter_sets:
+  n_reads: [5000, 10000, 25000, 50000, 75000, 100000]
+  scaffolder: ["bnp_scaffolding", "bnp_scaffolding_nosplit", "yahs"]
+  extra_splits: [5, 10, 25, 50]
+  seed: [1, 10, 20 , 30]
+
+
+# Axis/titles/etc that will be replaced in plots
+pretty_names:
+  ScaffolderAccuracy: Accuracy
+
+
+# Plots
+plots:
+  generic:
+    # used as a dummy for plots that are not defined
+    plot_type: ""
+  test:
+    plot_type: accuracy
+    parameters:
+      individual: simulated
+      dataset_size: small
+      n_reads: [5000, 20000, 40000]
+      extra_splits: [5, 10, 20]
+      source: not_assembled  # Not assembled means that hifiasm is not run. Instead, the true genome is artificially split into contigs
+  edge_recall:
+    plot_type: edge_recall
+    parameters:
+      individual: simulated
+      dataset_size: small
+      n_reads: 40000
+  edge_recall_real:
+    plot_type: edge_recall
+    parameters:
+      genome_build: sacCer3
+      individual: real
+      dataset_size: big
+      n_reads: [100000, 600000, 1000000]
+      extra_splits: [20, 50]
+  edge_recall_real_multiple_seeds:
+    plot_type: edge_recall_real_multiple_seeds
+    parameters:
+      genome_build: sacCer3
+      individual: real
+      dataset_size: big
+      n_reads: [ 100000, 1000000, 2000000]
+      extra_splits: [10, 50]
+      seed: [1, 10, 20, 30, 40]  # , 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160]
+      scaffolder: [bnp_scaffolding_nosplit, yahs]
+  missing_edges:
+    plot_type: missing_edges
+    parameters:
+      genome_build: sacCer3
+      individual: real
+      dataset_size: big
+      n_reads: [ 1000000 ]
+      extra_splits: 50
+      seed: [ 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160 ]
+      scaffolder: [ bnp_scaffolding_nosplit ]
+
+  edge_precision_vs_recall:
+    plot_type: edge_precision_vs_recall
+    parameters:
+      genome_build: sacCer3
+      individual: real
+      dataset_size: big
+      n_reads: [ 1000000 ]
+      extra_splits: [50]
+      scaffolder: [bnp_scaffolding, yahs]
+      seed: [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+
+
+  accuracy_real_violin:
+    plot_type: accuracy_multiple_seeds
+    parameters:
+      genome_build: sacCer3
+      individual: real
+      dataset_size: big
+      n_reads: 1000000
+      extra_splits: 50
+      scaffolder: [bnp_scaffolding, yahs]
+      seed: [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+
+
+  yeast_real_data:
+    plot_type: accuracy
+    parameters:
+      individual: real
+      dataset_size: big
+      source: not_assembled
+      n_reads: [200000, 1000000]
+      extra_splits: [20, 100]
+  accuracy:
+    plot_type: accuracy
+    parameters:
+      individual: simulated
+      dataset_size: medium
+      source: not_assembled
+      n_reads: [50000, 100000]
+
+# The following defines different type of plots
+# This includes only the description of the structure of each plot, not what values are used for the variables
+# Each of x_axis, y_axis, category_variable, color, labels, facet_col, facet_row
+# should be either a result_type or a parameter_type if set
+
+plot_types:
+
+  accuracy:
+    type: line
+    x: n_reads
+    y: ScaffolderAccuracy
+    color: scaffolder
+    facet_col: extra_splits
+
+  edge_recall:
+    type: line
+    x: n_reads
+    y: ScaffolderEdgeRecall
+    color: scaffolder
+    facet_col: extra_splits
+
+  missing_edges:
+    type: violin
+    x: n_reads
+    y: ScaffolderMissingEdges
+    color: scaffolder
+
+  edge_recall_real_multiple_seeds:
+    type: violin
+    x: n_reads
+    y: ScaffolderEdgeRecall
+    color: scaffolder
+    facet_col: extra_splits
+
+  edge_precision_vs_recall:
+    type: "scat"
+    x: ScaffolderEdgeRecall
+    y: ScaffolderEdgePrecision
+    color: scaffolder
+    facet_col: extra_splits
+
+  accuracy_multiple_seeds:
+    type: violin
+    x: scaffolder
+    y: ScaffolderAccuracy
