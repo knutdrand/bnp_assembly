@@ -62,7 +62,7 @@ def score_matrix(observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->f
     expected_b = np.sum(expected, axis=0)
     a = np.sum(observed, axis=1) / expected_a
     b = np.sum(observed, axis=0) / expected_b
-    ratio = np.concatenate([a, b]) # These are a lot of column and row sums
+    ratio = np.concatenate([a, b])  # These are a lot of column and row sums
     # If we take the average of these, we give impact to high bands
     # Taking the median or a more robust measure should be better
     px(name='splitting').histogram(ratio, nbins=20, title=f'edge {edge}')
@@ -79,7 +79,7 @@ def score_matrix(observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->f
 
 
 class SplitterInterface:
-    def __init__(self, contig_dict, location_pairs, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
+    def __init__(self, contig_dict: dict, location_pairs: LocationPair, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
         self._contig_dict = contig_dict
         self._location_pairs = location_pairs
         self._contig_path = contig_path

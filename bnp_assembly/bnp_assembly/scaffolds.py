@@ -15,7 +15,7 @@ from collections import defaultdict
 
 class Scaffold:
     def __init__(self, path: tp.List[DirectedNode], name: str = None):
-        self._path = path
+        self._path: tp.List[DirectedNode] = path
         self._name = name
 
     def __repr__(self):
@@ -30,6 +30,11 @@ class Scaffold:
         translated_path = [DirectedNode(translation_dict[dn.node_id], dn.orientation) for dn in
                            contig_path.directed_nodes]
         return cls(translated_path, name)
+
+    def to_contig_path(self, translation_dict: tp.Dict[str, int]):
+        reverse_dict = {v: k for k, v in translation_dict.items()}
+        translated_path = [DirectedNode(reverse_dict[dn.node_id], dn.orientation) for dn in self._path]
+        return ContigPath.from_directed_nodes(translated_path)
 
     @property
     @lru_cache(maxsize=None)
@@ -76,9 +81,13 @@ class Scaffold:
             sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
         return np.concatenate(sequences)
 
+
 class Scaffolds:
     def __init__(self, scaffolds: tp.List[Scaffold]):
         self._scaffolds = scaffolds
+
+    def __iter__(self):
+        return iter(self._scaffolds)
 
     def __repr__(self):
         return '\n'.join(repr(scaffold) for scaffold in self._scaffolds)
