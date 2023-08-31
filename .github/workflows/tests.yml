@@ -35,4 +35,7 @@ jobs:
         pip install .
     - name: Run pytest and doctest
       run: |
-        make test-all
+        cd bnp_assembly
+        pytest
+        pytest tests/test_simulated.py
+        pytest tests/test_perfect_join.py
