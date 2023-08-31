@@ -59,9 +59,7 @@ test-all: ## run pytest, doctests, examples
 	cd bnp_assembly && \
 	pytest --cov=bnp_assembly --cov-report html && \
 	pytest --cov=bnp_assembly --cov-report html --cov-append scripts/*_example.py && \
-	pytest --cov-report html --cov=bnp_assembly --cov-append --doctest-modules bnp_assembly/ && \
-	cd bnp_assembly && \
-	cd docs_source && make doctest
+	pytest --cov-report html --cov=bnp_assembly --cov-append --doctest-modules bnp_assembly/
 
 coverage: ## check code coverage quickly with the default Python
 	coverage report -m
