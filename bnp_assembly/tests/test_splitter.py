@@ -58,20 +58,47 @@ def test_splittermatrix(matrix):
     #                                      scaffold_map.translate_locations(locations_pair.location_b))
 
 
-def test_score_matrix():
-    expected = np.array([[3, 2, 1],
-                         [2, 1, 0.1],
-                         [1, 0.1, 0.1]])
+def test_score_matrix(expected, bad, hiding_bad):
+    bad_score = score_matrix(bad, expected)
+    good_score = score_matrix(expected, expected)
+    assert bad_score < good_score
+
+
+def test_score_matrix_hiding(expected, hiding_bad):
+    good_score = score_matrix(expected, expected)
+    hiding_bad_score = score_matrix(hiding_bad, expected)
+    assert hiding_bad_score < good_score
+
+
+@pytest.fixture
+def hiding_bad():
+    hiding_bad = np.array([[3, 3, 3],
+                           [1, 1, 0],
+                           [1, 0, 0]])
+    return hiding_bad
+
+@pytest.fixture
+def bad():
     bad = np.array([[1, 1, 1],
                     [1, 1, 1],
                     [1, 1, 1.]])
-    good = expected.copy()
-    hiding_bad = np.array([[3, 3, 3],
-                            [1, 1, 1],
-                            [1, 1, 1]])
-    bad_score = score_matrix(expected, bad)
-    good_score = score_matrix(expected, good)
-    hiding_bad_score = score_matrix(expected, hiding_bad)
+    return bad
+
+@pytest.fixture
+def expected():
+    expected = np.array([[3, 2, 1],
+                         [2, 1, 0.1],
+                         [1, 0.1, 0.1]])
+    return expected
+
+
+def test_score_incomplete(expected, bad, hiding_bad):
+    bad = bad[:2]
+    hiding_bad = hiding_bad[:2]
+    good = expected.copy()[:2]
+    bad_score = score_matrix(bad, expected)
+    good_score = score_matrix(good, expected)
+    hiding_bad_score = score_matrix(hiding_bad, expected)
     assert bad_score < good_score
     assert hiding_bad_score < good_score
 
