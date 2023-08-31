@@ -1,7 +1,11 @@
 from collections import Counter
 from functools import lru_cache
+"""
 
 from bnp_assembly.interface import ScaffolderInterface
+
+from bnp_assembly.bnp_assembly.expected_edge_counts import CumulativeDistribution
+
 
 #P(d>a and d<a+b) = prod_i(C[a_i+b]-C[a_i]) = prod_i(C[a_i+b]) - prod_i(C[a_i])
 #lP = log(C[a+b]-C[a])
@@ -24,3 +28,4 @@ class LikelihoodScaffolder(ScaffolderInterface):
         self._node_counter = Counter()
 
 
+"""
