@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import bnp_assembly.plotting as plotting
 import bionumpy as bnp
@@ -9,6 +11,7 @@ from bnp_assembly.make_scaffold import make_scaffold
 
 @pytest.mark.parametrize("folder_name", ["example_data/simulated_perfect_join"])
 def test_perfect_join(folder_name):
+    print("Current directory: ", os.getcwd())
     #plotting.register(joining=plotting.ResultFolder('./tmp-joining/'))
     #plotting.register(splitting=plotting.ResultFolder('./tmp-splitting/'))
     genome_file_name = folder_name + "/contigs.chrom.sizes"

@@ -1,4 +1,5 @@
-[![Tests]( https://github.com/ivargr/hic-assembly-benchmarking/actions/workflows/test_snakemake_pipeline.yml/badge.svg)](https://github.com/ivargr/hic-assembly-benchmarking/actions/workflows/test_snakemake_pipeline.yml)
+[![Tests]( https://github.com/knutdrand/bnp_assembly/actions/workflows/tests.yml/badge.svg)](https://github.com/ivargr/knutdrand/actions/workflows/tests.yml)
+
 
 
 ## Snakemake pipeline for testing HiC phasing and scaffolding on simulated data
