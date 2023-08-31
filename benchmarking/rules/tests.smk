@@ -111,7 +111,7 @@ rule test_athalia_rosea_real_reads:
             individual="real",
             dataset_size="big",
             depth="10",
-            n_reads="1000000",
+            n_reads="10000000",
             seed=1,
             source="not_assembled",
             extra_splits=50,
