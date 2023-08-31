@@ -39,6 +39,45 @@ class ScaffolderInterface:
         pass
 
 
+def score_matrix(observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->float:
+    """
+    Score a matrix of observed counts against a matrix of expected counts.
+    This method should take account for both bands of overrepresntation and underrepresentation.
+
+    Parameters
+    ----------
+    observed
+    expected
+    edge
+
+    Returns
+    -------
+
+    """
+    shape = observed.shape
+    expected = expected[:shape[0], :shape[1]]
+    observed = np.minimum(observed, expected) # Take the minimum here to avoid giving impact to high values
+    px(name='splitting').imshow(observed, title=f'truncated{edge}')
+    expected_a = np.sum(expected, axis=1)
+    expected_b = np.sum(expected, axis=0)
+    a = np.sum(observed, axis=1) / expected_a
+    b = np.sum(observed, axis=0) / expected_b
+    ratio = np.concatenate([a, b]) # These are a lot of column and row sums
+    # If we take the average of these, we give impact to high bands
+    # Taking the median or a more robust measure should be better
+    px(name='splitting').histogram(ratio, nbins=20, title=f'edge {edge}')
+    new_expected = np.concatenate([expected_a, expected_b])
+    '''
+    args = np.argsort(ratio)
+    ratio = ratio[args]
+    expected = expected[args]
+    cut_n = len(ratio)//8
+    ratio = ratio[cut_n:-cut_n]
+    expected = expected[cut_n:-cut_n]
+    '''
+    return weighted_median(ratio, new_expected)
+
+
 class SplitterInterface:
     def __init__(self, contig_dict, location_pairs, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
         self._contig_dict = contig_dict
@@ -76,44 +115,6 @@ class SplitterInterface:
         if d >= self._n_bins * 2:
             return
         self.distance_counts[d] += 1
-
-    def score_matrix(self, observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->float:
-        """
-        Score a matrix of observed counts against a matrix of expected counts.
-        This method should take account for both bands of overrepresntation and underrepresentation.
-
-        Parameters
-        ----------
-        observed
-        expected
-        edge
-
-        Returns
-        -------
-
-        """
-        shape = observed.shape
-        expected = expected[:shape[0], :shape[1]]
-        observed = np.minimum(observed, expected) # Take the minimum here to avoid giving impact to high values
-        px(name='splitting').imshow(observed, title=f'truncated{edge}')
-        expected_a = np.sum(expected, axis=1)
-        expected_b = np.sum(expected, axis=0)
-        a = np.sum(observed, axis=1) / expected_a
-        b = np.sum(observed, axis=0) / expected_b
-        ratio = np.concatenate([a, b]) # These are a lot of column and row sums
-        # If we take the average of these, we give impact to high bands
-        # Taking the median or a more robust measure should be better
-        px(name='splitting').histogram(ratio, nbins=20, title=f'edge {edge}')
-        new_expected = np.concatenate([expected_a, expected_b])
-        '''
-        args = np.argsort(ratio)
-        ratio = ratio[args]
-        expected = expected[args]
-        cut_n = len(ratio)//8
-        ratio = ratio[cut_n:-cut_n]
-        expected = expected[cut_n:-cut_n]
-        '''
-        return weighted_median(ratio, new_expected)
 
     def register_location_pair(self, location_pair: LocationPair):
         """
@@ -171,7 +172,7 @@ class SplitterInterface:
         assert np.all(~np.isnan(expected)), expected
         # Fill the expected matrix with the expected values according to distance
         px(name='splitting').imshow(expected, title='expected')
-        scores = {edge: self.score_matrix(self._node_histograms[edge], expected, edge) for edge in self._contig_path.edges}
+        scores = {edge: score_matrix(self._node_histograms[edge], expected, edge) for edge in self._contig_path.edges}
         return split_on_scores(self._contig_path, scores, self._threshold, keep_over=True)
 
     def plot(self):
