@@ -102,3 +102,28 @@ rule test_accuracy:
             lines = f.readlines()
             assert float(lines[0].split()[1]) == 1.0
             assert float(lines[1].split()[1]) == 1.0
+
+
+rule test_athalia_rosea_real_reads:
+    input:
+        ScaffoldingResults.from_flat_params(
+            genome_build="athalia_rosea",
+            individual="real",
+            dataset_size="big",
+            depth="10",
+            n_reads="1000000",
+            seed=1,
+            source="not_assembled",
+            extra_splits=50,
+            split_on_n_ns=0,
+            scaffolder="bnp_scaffolding",
+        ).file_path() + "/accuracy.txt"
+    output:
+        touch("test_athalia_rosea_real_reads")
+    run:
+        with open(input[0]) as f:
+            lines = f.readlines()
+            # recall
+            assert float(lines[0].split()[1]) >= 0.8
+            # precision
+            assert float(lines[1].split()[1]) >= 0.8
