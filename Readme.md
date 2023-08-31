@@ -1,4 +1,5 @@
 [![Tests]( https://github.com/knutdrand/bnp_assembly/actions/workflows/tests.yml/badge.svg)](https://github.com/ivargr/knutdrand/actions/workflows/tests.yml)
+[![Tests]( https://github.com/knutdrand/bnp_assembly/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/ivargr/knutdrand/actions/workflows/benchmarks.yml)
 
 
 
