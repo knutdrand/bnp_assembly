@@ -1,0 +1,2 @@
+snakehelp
+mapping_benchmarking @ git+https://github.com/bioinf-benchmarking/mapping-benchmarking@master
