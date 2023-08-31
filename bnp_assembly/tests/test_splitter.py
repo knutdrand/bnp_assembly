@@ -1,6 +1,5 @@
 from bnp_assembly.contig_graph import ContigPath, DirectedNode
-from bnp_assembly.contig_map import ScaffoldMap
-from bnp_assembly.interface import SplitterInterface
+from bnp_assembly.interface import SplitterInterface, score_matrix
 from bnp_assembly.location import Location, LocationPair
 import numpy as np
 import pytest
@@ -57,4 +56,24 @@ def test_splittermatrix(matrix):
     #
     # global_locations_pair = LocationPair(scaffold_map.translate_locations(locations_pair.location_a),
     #                                      scaffold_map.translate_locations(locations_pair.location_b))
+
+
+def test_score_matrix():
+    expected = np.array([[3, 2, 1],
+                         [2, 1, 0.1],
+                         [1, 0.1, 0.1]])
+    bad = np.array([[1, 1, 1],
+                    [1, 1, 1],
+                    [1, 1, 1.]])
+    good = expected.copy()
+    hiding_bad = np.array([[3, 3, 3],
+                            [1, 1, 1],
+                            [1, 1, 1]])
+    bad_score = score_matrix(expected, bad)
+    good_score = score_matrix(expected, good)
+    hiding_bad_score = score_matrix(expected, hiding_bad)
+    assert bad_score < good_score
+    assert hiding_bad_score < good_score
+
+
 
