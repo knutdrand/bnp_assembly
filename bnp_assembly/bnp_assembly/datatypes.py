@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from bionumpy.bnpdataclass import bnpdataclass
 from dataclasses import dataclass
 import bionumpy as bnp
@@ -13,3 +15,13 @@ class GenomicLocationPair:
     def get_numeric_locations(self):
         return LocationPair(Location.from_genomic_location(self.a),
                             Location.from_genomic_location(self.b))
+
+
+@dataclass
+class StreamedGenomicLocationPair:
+    stream: Iterable[GenomicLocationPair]
+
+    def get_numeric_locations(self):
+        return (p.get_numeric_locations() for p in self.stream)
+
+

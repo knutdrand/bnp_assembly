@@ -2,12 +2,19 @@ import numpy as np
 import scipy
 
 from bnp_assembly.plotting import px
+from .datatypes import StreamedGenomicLocationPair, GenomicLocationPair
+from .location import LocationPair
 
 DISTANCE_CUTOFF = 100000
 
 
 def distance_dist(location_pairs, contig_dict):
-    distances = get_intra_distances(location_pairs)
+
+    if isinstance(location_pairs, LocationPair):
+        distances = get_intra_distances(location_pairs)
+    else:
+        distances = (get_intra_distances(location_pairs) for location_pairs in location_pairs)
+
     return calculate_distance_distritbution(list(contig_dict.values()), distances)
 
 
@@ -18,7 +25,12 @@ def get_intra_distances(location_pairs):
 
 def calculate_distance_distritbution(contig_sizes, distances):
     N = max(contig_sizes)
-    occurances = np.bincount(distances, minlength=N)
+
+    if isinstance(distances, (np.ndarray, list)):
+        occurances = np.bincount(distances, minlength=N)
+    else:
+        occurances = sum(np.bincount(d, minlength=N) for d in distances)
+
     oppurtunity = np.zeros(N)
     for contig_size in contig_sizes:
         oppurtunity[:contig_size] += 1
