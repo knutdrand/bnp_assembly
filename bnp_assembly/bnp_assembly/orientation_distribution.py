@@ -59,10 +59,16 @@ class OrientationDistribution:
         -------
 
         """
-
-        combination_probabilities = self._length_distribution.log_probability(self.distances(position_a, position_b))
+        distances = self.distances(position_a, position_b)
+        assert len(distances)==4, distances
+        combination_probabilities = self._length_distribution.log_probability(
+            distances)
+        assert len(combination_probabilities)==4, combination_probabilities
         total = scipy.special.logsumexp(combination_probabilities)
         probs = np.exp(combination_probabilities - total)
+        assert len(probs)==4, probs
+        assert np.allclose(np.sum(probs), 1), np.sum(probs)
+        print(probs)
         return dict(zip(self._combinations, probs))
 
     def distance_matrix(self, position_a, position_b):
