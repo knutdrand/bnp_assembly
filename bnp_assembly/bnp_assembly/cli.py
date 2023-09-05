@@ -43,7 +43,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     logging.info("Getting genomic reads")
     # reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
     read_stream = [get_genomic_read_pairs_as_stream(genome, read_filename, mapq_threshold=20),
-                   get_genomic_read_pairs(genome, read_filename, mapq_threshold=20),
+                   get_genomic_read_pairs_as_stream(genome, read_filename, mapq_threshold=20),
                    get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
                    ]
 
