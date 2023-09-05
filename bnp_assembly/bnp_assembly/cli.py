@@ -12,8 +12,6 @@ from bionumpy.genomic_data import GenomicSequence
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
-from bnp_assembly.interface import SplitterInterface
-from bnp_assembly.scaffolds import Scaffolds
 from .io import get_read_pairs, get_genomic_read_pairs
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
@@ -116,8 +114,7 @@ class Paths:
             out_sequences.append(np.concatenate(sequences))
         return bnp.datatypes.SequenceEntry.from_entry_tuples(zip(out_names, out_sequences))
 
-    @staticmethod
-    def get_scaffold_name(i, path):
+    def get_scaffold_name(self, i, path):
         return f'scaffold{i}_' + ':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
 
 
@@ -169,24 +166,6 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str
         f.write(f'edge_precision\t{comparison.edge_precision()}\n')
     with open(out_file_name+".missing_edges", "w") as f:
         f.write('\n'.join([str(e) for e in missing_edges]))
-
-
-@app.command()
-def generate_training(contig_file_name: str, read_filename: str, true_agp_path, out_file_name: str):
-    true_agp = ScaffoldAlignments.from_agp(true_agp_path)
-    genome = bnp.Genome.from_file(contig_file_name)
-    logging.info("Getting genomic reads")
-    reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
-    logging.info("Making scaffold")
-    encoding = genome.get_genome_context().encoding
-    contig_dict = genome.get_genome_context().chrom_sizes
-    translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
-    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
-    numeric_locations_pair = reads.get_numeric_locations()
-    path = next(Scaffolds.from_scaffold_alignments(true_agp)).to_contig_path(translation_dict)
-    s = SplitterInterface(numeric_contig_dict, numeric_locations_pair, path,
-                          max_distance=100000, bin_size=5000, threshold=0.2).split()
-
 
 def main():
     app()

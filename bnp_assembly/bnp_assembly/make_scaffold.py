@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Union
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,9 @@ from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes, NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
 import logging
+
+from bnp_assembly.datatypes import StreamedGenomicLocationPair
+
 logger = logging.getLogger(__name__)
 
 PathFinder = nxPathFinder
@@ -98,7 +101,7 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold=threshold)
 
 
-def make_scaffold(genome: Genome, genomic_location_pairs: Iterable[GenomicLocationPair], *args, **kwargs) -> Scaffolds:
+def make_scaffold(genome: Genome, genomic_location_pairs: Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]], *args, **kwargs) -> Scaffolds:
     encoding = genome.get_genome_context().encoding
     contig_dict = genome.get_genome_context().chrom_sizes
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}

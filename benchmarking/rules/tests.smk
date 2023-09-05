@@ -124,6 +124,6 @@ rule test_athalia_rosea_real_reads:
         with open(input[0]) as f:
             lines = f.readlines()
             # recall
-            assert float(lines[0].split()[1]) >= 0.8
+            assert float(lines[0].split()[1]) >= 0.92
             # precision
-            assert float(lines[1].split()[1]) >= 0.8
+            assert float(lines[1].split()[1]) >= 0.98

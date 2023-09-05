@@ -16,6 +16,5 @@ def distance_matrix():
 def test_best_path_acceptance(distance_matrix):
     paths = PathFinder(distance_matrix).run()
     # paths = best_path(distance_matrix)
-    print(type(paths))
     assert isinstance(paths, list)
     assert all(isinstance(path, ContigPath) for path in paths)
