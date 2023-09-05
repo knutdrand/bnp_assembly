@@ -43,9 +43,17 @@ class OrientationDistributions:
         return self._orientation_distributions[node_ids].distribution_matrix(*offsets)
 
 
+def create_distance_matrix(n_nodes, pair_counts):
+    distance_matrix = DirectedDistanceMatrix(n_nodes)
+    for edge, value in pair_counts.items():
+        distance_matrix[edge] = -np.log(value)
+        distance_matrix[edge.reverse()] = -np.log(value)
+    return distance_matrix
+
+
 class OrientationWeightedCounter(EdgeScorer):
 
-    def __init__(self, contig_dict, read_pairs, cumulative_length_distribution=None):
+    def __init__(self, contig_dict, read_pairs=None, cumulative_length_distribution=None):
         self._contig_dict = ContigSizes.from_dict(contig_dict)
         self._read_pairs = read_pairs
         if cumulative_length_distribution is None:
@@ -66,17 +74,24 @@ class OrientationWeightedCounter(EdgeScorer):
 
     def get_distance_matrix(self, method='logprob'):
         assert method == 'logprob', method
-        pair_counts = self._calculate_log_prob_weighted_counts()
-        distance_matrix = DirectedDistanceMatrix(len(self._contig_dict))
-        for edge, value in pair_counts.items():
-            distance_matrix[edge] = -np.log(value)
-            distance_matrix[edge.reverse()] = -np.log(value)
-        return distance_matrix
+        self._calculate_log_prob_weighted_counts()
+        return self.finalize()
+
+    def finalize(self):
+        pair_counts = self._counts
+        n_nodes = len(self._contig_dict)
+        return create_distance_matrix(n_nodes, pair_counts)
 
     def _calculate_log_prob_weighted_counts(self):
-        for a, b in zip(self._read_pairs.location_a, self._read_pairs.location_b):
-            self._register_location_pair(LocationPair(a, b))
-            self._register_for_plots(LocationPair(a, b))
+        if isinstance(self._read_pairs, LocationPair):
+            read_pair_stram = [self._read_pairs]
+        else:
+            read_pair_stram = self._read_pairs
+        for read_pair in read_pair_stram:
+            self.register_location_pairs(read_pair)
+            #for a, b in zip(read_pair.location_a, read_pair.location_b):
+            #    self.register_location_pair(LocationPair(a, b))
+            #    self._register_for_plots(LocationPair(a, b))
 
         self.plot_scores(self.positions, self.scores)
         table = pd.DataFrame([{'nodeid': node_id,
@@ -100,7 +115,12 @@ class OrientationWeightedCounter(EdgeScorer):
             self.positions[pair[::-1]].append((b.offset, a.offset))
             self.scores[pair[::-1]].append(probability_dict[('l', 'r')])
 
-    def _register_location_pair(self, location_pair):
+    def register_location_pairs(self, location_pairs):
+        for a, b in zip(location_pairs.location_a, location_pairs.location_b):
+            self.register_location_pair(LocationPair(a, b))
+            self._register_for_plots(LocationPair(a, b))
+
+    def register_location_pair(self, location_pair):
         a, b = location_pair.location_a, location_pair.location_b
         if DISTANCE_CUTOFF < a.offset < self._contig_dict[int(a.contig_id)] - DISTANCE_CUTOFF:
             return
@@ -132,10 +152,30 @@ class OrientationWeightedCounter(EdgeScorer):
                 x = self._contig_dict[i] - np.array(x)
                 px(name='joining').scatter(x=x, y=y, title=f'{i}to{j}', color=s)
 
+    @property
+    def counts(self):
+        return self._counts
+
+
+def add_dict_counts(dict_a, dict_b):
+    return {key: dict_a.get(key, 0) + dict_b.get(key, 0) for key in set(dict_a) | set(dict_b)}
+
 
 class OrientationWeightedCountesWithMissing(OrientationWeightedCounter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._bin_counts_for_missing = Counter()
+
     def _calculate_log_prob_weighted_counts(self):
         super()._calculate_log_prob_weighted_counts()
         adjusted_counts = find_missing_data_and_adjust(self._counts, self._contig_dict, self._read_pairs,
                                                        self._cumulative_distance_distribution, 1000)
+        self._counts = adjusted_counts
         return adjusted_counts
+
+    def __register_location_pair(self, location_pair):
+        super().register_location_pair(location_pair)
+        self._register_bincount(location_pair)
+
+    def _register_bincount(self, location_pair):
+        counts, bin_sizes = get_binned_read_counts(bin_size, contig_dict, read_pairs)

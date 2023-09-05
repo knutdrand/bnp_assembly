@@ -62,7 +62,7 @@ def score_matrix(observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->f
     expected_b = np.sum(expected, axis=0)
     a = np.sum(observed, axis=1) / expected_a
     b = np.sum(observed, axis=0) / expected_b
-    ratio = np.concatenate([a, b]) # These are a lot of column and row sums
+    ratio = np.concatenate([a, b])  # These are a lot of column and row sums
     # If we take the average of these, we give impact to high bands
     # Taking the median or a more robust measure should be better
     px(name='splitting').histogram(ratio, nbins=20, title=f'edge {edge}')
@@ -79,7 +79,7 @@ def score_matrix(observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->f
 
 
 class SplitterInterface:
-    def __init__(self, contig_dict, location_pairs, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
+    def __init__(self, contig_dict: dict, location_pairs: LocationPair, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
         self._contig_dict = contig_dict
         self._location_pairs = location_pairs
         self._contig_path = contig_path
@@ -158,9 +158,14 @@ class SplitterInterface:
         Returns
         -------
         """
-        for a, b in zip(self._location_pairs.location_a, self._location_pairs.location_b):
-            self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
-                                                     Location.single_entry(int(b.contig_id), int(b.offset))))
+        if isinstance(self._location_pairs, LocationPair):
+            location_pairs_iter = [self._location_pairs]
+        else:
+            location_pairs_iter = self._location_pairs
+        for location_pairs in location_pairs_iter:
+            for a, b in zip(location_pairs.location_a, location_pairs.location_b):
+                self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
+                                                         Location.single_entry(int(b.contig_id), int(b.offset))))
         self.plot()
         px(name='splitting').line(self.distance_counts, title='distance counts')
         distance_means = self._normalize_dist_counts(self.distance_counts)

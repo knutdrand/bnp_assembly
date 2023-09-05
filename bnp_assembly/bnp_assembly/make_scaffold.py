@@ -1,4 +1,5 @@
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from typing import Iterable, Union
 
@@ -14,7 +15,10 @@ from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
-from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
+from bnp_assembly.missing_data import get_binned_read_counts, find_regions_with_missing_data_from_bincounts, \
+    adjust_counts_by_missing_data
+from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing, \
+    add_dict_counts, create_distance_matrix
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.iterative_join import create_merged_graph
@@ -101,12 +105,15 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold=threshold)
 
 
-def make_scaffold(genome: Genome, genomic_location_pairs: Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]], *args, **kwargs) -> Scaffolds:
+def make_scaffold(genome: Genome,
+                  genomic_location_pairs: Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]], *args,
+                  **kwargs) -> Scaffolds:
     encoding = genome.get_genome_context().encoding
     contig_dict = genome.get_genome_context().chrom_sizes
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
     numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
-    numeric_locations_pair = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in genomic_location_pairs)
+    numeric_locations_pair = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
+                              genomic_location_pairs)
     contig_paths = make_scaffold_numeric(numeric_contig_dict, numeric_locations_pair, *args, **kwargs)
     scaffold = Scaffolds.from_contig_paths(contig_paths, translation_dict)
     return scaffold
@@ -122,10 +129,29 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
+def process_reads(read_pairs, contig_dict, cumulative_distribution):
+    forbes_obj = OrientationWeightedCounter(contig_dict, cumulative_length_distribution=cumulative_distribution)
+    all_counts = Counter()
+    if isinstance(read_pairs, LocationPair):
+        read_pairs = [read_pairs]
+    for chunk in read_pairs:
+        forbes_obj.register_location_pairs(chunk)
+        local_counts, bin_sizes = get_binned_read_counts(1000, contig_dict, chunk)
+        all_counts = add_dict_counts(all_counts, local_counts)
+    return all_counts, bin_sizes, forbes_obj.counts
+
+
 def default_make_scaffold(contig_dict, read_pairs: LocationPair, threshold=0.2):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
-    forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
-    distance_matrix = forbes_obj.get_distance_matrix()
+    bins, bin_sizes, counts = process_reads(next(read_pairs), contig_dict, cumulative_distribution)
+    regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(1000, bin_sizes, bins)
+    adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
+
+    # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
+
+    # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
+    # distance_matrix = forbes_obj.get_distance_matrix()
+    distance_matrix = create_distance_matrix(len(contig_dict), adjusted_counts)
     distance_matrix.plot(name='forbes3')
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
@@ -174,7 +200,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
             distance_dist(read_pairs, contig_dict),
             p_noise=0.4,
             genome_size=sum(contig_dict.values()))
-        #logging.info("Paths before splitting: %s" % paths)
+        # logging.info("Paths before splitting: %s" % paths)
         paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix,
                                      len(read_pairs.location_b))
     else:

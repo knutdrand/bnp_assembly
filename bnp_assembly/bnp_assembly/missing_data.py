@@ -19,18 +19,21 @@ def find_regions_with_missing_data(contig_dict: Dict[int, int], read_pairs: Loca
     """
     counts, bin_sizes = get_binned_read_counts(bin_size, contig_dict, read_pairs)
 
+    return find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, counts)
+
+
+def find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, counts):
     average_bin_count = np.median(np.concatenate([count / bin_size for count in counts.values()]))
     threshold = average_bin_count / 20
     bins_with_missing_data = {contig_id: np.where(counts[contig_id] / bin_sizes[contig_id] < threshold)[0] for contig_id
                               in counts}
-
     positions_with_missing_data = {contig_id: [] for contig_id in counts}
     px(name='joining').histogram(np.concatenate([counts[contig_id] / bin_sizes[contig_id] for contig_id in counts]),
                                  title='missing')
     for contig, bins in bins_with_missing_data.items():
         for bin in bins:
             actual_bin_size = bin_sizes[contig][bin]
-            positions_with_missing_data[contig].append((bin * bin_size, (bin * bin_size)+actual_bin_size))
+            positions_with_missing_data[contig].append((bin * bin_size, (bin * bin_size) + actual_bin_size))
     logger.info('Found %d regions with missing data',
                 sum(len(positions) for positions in positions_with_missing_data.values()))
     return positions_with_missing_data, average_bin_count
