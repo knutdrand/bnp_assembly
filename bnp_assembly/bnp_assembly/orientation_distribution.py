@@ -72,9 +72,10 @@ class OrientationDistribution:
         return dict(zip(self._combinations, probs))
 
     def distance_matrix(self, position_a, position_b):
-        a = np.array([[position_a], [self._contig_length_a - position_a - 1]])
+        a = np.array([[position_a],
+                      [self._contig_length_a - position_a - 1]])
         b = [position_b, self._contig_length_b - position_b - 1]
-        return a + b
+        return a + b + 1
 
     def distribution_matrix(self, position_a, position_b):
         distances = self.distance_matrix(position_a, position_b)
