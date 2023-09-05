@@ -158,9 +158,14 @@ class SplitterInterface:
         Returns
         -------
         """
-        for a, b in zip(self._location_pairs.location_a, self._location_pairs.location_b):
-            self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
-                                                     Location.single_entry(int(b.contig_id), int(b.offset))))
+        if isinstance(self._location_pairs, LocationPair):
+            location_pairs_iter = [self._location_pairs]
+        else:
+            location_pairs_iter = self._location_pairs
+        for location_pairs in location_pairs_iter:
+            for a, b in zip(location_pairs.location_a, location_pairs.location_b):
+                self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
+                                                         Location.single_entry(int(b.contig_id), int(b.offset))))
         self.plot()
         px(name='splitting').line(self.distance_counts, title='distance counts')
         distance_means = self._normalize_dist_counts(self.distance_counts)
