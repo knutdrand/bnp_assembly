@@ -68,13 +68,17 @@ class OrientationDistribution:
         probs = np.exp(combination_probabilities - total)
         assert len(probs)==4, probs
         assert np.allclose(np.sum(probs), 1), np.sum(probs)
-        print(probs)
         return dict(zip(self._combinations, probs))
 
     def distance_matrix(self, position_a, position_b):
+        factors = np.array([1,-1])
+        offsets_a = np.array([[0], [self._contig_length_a-1]])
+        offsets_b = np.array([0, self._contig_length_b-1])
+        return factors[:, None]*position_a+offsets_a + factors*position_b+offsets_b + 1
         a = np.array([[position_a],
                       [self._contig_length_a - position_a - 1]])
         b = [position_b, self._contig_length_b - position_b - 1]
+
         return a + b + 1
 
     def distribution_matrix(self, position_a, position_b):
