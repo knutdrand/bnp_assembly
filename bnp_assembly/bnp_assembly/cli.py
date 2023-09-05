@@ -14,7 +14,7 @@ from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.scaffolds import Scaffolds
-from .io import get_read_pairs, get_genomic_read_pairs
+from .io import get_read_pairs, get_genomic_read_pairs, get_genomic_read_pairs_as_stream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
@@ -41,9 +41,14 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     logging.info("Getting genomic reads")
-    reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
+    # reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
+    read_stream = [get_genomic_read_pairs_as_stream(genome, read_filename, mapq_threshold=20),
+                   get_genomic_read_pairs(genome, read_filename, mapq_threshold=20),
+                   get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
+                   ]
+
     logging.info("Making scaffold")
-    scaffold = make_scaffold(genome, (reads for _ in range(3)), window_size=2500, distance_measure='forbes3', threshold=threshold, splitting_method='matrix', bin_size=2000)
+    scaffold = make_scaffold(genome, read_stream, window_size=2500, distance_measure='forbes3', threshold=threshold, splitting_method='matrix', bin_size=2000)
     alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_directory + "/scaffolds.agp")
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
