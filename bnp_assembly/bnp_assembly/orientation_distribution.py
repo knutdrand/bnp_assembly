@@ -81,4 +81,7 @@ class OrientationDistribution:
         distances = self.distance_matrix(position_a, position_b)
         combination_probabilities = self._length_distribution.log_probability(distances)
         total = scipy.special.logsumexp(combination_probabilities)
-        return np.exp(combination_probabilities - total)
+        probs = np.exp(combination_probabilities - total)
+        assert np.allclose(np.sum(probs), 1), probs
+        return probs
+

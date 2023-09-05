@@ -28,6 +28,11 @@ def test_distance_matrix(orientation_distribution):
     matrix = orientation_distribution.distance_matrix(0, 0)
     np.testing.assert_allclose(matrix, np.array([[1, 2], [3, 4]]))
 
+
+def test_distribution_matrix(orientation_distribution):
+    matrix = orientation_distribution.distribution_matrix(0, 0)
+    np.testing.assert_allclose(matrix, np.array([[0.1, 0.2], [0.3, 0.4]]))
+
 #@pytest.mark.xfail
 def test_orientation_distribution(orientation_distribution):
     values = orientation_distribution.orientation_distribution(0, 0).values()
