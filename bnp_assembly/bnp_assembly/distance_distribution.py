@@ -43,6 +43,7 @@ def calculate_distance_distritbution(contig_sizes, distances):
 class DistanceDistribution:
     def __init__(self, log_probabilities):
         self._log_probabilities = log_probabilities
+        assert np.all(~np.isinf(self._log_probabilities)), np.flatnonzero(np.isinf(self._log_probabilities))
 
     @classmethod
     def from_probabilities(cls, probabilities):
@@ -67,7 +68,9 @@ class DistanceDistribution:
 
     def log_probability(self, distance):
         distance = np.asanyarray(distance)
-        return self._log_probabilities[np.where(distance < len(self._log_probabilities), distance, -1)]
+        log_probs = self._log_probabilities[np.where(distance < len(self._log_probabilities), distance, -1)]
+        return log_probs
+
 
     @classmethod
     def load(cls, filename):

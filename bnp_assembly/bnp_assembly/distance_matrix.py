@@ -36,6 +36,7 @@ class DirectedDistanceMatrix:
         if edge.from_node_side.node_id == edge.to_node_side.node_id:
             # logging.warning(f'Illegal edge set in distance_matrix: {edge}')
             return
+        assert not np.isnan(score)
         self._matrix[edge.numeric_index] = score
 
     def __getitem__(self, edge: Edge):

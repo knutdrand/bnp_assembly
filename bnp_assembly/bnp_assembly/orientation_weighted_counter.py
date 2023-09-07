@@ -43,7 +43,7 @@ class OrientationDistributions:
         return self._orientation_distributions[node_ids].distribution_matrix(*offsets)
 
 
-def create_distance_matrix(n_nodes, pair_counts):
+def create_distance_matrix(n_nodes, pair_counts)->DirectedDistanceMatrix:
     distance_matrix = DirectedDistanceMatrix(n_nodes)
     for edge, value in pair_counts.items():
         distance_matrix[edge] = -np.log(value)
@@ -125,13 +125,17 @@ class OrientationWeightedCounter(EdgeScorer):
         mask = mask_a & mask_b
         dist = OrientationDistribution(lengths_a[mask], lengths_b[mask], self._distance_distribution)
         matrices = dist.distribution_matrix(location_pairs.location_a.offset[mask], location_pairs.location_b.offset[mask])
-        for contig_a, contig_b, matrix in zip(location_pairs.location_a.contig_id[mask], location_pairs.location_b.contig_id[mask], matrices):
-            self._counts[(contig_a, contig_b)] += matrix
-            self._counts[(contig_b, contig_a)] += matrix.T
+        self.sum_matrices(location_pairs, mask, matrices)
 
         #for a, b in zip(location_pairs.location_a, location_pairs.location_b):
         #    self.register_location_pair(LocationPair(a, b))
             # self._register_for_plots(LocationPair(a, b))
+
+    def sum_matrices(self, location_pairs, mask, matrices):
+        for contig_a, contig_b, matrix in zip(location_pairs.location_a.contig_id[mask],
+                                              location_pairs.location_b.contig_id[mask], matrices):
+            self._counts[(contig_a, contig_b)] += matrix
+            self._counts[(contig_b, contig_a)] += matrix.T
 
     def register_location_pair(self, location_pair):
         a, b = location_pair.location_a, location_pair.location_b

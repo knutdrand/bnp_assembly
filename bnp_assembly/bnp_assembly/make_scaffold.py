@@ -146,7 +146,7 @@ def default_make_scaffold(contig_dict, read_pairs: LocationPair, threshold=0.2):
     bins, bin_sizes, counts = process_reads(next(read_pairs), contig_dict, cumulative_distribution)
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(1000, bin_sizes, bins)
     adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
-
+    assert np.all(~np.isnan(list(adjusted_counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
 
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)

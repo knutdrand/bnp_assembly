@@ -47,8 +47,10 @@ class EdgeCounts:
 
     @__setitem__.register
     def _(self, edge: tuple, value):
+        assert np.all(~np.isnan(value))
         self._counts[edge] = value
 
     @__setitem__.register
     def _(self, edge: Edge, value):
+        assert np.all(~np.isnan(value))
         self._counts.__setitem__(self._edge_idx(edge), value)
