@@ -8,6 +8,8 @@ from bnp_assembly.graph_objects import Edge
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.plotting import px
 from bnp_assembly.splitting import split_on_scores
+import logging
+logger = logging.getLogger(__name__)
 
 
 def weighted_median(values, weights):
@@ -95,6 +97,7 @@ class SplitterInterface:
         self._coordinate_system = CoordinateSystem(contig_dict, contig_path.edges)
         self.distance_counts = np.zeros(n_bins * 2)
         self._threshold = threshold
+        logger.info(f"Threshold used when splitting: {threshold}")
 
     def count_bins(self, node_id):
         return int(np.ceil(min(self._max_distance, self._contig_dict[node_id]) / self._bin_size))

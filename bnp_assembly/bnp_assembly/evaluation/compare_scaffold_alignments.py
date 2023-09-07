@@ -15,13 +15,14 @@ class ScaffoldComparison:
         self._true_alignments = true_alignments
         self._true_scaffold = Scaffolds.from_scaffold_alignments(true_alignments)
         self._estimated_scaffold = Scaffolds.from_scaffold_alignments(estimated_alignments)
+        self.print_description()
 
+    def print_description(self):
         print("Estimated scaffold:")
-        for a in estimated_alignments:
-            print(a)
+        print(self._estimated_alignments.get_description())
 
-        print("True")
-        print(true_alignments)
+        print("True scaffolds: ")
+        print(self._true_alignments.get_description())
 
     @property
     @lru_cache(maxsize=None)
@@ -35,7 +36,9 @@ class ScaffoldComparison:
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._estimated_scaffold.edges)
 
     def edge_recall(self) -> float:
-        logger.info(f'Edges not found: {self.missing_edges()}')
+        print('Edges not found:')
+        for edge in self.missing_edges():
+            print(edge)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
 
     def missing_edges(self) -> tp.Set[str]:

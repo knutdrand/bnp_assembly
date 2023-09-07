@@ -22,7 +22,7 @@ class ScaffoldAlignments:
                 counters[entry.scaffold_id.to_string()] += 1
 
     @classmethod
-    def from_agp(cls, file_name):
+    def from_agp(cls, file_name) -> 'ScaffoldAlignments':
         entries = []
         with open(file_name) as f:
             for line in f:
@@ -39,3 +39,18 @@ class ScaffoldAlignments:
                      line[8])
                 )
         return cls.from_entry_tuples(entries)
+
+    def get_description(self):
+
+        scaffolds = defaultdict(list)
+        for entry in self:
+            contig = entry.contig_id.to_string() + " " + entry.orientation.to_string()
+            scaffolds[entry.scaffold_id.to_string()].append(contig)
+
+        desc = ""
+        for scaffold in scaffolds:
+            desc += "Scaffold " + scaffold + ": "
+            desc += ", ".join(scaffolds[scaffold])
+            desc += "\n"
+
+        return desc

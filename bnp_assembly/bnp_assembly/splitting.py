@@ -277,7 +277,7 @@ class LinearSplitter3(LinearSplitter2):
         _px.scatter(x=expected, y=edge_values, labels={'x': 'expected', 'y': 'observed'},
                     title='expected vs observed')
         _px.bar(y=p_values, x=[str(e) for e in self._contig_path.edges])
-        logging.info("Splitting with p-value threshold %f", threshold)
+        logger.info("Splitting with p-value threshold %f", threshold)
         split_edges = [edge for p_value, edge in zip(p_values, self._contig_path.edges) if p_value > threshold]
         return self._contig_path.split_on_edges(split_edges)
 

@@ -5,12 +5,14 @@ from collections import Counter, defaultdict
 # A scaffolder giving correct results
 rule truth_scaffolder:
     input:
-        true_reference= ReferenceGenome.path(file_ending="") + "/haplotype0.fa"
+        fa = ReferenceGenome.path(file_ending="") + "/haplotype0.fa",
+        agp = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.agp",
     output:
-        ScaffoldingResults.path(scaffolder="true_scaffolder") + "/scaffolds.fa"
+        fa = ScaffoldingResults.path(scaffolder="true_scaffolder") + "/scaffolds.fa",
+        agp= ScaffoldingResults.path(scaffolder="true_scaffolder") + "/scaffolds.agp"
     shell:
         """
-        cp {input} {output}
+        cp {input.fa} {output.fa}  && cp {input.agp} {output.agp}
         """
 
 

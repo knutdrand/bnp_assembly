@@ -27,5 +27,5 @@ rule run_bnp_scaffolding_nosplit:
         agp = ScaffoldingResults.path(scaffolder="bnp_scaffolding_nosplit") + "/scaffolds.agp"
     shell:
         """
-        bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold -1000 --logging-folder {params.log_folder} --bin-size 3567
+        bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold -1000000000000000000000 --logging-folder {params.log_folder} --bin-size 3567
         """
