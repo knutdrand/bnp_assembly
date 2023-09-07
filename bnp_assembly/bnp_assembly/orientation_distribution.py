@@ -12,6 +12,9 @@ class OrientationDistribution:
         self._length_distribution = length_distribution
         self._combinations = [('l', 'l'), ('l', 'r'), ('r', 'l'), ('r', 'r')]
 
+    def __getitem__(self, item):
+        return self.__class__(self._contig_length_a[item], self._contig_length_b[item], self._length_distribution)
+
     def distance(self, position_a: int, position_b: int, orientation_a: str, orientation_b: str) -> int:
         """
         Return the distance between two positions on the two contigs, according to the orientations
