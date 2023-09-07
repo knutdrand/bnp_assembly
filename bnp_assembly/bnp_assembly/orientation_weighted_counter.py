@@ -68,6 +68,7 @@ class OrientationWeightedCounter(EdgeScorer):
                                                             self._contig_dict[int(node_id_b)],
                                                             self._distance_distribution) for
             node_id_a, node_id_b in product(self._contig_dict, repeat=2)}
+        self._length_array = np.array([self._contig_dict[i] for i in range(len(self._contig_dict))])
         self._counts = EdgeCounts(len(self._contig_dict))
         self.positions = defaultdict(list)
         self.scores = defaultdict(list)
@@ -116,9 +117,21 @@ class OrientationWeightedCounter(EdgeScorer):
             self.scores[pair[::-1]].append(probability_dict[('l', 'r')])
 
     def register_location_pairs(self, location_pairs):
-        for a, b in zip(location_pairs.location_a, location_pairs.location_b):
-            self.register_location_pair(LocationPair(a, b))
-            self._register_for_plots(LocationPair(a, b))
+        lengths_a = self._length_array[location_pairs.location_a.contig_id]
+        lengths_b = self._length_array[location_pairs.location_b.contig_id]
+        mask_a, mask_b = ((location.offset<=DISTANCE_CUTOFF) | (location.offset>=lengths-DISTANCE_CUTOFF)
+                          for location, lengths in zip((location_pairs.location_a, location_pairs.location_b),
+                                                       [lengths_a, lengths_b]))
+        mask = mask_a & mask_b
+        dist = OrientationDistribution(lengths_a[mask], lengths_b[mask], self._distance_distribution)
+        matrices = dist.distribution_matrix(location_pairs.location_a.offset[mask], location_pairs.location_b.offset[mask])
+        for contig_a, contig_b, matrix in zip(location_pairs.location_a.contig_id[mask], location_pairs.location_b.contig_id[mask], matrices):
+            self._counts[(contig_a, contig_b)] += matrix
+            self._counts[(contig_b, contig_a)] += matrix.T
+
+        #for a, b in zip(location_pairs.location_a, location_pairs.location_b):
+        #    self.register_location_pair(LocationPair(a, b))
+            # self._register_for_plots(LocationPair(a, b))
 
     def register_location_pair(self, location_pair):
         a, b = location_pair.location_a, location_pair.location_b
