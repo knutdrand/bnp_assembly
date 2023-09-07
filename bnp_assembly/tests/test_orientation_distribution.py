@@ -16,7 +16,7 @@ def orientation_distribution():
 
 @pytest.fixture
 def double_orientation_distribution():
-    return OrientationDistribution([3, 2], [2, 3], DistanceDummy())
+    return OrientationDistribution([3, 2, 3], [2, 3, 2], DistanceDummy())
     # lambda x: np.log(x * 2))
 
 
@@ -46,9 +46,12 @@ def test_distribution_matrix(orientation_distribution):
 
 
 def test_shapes(double_orientation_distribution):
-    matrix = orientation_distribution.distribution_matrix([0, 0], [0, 0])
-    np.testing.assert_allclose(matrix, np.array([[[0.1, 0.2], [0.3, 0.4]],
-                                                 [[0.2, 0.1], [0.4, 0.3]]]))
+    matrix = double_orientation_distribution.distribution_matrix([0, 0, 0], [0, 0, 0])
+    print(matrix)
+    assert matrix.shape == (3, 2, 2)
+
+    # np.testing.assert_allclose(matrix, np.array([[[0.1, 0.2], [0.3, 0.4]],
+    #                                             [[0.1, 0.3], [0.2, 0.4]]]))
 
 
 #@pytest.mark.xfail

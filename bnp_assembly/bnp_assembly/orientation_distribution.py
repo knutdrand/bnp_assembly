@@ -75,12 +75,12 @@ class OrientationDistribution:
         input shapes = (n,)
         output shape = (n, 2, 2)
         '''
-        position_a, position_b = np.asanyarray(position_a), np.asanyarray(position_b)
-        results = np.empty(position_a.shape+ (2, 2), dtype=int)
+        position_a, position_b = np.asanyarray(position_a)[..., None], np.asanyarray(position_b)
+        results = np.empty(position_b.shape+ (2, 2), dtype=int)
         results[..., 0, :] = position_a
-        results[..., 1, :] = self._contig_length_a-1-position_a
-        results[..., :, 0] += position_b
-        results[..., :, 1] += self._contig_length_b-1-position_b
+        results[..., 1, :] = self._contig_length_a[..., None]-1-position_a
+        results[..., :, 0] += position_b[..., None]
+        results[..., :, 1] += self._contig_length_b[..., None]-1-position_b[..., None]
         return results+1
         #factors = np.array([1, -1])
         #offsets_a = np.array([[0], [self._contig_length_a-1]]) # n, 2, 1
@@ -93,8 +93,8 @@ class OrientationDistribution:
         assert position_b.shape == self._contig_length_b.shape
         distances = self.distance_matrix(position_a, position_b)
         combination_probabilities = self._length_distribution.log_probability(distances)
-        total = scipy.special.logsumexp(combination_probabilities)
+        total = scipy.special.logsumexp(combination_probabilities, axis=(-1,-2), keepdims=True)
         probs = np.exp(combination_probabilities - total)
-        assert np.allclose(np.sum(probs), 1), probs
+        assert np.allclose(np.sum(probs, axis=(-1, -2)), 1), probs
         return probs
 
