@@ -48,6 +48,7 @@ def test_splitterinterface(contig_dict, locations_pair2, contig_path):
     splitter.split()
     assert sum(splitter._node_histograms.values()).sum() == 2
 
+
 def test_splittermatrix(matrix):
     assert get_triangle_score(matrix, bin_n=1, max_offset=1) == 8
     assert get_triangle_score(matrix, bin_n=1, max_offset=2) == 11

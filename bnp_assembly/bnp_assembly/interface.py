@@ -93,7 +93,7 @@ class SplitterInterface:
         n_bins = self._n_bins
         self._node_histograms = {edge: np.zeros(self._hist_shapes[edge]) for edge in contig_path.edges}
         self._coordinate_system = CoordinateSystem(contig_dict, contig_path.edges)
-        self.distance_counts = np.zeros(n_bins * 2)
+        self.distance_counts = np.zeros(n_bins * 2, dtype=int)
         self._threshold = threshold
 
     def count_bins(self, node_id):
@@ -111,10 +111,13 @@ class SplitterInterface:
         -------
 
         """
-        d = abs(location_pair.location_a.offset // self._bin_size - location_pair.location_b.offset // self._bin_size)
-        if d >= self._n_bins * 2:
-            return
-        self.distance_counts[d] += 1
+        d = np.abs(location_pair.location_a.offset // self._bin_size - location_pair.location_b.offset // self._bin_size)
+        d = np.atleast_1d(d).astype(int)
+        mask = d < self._n_bins * 2
+        #if d >= self._n_bins * 2:
+        #    return
+        self.distance_counts += np.bincount(d[mask], minlength=len(self.distance_counts))
+        # self.distance_counts[d] += 1
 
     def register_location_pair(self, location_pair: LocationPair):
         """
@@ -128,8 +131,8 @@ class SplitterInterface:
         -------
 
         """
-        if location_pair.location_a.contig_id == location_pair.location_b.contig_id:
-            return self._register_intra_pair(location_pair)
+        #if location_pair.location_a.contig_id == location_pair.location_b.contig_id:
+        #    return #  self._register_intra_pair(location_pair)
         if location_pair in self._coordinate_system:
             return self._register_inter_pair(location_pair)
 
@@ -152,6 +155,14 @@ class SplitterInterface:
         coordinates = [coord // self._bin_size for coord in coordinates]
         self._node_histograms[edge][coordinates[0], coordinates[1]] += 1
 
+    def register_location_pairs(self, location_pairs):
+        intra_mask = (location_pairs.location_a.contig_id == location_pairs.location_b.contig_id)
+        self._register_intra_pair(LocationPair(location_pairs.location_a[intra_mask], location_pairs.location_b[intra_mask]))
+
+        for a, b in zip(location_pairs.location_a[~intra_mask], location_pairs.location_b[~intra_mask]):
+            self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
+                                                     Location.single_entry(int(b.contig_id), int(b.offset))))
+
     def split(self) -> List[ContigPath]:
         """
         Split the contig on edges where the count matrices appears to not support an edge.
@@ -163,9 +174,7 @@ class SplitterInterface:
         else:
             location_pairs_iter = self._location_pairs
         for location_pairs in location_pairs_iter:
-            for a, b in zip(location_pairs.location_a, location_pairs.location_b):
-                self.register_location_pair(LocationPair(Location.single_entry(int(a.contig_id), int(a.offset)),
-                                                         Location.single_entry(int(b.contig_id), int(b.offset))))
+            self.register_location_pairs(location_pairs)
         self.plot()
         px(name='splitting').line(self.distance_counts, title='distance counts')
         distance_means = self._normalize_dist_counts(self.distance_counts)
