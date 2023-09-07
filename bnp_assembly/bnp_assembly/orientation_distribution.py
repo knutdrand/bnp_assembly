@@ -7,8 +7,8 @@ import scipy.special.cython_special
 class OrientationDistribution:
 
     def __init__(self, contig_length_a: int, contig_length_b: int, length_distribution: 'DistanceDistribution'):
-        self._contig_length_a = contig_length_a
-        self._contig_length_b = contig_length_b
+        self._contig_length_a = np.asanyarray(contig_length_a)
+        self._contig_length_b = np.asanyarray(contig_length_b)
         self._length_distribution = length_distribution
         self._combinations = [('l', 'l'), ('l', 'r'), ('r', 'l'), ('r', 'r')]
 
@@ -70,18 +70,27 @@ class OrientationDistribution:
         assert np.allclose(np.sum(probs), 1), np.sum(probs)
         return dict(zip(self._combinations, probs))
 
-    def distance_matrix(self, position_a, position_b):
-        factors = np.array([1,-1])
-        offsets_a = np.array([[0], [self._contig_length_a-1]])
-        offsets_b = np.array([0, self._contig_length_b-1])
-        return factors[:, None]*position_a+offsets_a + factors*position_b+offsets_b + 1
-        a = np.array([[position_a],
-                      [self._contig_length_a - position_a - 1]])
-        b = [position_b, self._contig_length_b - position_b - 1]
-
-        return a + b + 1
+    def distance_matrix(self, position_a: np.ndarray, position_b: np.ndarray)-> np.ndarray:
+        '''
+        input shapes = (n,)
+        output shape = (n, 2, 2)
+        '''
+        position_a, position_b = np.asanyarray(position_a), np.asanyarray(position_b)
+        results = np.empty(position_a.shape+ (2, 2), dtype=int)
+        results[..., 0, :] = position_a
+        results[..., 1, :] = self._contig_length_a-1-position_a
+        results[..., :, 0] += position_b
+        results[..., :, 1] += self._contig_length_b-1-position_b
+        return results+1
+        #factors = np.array([1, -1])
+        #offsets_a = np.array([[0], [self._contig_length_a-1]]) # n, 2, 1
+        # offsets_b = np.array([0, self._contig_length_b-1]) # n, 1, 2
+        # return factors[:, None]*position_a+offsets_a + factors*position_b+offsets_b + 1
 
     def distribution_matrix(self, position_a, position_b):
+        position_a, position_b = np.asanyarray(position_a), np.asanyarray(position_b)
+        assert position_a.shape == self._contig_length_a.shape
+        assert position_b.shape == self._contig_length_b.shape
         distances = self.distance_matrix(position_a, position_b)
         combination_probabilities = self._length_distribution.log_probability(distances)
         total = scipy.special.logsumexp(combination_probabilities)
