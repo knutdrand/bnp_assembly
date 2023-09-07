@@ -128,13 +128,13 @@ ruleorder: download_athalia_rosea_reference > convert_reference_genome_to_fasta
 
 rule download_athalia_rosea_reference_tmp:
     output:
-        protected("data/athalia_rosea/reference.fa.tmp")
+        "data/athalia_rosea/reference.fa.tmp"
     shell:
         """
-        wget -O {output} https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_917208135.1?download=true&gzip=true
+        wget -O {output} 'https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_917208135.1?download=true'
         """
 
-        
+
 rule download_athalia_rosea_reference:
     input:
         "data/athalia_rosea/reference.fa.tmp"
