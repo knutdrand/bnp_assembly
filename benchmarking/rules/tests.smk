@@ -127,3 +127,20 @@ rule test_athalia_rosea_real_reads:
             assert float(lines[0].split()[1]) >= 0.92
             # precision
             assert float(lines[1].split()[1]) >= 0.98
+
+rule test_debug_report:
+    input:
+        ScaffoldingResults.from_flat_params(
+            genome_build="sacCer3",
+            individual="simulated",
+            dataset_size="small",
+            depth="10",
+            n_reads="40000",
+            seed=123,
+            source="not_assembled",
+            extra_splits=20,
+            split_on_n_ns=0,
+            scaffolder="bnp_scaffolding",
+        ).file_path() + "/debug/report.html"
+    output:
+        touch("test_debug_report")

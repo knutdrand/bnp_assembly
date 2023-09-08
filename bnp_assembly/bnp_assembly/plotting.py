@@ -76,7 +76,7 @@ def urlify(s):
 class FolderSaver:
     def __init__(self, folder_name: str):
         self._folder_name = folder_name
-        self._file_names =[]
+        self._file_names = []
 
     def array(self, arr, title):
         filename = f'{self._folder_name}/{title}.npy'
@@ -87,6 +87,13 @@ class FolderSaver:
         filename = f'{self._folder_name}/{title}.csv'
         pd.DataFrame(df).to_csv(filename)
         return df
+
+    def txt(self, text, title):
+        filename = f'{self._folder_name}/{title}.txt'
+        with open(filename, 'w') as f:
+            f.write(text)
+        self._file_names.append(f"{title}.txt")
+        return text
 
     def decorator(self, func):
         @wraps(func)
@@ -137,6 +144,7 @@ html_string = '''
     </head>
     <body>
         {{body}}
+        <br><br>
         <iframe width="1000" height="550" name="plot" frameborder="0" seamless="seamless" scrolling="no" \
 src="{{plot_url}}"></iframe>
 

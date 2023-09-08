@@ -108,15 +108,20 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
 def make_scaffold(genome: Genome,
                   genomic_location_pairs: Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]], *args,
                   **kwargs) -> Scaffolds:
+    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
+    numeric_locations_pair = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
+                              genomic_location_pairs)
+    contig_paths = make_scaffold_numeric(contig_sizes, numeric_locations_pair, *args, **kwargs)
+    scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
+    return scaffold
+
+
+def get_numeric_contig_name_translation(genome):
     encoding = genome.get_genome_context().encoding
     contig_dict = genome.get_genome_context().chrom_sizes
     translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
-    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
-    numeric_locations_pair = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
-                              genomic_location_pairs)
-    contig_paths = make_scaffold_numeric(numeric_contig_dict, numeric_locations_pair, *args, **kwargs)
-    scaffold = Scaffolds.from_contig_paths(contig_paths, translation_dict)
-    return scaffold
+    contig_sizes = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
+    return contig_sizes, translation_dict
 
 
 @dataclass
