@@ -46,6 +46,22 @@ rule make_hic_heatmap_for_scaffolds:
         """
 
 
+rule debug:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        scaffold_agp = ScaffoldingResults.path() + "/scaffolds.agp",
+        true_agp = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.agp",
+        hic_to_contig_mappings= HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bam",
+    output:
+        scaffolds = ScaffoldingResults.path() + "/debug/report.html",
+    params:
+        output_path = ScaffoldingResults.path() + "/debug",
+    shell:
+        """
+        bnp_assembly debug-scaffolding {input} {params.output_path}
+        """
+
+
 rule run_edison:
     input:
         assembly = ScaffoldingResults.path() + "/scaffolds.fa",

@@ -12,7 +12,7 @@ class GenomicLocationPair:
     a: bnp.genomic_data.GenomicLocation
     b: bnp.genomic_data.GenomicLocation
 
-    def get_numeric_locations(self):
+    def get_numeric_locations(self) -> LocationPair:
         return LocationPair(Location.from_genomic_location(self.a),
                             Location.from_genomic_location(self.b))
 

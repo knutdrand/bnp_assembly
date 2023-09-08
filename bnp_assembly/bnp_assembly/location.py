@@ -19,3 +19,6 @@ class LocationPair:
 
     def __iter__(self):
         return (LocationPair(*p) for p in zip(self.location_a, self.location_b))
+
+    def subset_with_mask(self, mask):
+        return LocationPair(self.location_a[mask], self.location_b[mask])

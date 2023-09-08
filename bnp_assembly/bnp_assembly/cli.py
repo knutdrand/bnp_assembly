@@ -12,6 +12,7 @@ from bionumpy.genomic_data import GenomicSequence
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
+from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.scaffolds import Scaffolds
 from .io import get_read_pairs, get_genomic_read_pairs, get_genomic_read_pairs_as_stream
@@ -130,7 +131,6 @@ class Paths:
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
-    print(bin_size)
     bin_size = max(bin_size, genome.size // 1000, 1000)
     print("Using bin size", bin_size)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
@@ -153,6 +153,16 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
     fig.show()
     fig.write_image(out_file_name)
     interaction_matrix.normalize_matrix().plot().show()
+
+
+@app.command()
+def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, mapped_reads_bam: str, out_path: str):
+    estimated_agp = ScaffoldAlignments.from_agp(estimated_agp)
+    truth_agp = ScaffoldAlignments.from_agp(truth_agp)
+    contigs = bnp.Genome.from_file(contigs_fasta, filter_function=None)
+    debugger = ScaffoldingDebugger(estimated_agp, truth_agp, contigs, mapped_reads_bam, out_path)
+    debugger.debug_edge("contig10", "contig11")
+    debugger.finish()
 
 
 @app.command()
