@@ -1,4 +1,6 @@
 import networkx as nx
+
+from .distance_matrix import DirectedDistanceMatrix
 from .graph_objects import NodeSide, Edge
 from .contig_graph import ContigPath
 import numpy as np
@@ -10,13 +12,15 @@ class NetworkXContigGraph:
     def from_distance_matrix(cls, distance_matrix):
         g = nx.Graph()
         data = distance_matrix.data
-        g.add_weighted_edges_from([
-            (i, j, -d) for i, row in enumerate(data) for j, d in enumerate(row)])
+        assert np.all(~np.isnan(data))
+        data_points = [(i, j, -d) for i, row in enumerate(data) for j, d in enumerate(row)]
+        assert all(~np.isnan(dp[2]) for dp in data_points)
+        g.add_weighted_edges_from(data_points)
         return g
 
 
 class PathFinder:
-    def __init__(self, distance_matrix, node_paths=None):
+    def __init__(self, distance_matrix: DirectedDistanceMatrix, node_paths=None):
         self._graph = NetworkXContigGraph.from_distance_matrix(distance_matrix)
         self._distance_matrix = distance_matrix
 

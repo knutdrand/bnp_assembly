@@ -40,6 +40,7 @@ class DirectedDistanceMatrix:
         self._matrix[edge.numeric_index] = score
 
     def __getitem__(self, edge: Edge):
+
         return self._matrix[edge.numeric_index]
 
     def inversion_plot(self, name):
