@@ -15,6 +15,7 @@ from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
+from bnp_assembly.io import PairedReadStream
 from bnp_assembly.missing_data import get_binned_read_counts, find_regions_with_missing_data_from_bincounts, \
     adjust_counts_by_missing_data
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing, \
@@ -106,12 +107,17 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
 
 
 def make_scaffold(genome: Genome,
-                  genomic_location_pairs: Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]], *args,
+                  reads: Union[PairedReadStream ,Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]],
+                  *args,
                   **kwargs) -> Scaffolds:
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
-    numeric_locations_pair = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
-                              genomic_location_pairs)
-    contig_paths = make_scaffold_numeric(contig_sizes, numeric_locations_pair, *args, **kwargs)
+
+    if not isinstance(reads, PairedReadStream):
+        # old format, convert to numeric
+        reads = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
+                              reads)
+
+    contig_paths = make_scaffold_numeric(contig_sizes, reads, *args, **kwargs)
     scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
     return scaffold
 

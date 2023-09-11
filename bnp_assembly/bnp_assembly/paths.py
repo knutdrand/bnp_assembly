@@ -52,7 +52,6 @@ class Paths:
                 if is_reverse:
                     seq = bnp.sequence.get_reverse_complement(seq)
                 sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
-fd
             out_names.append(scaffold_name)
             out_sequences.append(np.concatenate(sequences))
         return bnp.datatypes.SequenceEntry.from_entry_tuples(zip(out_names, out_sequences))

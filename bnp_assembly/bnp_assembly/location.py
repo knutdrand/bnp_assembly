@@ -22,3 +22,4 @@ class LocationPair:
 
     def subset_with_mask(self, mask):
         return LocationPair(self.location_a[mask], self.location_b[mask])
+

@@ -9,8 +9,7 @@ import bionumpy as bnp
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
-from bnp_assembly.paths import Paths
-from .io import get_read_pairs, get_genomic_read_pairs, get_genomic_read_pairs_as_stream
+from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
@@ -38,10 +37,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     genome = bnp.Genome.from_file(contig_file_name)
     logging.info("Getting genomic reads")
     # reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
-    read_stream = [get_genomic_read_pairs_as_stream(genome, read_filename, mapq_threshold=20),
-                   get_genomic_read_pairs_as_stream(genome, read_filename, mapq_threshold=20),
-                   get_genomic_read_pairs_as_stream(genome, read_filename, mapq_threshold=20),
-                   ]
+    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
 
     logging.info("Making scaffold")
     scaffold = make_scaffold(genome, read_stream, window_size=2500, distance_measure='forbes3', threshold=threshold, splitting_method='matrix', bin_size=2000)
@@ -50,23 +46,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
     with bnp.open(out_file_name, "w") as f:
         f.write(sequence_entries)
-    return
 
-    encoding = genome.get_genome_context().encoding
-    contig_dict = genome.get_genome_context().chrom_sizes
-    translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
-    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
-    reads = get_read_pairs(genome, read_filename)
-
-    paths = scaffold_func(numeric_contig_dict, reads, window_size=2500, distance_measure='forbes', threshold=threshold,
-                          bin_size=bin_size)
-    sequence_dict = genome.read_sequence()
-    paths_object = Paths(paths, translation_dict)
-    alignments = paths_object.get_agp(contig_dict)
-    alignments.to_agp(out_directory + "/scaffolds.agp")
-    sequence_entries = paths_object.get_sequence_entries(sequence_dict)
-    with bnp.open(out_file_name, "w") as f:
-        f.write(sequence_entries)
 
 
 @app.command()
