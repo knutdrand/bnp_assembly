@@ -60,7 +60,7 @@ class ScaffoldingDebugger:
         reads = self.get_reads_between_contigs(contig_a, contig_b)
 
         heatmap_size = self.contig_sizes[contig_a_id] + self.contig_sizes[contig_b_id]
-        heatmap = np.zeros((heatmap_size // bin_size, heatmap_size // bin_size))
+        heatmap = np.zeros((heatmap_size // bin_size + 1, heatmap_size // bin_size + 1))
         for read_a, read_b in zip(reads_between.location_a, reads_between.location_b):
             pos_a = read_a.offset
             pos_b = read_b.offset
@@ -86,12 +86,12 @@ class ScaffoldingDebugger:
     def debug_edge(self, node_side_a: NodeSide, node_side_b: NodeSide):
         self.make_heatmap_for_two_contigs(node_side_a, node_side_b)
 
-        contig_a_neighbour = self.estimated_scaffolds.get_neighbour(node_side_a, side="right")
+        contig_a_neighbour = self.estimated_scaffolds.get_neighbour(node_side_a)
         if contig_a_neighbour:
             logging.info(f"Contig {node_side_a} is linked to {contig_a_neighbour}")
             self.make_heatmap_for_two_contigs(node_side_a, contig_a_neighbour)
 
-        contig_b_neighbour = self.estimated_scaffolds.get_neighbour(node_side_b, side="right")
+        contig_b_neighbour = self.estimated_scaffolds.get_neighbour(node_side_b)
         if contig_b_neighbour:
             logging.info(f"Contig {node_side_b} is linked to {contig_b_neighbour}")
             self.make_heatmap_for_two_contigs(node_side_b, contig_b_neighbour)

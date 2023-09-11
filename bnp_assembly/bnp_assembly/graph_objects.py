@@ -39,8 +39,9 @@ class NodeSide:
         node_id, side = s.strip()[2:-1].split(', ')
         return cls(int(node_id), side)
 
-    def __eq__(self, other):
+    def __eq__(self, other: 'NodeSide'):
         return self.node_id == other.node_id and self.side == other.side
+
 
 @dataclass
 class Edge:

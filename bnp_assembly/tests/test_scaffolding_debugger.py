@@ -1,6 +1,7 @@
 import bionumpy as bnp
 
 from bnp_assembly.agp import ScaffoldAlignments
+from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
 import pytest
 import numpy as np
@@ -28,7 +29,7 @@ def test_integration():
 
     debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder="debugging")
     debugger.debug_edge(
-        NodeSide("contig0", "+"),
-        NodeSide("contig1", "-")
+        DirectedNode("contig0", "+"),
+        DirectedNode("contig1", "-")
     )
 

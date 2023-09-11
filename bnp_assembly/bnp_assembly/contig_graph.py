@@ -8,7 +8,7 @@ import typing as tp
 @dataclass
 class DirectedNode:
     node_id: str
-    orientation: str
+    orientation: tp.Literal["+", "-"]
 
     def __repr__(self):
         return f'{self.node_id}{self.orientation}'
