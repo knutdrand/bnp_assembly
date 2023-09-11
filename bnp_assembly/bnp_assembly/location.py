@@ -1,3 +1,5 @@
+from typing import Iterable, List
+import numpy as np
 from bionumpy.bnpdataclass import bnpdataclass
 from dataclasses import dataclass
 
@@ -23,3 +25,14 @@ class LocationPair:
     def subset_with_mask(self, mask):
         return LocationPair(self.location_a[mask], self.location_b[mask])
 
+    def filter_on_contig(self, contig_id):
+        """Returns a new LocationPair object where any read pair has the contig"""
+        mask = (self.location_a.contig_id == contig_id) | (self.location_b.contig_id == contig_id)
+        return self.subset_with_mask(mask)
+
+    @classmethod
+    def from_multiple_location_pairs(cls, location_pairs: List['LocationPair']):
+        return LocationPair(
+            np.concatenate([chunk.location_a for chunk in location_pairs]),
+            np.concatenate([chunk.location_b for chunk in location_pairs])
+        )
