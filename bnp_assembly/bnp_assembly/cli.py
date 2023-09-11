@@ -1,20 +1,15 @@
 """Console script for bnp_assembly."""
-import dataclasses
 import os
-import typing as tp
 # todo
 import numpy as np
 
 import typer
 import bionumpy as bnp
-from bionumpy.genomic_data import GenomicSequence
 
 from bnp_assembly.agp import ScaffoldAlignments
-from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
-from bnp_assembly.interface import SplitterInterface
-from bnp_assembly.scaffolds import Scaffolds
+from bnp_assembly.paths import Paths
 from .io import get_read_pairs, get_genomic_read_pairs, get_genomic_read_pairs_as_stream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
@@ -74,60 +69,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         f.write(sequence_entries)
 
 
-@dataclasses.dataclass
-class Paths:
-    paths: tp.List[ContigPath]
-    translation_dict: tp.Dict[int, str]
-    padding: int = 200
-
-    def get_agp(self, contig_dict: tp.Dict[str, int]):
-        alignments = []
-        for i, path in enumerate(self.paths):
-            scaffold_name = self.get_scaffold_name(i, path)
-            offset = 0
-            for j, dn in enumerate(path.directed_nodes):
-                (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
-                contig_name = self.translation_dict[contig_id]
-                length = contig_dict[contig_name]
-                if j > 0:
-
-                    length += self.padding
-                alignments.append(
-                    (scaffold_name, offset, offset + length,
-                     contig_name, 0, length, "+" if not is_reverse else "-")
-                )
-                offset += length
-        return ScaffoldAlignments.from_entry_tuples(alignments)
-
-    def get_sequence_entries(self, sequence_dict: GenomicSequence):
-        paths = self.paths
-        out_names = []
-        out_sequences = []
-
-        for i, path in enumerate(paths):
-            sequences = []
-            scaffold_name = self.get_scaffold_name(i, path)
-            offset = 0
-            for j, dn in enumerate(path.directed_nodes):
-                (contig_id, is_reverse) = dn.node_id, dn.orientation == '-'
-                if j > 0:
-                    # adding 200 Ns between contigs
-                    sequences.append(bnp.as_encoded_array('N' * self.padding, bnp.encodings.ACGTnEncoding))
-                seq = sequence_dict[self.translation_dict[contig_id]]
-                if is_reverse:
-                    seq = bnp.sequence.get_reverse_complement(seq)
-                sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
-
-            out_names.append(scaffold_name)
-            out_sequences.append(np.concatenate(sequences))
-        return bnp.datatypes.SequenceEntry.from_entry_tuples(zip(out_names, out_sequences))
-
-    @staticmethod
-    def get_scaffold_name(i, path):
-        return f'scaffold{i}_' + ':'.join(f'{dn.node_id}{dn.orientation}' for dn in path.directed_nodes)
-
-
-
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
@@ -184,23 +125,6 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str
         f.write(f'edge_precision\t{comparison.edge_precision()}\n')
     with open(out_file_name+".missing_edges", "w") as f:
         f.write('\n'.join([str(e) for e in missing_edges]))
-
-
-@app.command()
-def generate_training(contig_file_name: str, read_filename: str, true_agp_path, out_file_name: str):
-    true_agp = ScaffoldAlignments.from_agp(true_agp_path)
-    genome = bnp.Genome.from_file(contig_file_name)
-    logging.info("Getting genomic reads")
-    reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
-    logging.info("Making scaffold")
-    encoding = genome.get_genome_context().encoding
-    contig_dict = genome.get_genome_context().chrom_sizes
-    translation_dict = {int(encoding.encode(name).raw()): name for name in contig_dict}
-    numeric_contig_dict = {int(encoding.encode(name).raw()): value for name, value in contig_dict.items()}
-    numeric_locations_pair = reads.get_numeric_locations()
-    path = next(Scaffolds.from_scaffold_alignments(true_agp)).to_contig_path(translation_dict)
-    s = SplitterInterface(numeric_contig_dict, numeric_locations_pair, path,
-                          max_distance=100000, bin_size=5000, threshold=0.2).split()
 
 
 def main():
