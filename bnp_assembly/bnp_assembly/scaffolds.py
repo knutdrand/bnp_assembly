@@ -101,16 +101,13 @@ class Scaffolds:
         return edge in self.edges
 
     def get_neighbour(self, node_side: NodeSide) -> tp.Optional[NodeSide]:
-        pass
-        """
         for scaffold in self._scaffolds:
             for dn_a, dn_b in more_itertools.pairwise(scaffold._path):
-                if dn_a.node_id == node_side.node_id and dn_a.orientation == node_side.orientation:
-                    return NodeSide(dn_b.node_id, dn_b.orientation)
-                if dn_b.node_id == node_side.node_id and dn_b.orientation == node_side.orientation:
-                    return NodeSide(dn_a.node_id, dn_a.orientation)
+                if dn_b == node_side:
+                    return dn_a
+                elif dn_a == node_side:
+                    return dn_b
         return None
-        """
 
     def to_scaffold_alignments(self, genome, padding=200):
         return np.concatenate([scaffold.to_scaffold_alignments(genome, padding) for scaffold in self._scaffolds])

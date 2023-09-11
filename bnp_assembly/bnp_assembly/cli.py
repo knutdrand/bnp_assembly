@@ -9,6 +9,8 @@ import bionumpy as bnp
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
+from bnp_assembly.graph_objects import NodeSide
+from bnp_assembly.scaffolds import Scaffolds
 from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
@@ -78,11 +80,19 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
 
 @app.command()
 def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, mapped_reads_bam: str, out_path: str):
-    estimated_agp = ScaffoldAlignments.from_agp(estimated_agp)
-    truth_agp = ScaffoldAlignments.from_agp(truth_agp)
-    contigs = bnp.Genome.from_file(contigs_fasta, filter_function=None)
-    debugger = ScaffoldingDebugger(estimated_agp, truth_agp, contigs, mapped_reads_bam, out_path)
-    debugger.debug_edge("contig10", "contig11")
+
+    truth = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(estimated_agp))
+    scaffolds = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(truth_agp))
+
+    genome = bnp.Genome.from_file(contigs_fasta, filter_function=None)
+    reads = PairedReadStream.from_bam(genome, mapped_reads_bam, mapq_threshold=20)
+
+    debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder=out_path)
+    #debugger.debug_edge(
+    #    NodeSide("contig0", "+"),
+    #    NodeSide("contig1", "-")
+    #)
+    debugger.debug_wrong_edges()
     debugger.finish()
 
 

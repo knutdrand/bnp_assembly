@@ -58,7 +58,8 @@ rule debug:
         output_path = ScaffoldingResults.path() + "/debug",
     shell:
         """
-        bnp_assembly debug-scaffolding {input} {params.output_path}
+        bnp_assembly debug-scaffolding {input} {params.output_path} &&
+        google-chrome {output.scaffolds}
         """
 
 

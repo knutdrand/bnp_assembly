@@ -4,10 +4,13 @@ import numpy as np
 from .. import plotting
 import bionumpy as bnp
 
+from ..contig_graph import DirectedNode
+from ..graph_objects import NodeSide
 from ..io import PairedReadStream
 from ..location import LocationPair
 from ..make_scaffold import get_numeric_contig_name_translation
 from ..scaffolds import Scaffolds
+import logging
 
 
 class ScaffoldingDebugger:
@@ -47,7 +50,10 @@ class ScaffoldingDebugger:
             for chunk in reads
         ])
 
-    def make_heatmap_for_two_contigs(self, contig_a, contig_b, bin_size=1000):
+    def make_heatmap_for_two_contigs(self, node_side_a, node_side_b, bin_size=1000):
+        contig_a = node_side_a.node_id
+        contig_b = node_side_b.node_id
+
         contig_a_id = self.contig_name_translation[contig_a]
         contig_b_id = self.contig_name_translation[contig_b]
         reads_between = self.get_reads_between_contigs(contig_a, contig_b)
@@ -58,6 +64,13 @@ class ScaffoldingDebugger:
         for read_a, read_b in zip(reads_between.location_a, reads_between.location_b):
             pos_a = read_a.offset
             pos_b = read_b.offset
+
+            if node_side_a.orientation == "-":
+                pos_a = self.contig_sizes[contig_a_id] - pos_a
+
+            if node_side_b.orientation == "-":
+                pos_b = self.contig_sizes[contig_b_id] - pos_b
+
             if read_a.contig_id == contig_b_id:
                 pos_a += self.contig_sizes[contig_a_id]
             if read_b.contig_id == contig_a_id:
@@ -70,15 +83,24 @@ class ScaffoldingDebugger:
         fig.show()
         return fig
 
-    def debug_edge(self, contig_name_a, contig_name_b):
-        self.make_heatmap_for_two_contigs(contig_name_a, contig_name_b)
+    def debug_edge(self, node_side_a: NodeSide, node_side_b: NodeSide):
+        self.make_heatmap_for_two_contigs(node_side_a, node_side_b)
 
+        contig_a_neighbour = self.estimated_scaffolds.get_neighbour(node_side_a, side="right")
+        if contig_a_neighbour:
+            logging.info(f"Contig {node_side_a} is linked to {contig_a_neighbour}")
+            self.make_heatmap_for_two_contigs(node_side_a, contig_a_neighbour)
 
+        contig_b_neighbour = self.estimated_scaffolds.get_neighbour(node_side_b, side="right")
+        if contig_b_neighbour:
+            logging.info(f"Contig {node_side_b} is linked to {contig_b_neighbour}")
+            self.make_heatmap_for_two_contigs(node_side_b, contig_b_neighbour)
 
-
-        # todo: Find which contig contiga and contigb are linked to
-        # find reads for them
-        # make heatmap around all pairs of contigs
-
+    def debug_wrong_edges(self):
+        for edge in self.estimated_scaffolds.edges:
+            if edge not in self.truth_scaffolds.edges:
+                logging.info("False edge: %s", edge)
+                self.debug_edge(edge.from_node_side, edge.to_node_side)
+                break
     def finish(self):
         self.px.write_report()

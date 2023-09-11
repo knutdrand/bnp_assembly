@@ -4,6 +4,8 @@ from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
 import pytest
 import numpy as np
+
+from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.scaffolds import Scaffolds
 
@@ -25,5 +27,8 @@ def test_integration():
     print(scaffolds)
 
     debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder="debugging")
-    debugger.debug_edge("contig0", "contig1")
+    debugger.debug_edge(
+        NodeSide("contig0", "+"),
+        NodeSide("contig1", "-")
+    )
 
