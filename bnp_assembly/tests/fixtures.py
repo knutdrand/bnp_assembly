@@ -13,6 +13,3 @@ def read_pairs():
      b = Location.from_entry_tuples([(0, 20), (1, 32), (1, 41)])
      return LocationPair(a, b)
 
-
-@pytest_fixture
-def paired_read_stream

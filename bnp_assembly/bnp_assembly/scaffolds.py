@@ -38,7 +38,7 @@ class Scaffold:
 
     @property
     @lru_cache(maxsize=None)
-    def edges(self):
+    def edges(self) -> tp.Set[Edge]:
         edges = set()
         for dn_a, dn_b in more_itertools.pairwise(self._path):
             node_side_a = NodeSide(dn_a.node_id, 'r' if dn_a.orientation == '+' else 'l')

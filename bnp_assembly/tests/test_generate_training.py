@@ -1,4 +1,5 @@
 import bionumpy as bnp
+import numpy as np
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.generate_training import generate_training_data_set
@@ -13,4 +14,5 @@ def test_generate_training_data_set():
     reads = PairedReadStream.from_bam(genome,
                                       dir + "hifiasm.hic.p_ctg.sorted_by_read_name.bam",
                                       mapq_threshold=10)
-    generate_training_data_set(truth, genome, reads)
+    data_set = generate_training_data_set(truth, genome, reads)
+    assert np.any(data_set['y']), data_set
