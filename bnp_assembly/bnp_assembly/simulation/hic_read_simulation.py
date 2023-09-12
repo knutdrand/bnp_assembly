@@ -1,5 +1,11 @@
 # Naive simulation of actualy HiC reads
 import logging
+from collections import defaultdict
+from typing import Dict
+
+from bionumpy.bnpdataclass import bnpdataclass
+
+from bnp_assembly.simulation.distribution import Distribution
 
 logging.basicConfig(level=logging.INFO)
 import bionumpy as bnp
@@ -39,6 +45,60 @@ def simulate(contigs_file_name: str, n_reads: int, read_length: int, fragment_si
 
         with bnp.open(out_base_name + f"{i + 1}.fq.gz", "w") as f:
             f.write(data)
+
+
+
+@bnpdataclass
+class PairedReadPositions:
+    contig_1: str
+    position_1: int
+    contig_2: str
+    position_2: int
+
+#DistributionOrData[T] = Union[Distribution[T], T]
+
+
+class MissingRegionsDistribution(Distribution):
+    def __init__(self, contig_dict: Dict[str, int], prob_missing, mean_size):
+        self._contig_dict = contig_dict
+        self._prob_missing = prob_missing
+        self._mean_size = mean_size
+
+    def sample(self, shape=()):
+        assert shape == ()
+        missing_dict = defaultdict(list)
+        for contig, size in self._contigs.items():
+            if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
+                missing_dict[contig].append((0, self._mean_size))
+            if np.random.choice([True, False], p=[self._prob_missing, 1-self._prob_missing]):
+                missing_dict[contig].append((size - self._mean_size, size))
+        return missing_dict
+
+
+class PairedReadPositionsDistribution(Distribution):
+    def __init__(self, contigs, fragment_size_mean: float, read_length: int, signal: float):
+        self._contigs = contigs
+        self._fragment_size_mean = fragment_size_mean
+        self._read_length = read_length
+        self._signal = signal
+
+    def sample(self, n):
+        # Make sure we get exactly n reads
+        t = 0
+        buffers = []
+        while t < n:
+            buffer = self._sample(n)
+            buffers.append(buffer)
+            t += len(buffer)
+        return np.concatenate(buffers)[:n]
+
+    def _sample(self, n):
+        if isinstance(self._contigs, Distribution):
+            self._contigs = self._contigs.sample()
+        all_contigs1, all_contigs2, all_positions1, all_positions2, _ = simulate_raw(self._contigs,
+                                                                                     self._fragment_size_mean, n,
+                                                                                     self._read_length, self._signal)
+        return PairedReadPositions(all_contigs1, all_positions1, all_contigs2, all_positions2)
 
 
 def simulate_raw(contigs: bnp.datatypes.SequenceEntry, fragment_size_mean: float, n_reads: int, read_length: int,

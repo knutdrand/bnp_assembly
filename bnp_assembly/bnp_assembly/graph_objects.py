@@ -5,7 +5,6 @@ from collections import Counter, defaultdict
 from scipy.stats import poisson
 
 
-
 @dataclass
 class NodeSide:
     node_id: int
@@ -17,11 +16,11 @@ class NodeSide:
 
     @property
     def numeric_index(self):
-        return int(self.node_id*2 + (self.side == 'r'))
+        return int(self.node_id * 2 + (self.side == 'r'))
 
     @classmethod
     def from_numeric_index(cls, idx: int):
-        return cls(idx//2, 'r' if idx % 2 == 1 else 'l')
+        return cls(idx // 2, 'r' if idx % 2 == 1 else 'l')
 
     def other_side(self):
         return self.__class__(self.node_id, 'r' if self.side == 'l' else 'l')
@@ -78,4 +77,3 @@ class Edge:
     def from_string(cls, s):
         t = s.strip()[2:-1].split('--')
         return cls(*(NodeSide.from_string(v) for v in t))
-

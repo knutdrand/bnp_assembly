@@ -81,6 +81,10 @@ class Scaffold:
             sequences.append(bnp.change_encoding(seq, bnp.encodings.ACGTnEncoding))
         return np.concatenate(sequences)
 
+    @property
+    def n_contigs(self):
+        return len(self._path)
+
 
 class Scaffolds:
     def __init__(self, scaffolds: tp.List[Scaffold]):
