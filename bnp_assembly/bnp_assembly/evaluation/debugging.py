@@ -102,5 +102,6 @@ class ScaffoldingDebugger:
                 logging.info("False edge: %s", edge)
                 self.debug_edge(edge.from_node_side, edge.to_node_side)
                 break
+
     def finish(self):
         self.px.write_report()

@@ -25,6 +25,11 @@ class DirectedDistanceMatrix:
             mat[edge] = value
         return mat
 
+    def keys(self):
+        return (Edge.from_numeric_index((i, j)) for i in range(len(self._matrix))
+                                        for j in range(len(self._matrix)))
+
+
     @property
     def data(self):
         return self._matrix
