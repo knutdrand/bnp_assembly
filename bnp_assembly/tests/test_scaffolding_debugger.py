@@ -28,8 +28,9 @@ def test_integration():
     print(scaffolds)
 
     debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder="debugging")
+    #debugger.debug_wrong_edges()
     debugger.debug_edge(
-        DirectedNode("contig0", "+"),
-        DirectedNode("contig1", "-")
+        DirectedNode("contig6", "-"),
+        DirectedNode("contig7", "-")
     )
 

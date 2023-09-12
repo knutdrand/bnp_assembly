@@ -77,6 +77,14 @@ class FolderSaver:
     def __init__(self, folder_name: str):
         self._folder_name = folder_name
         self._file_names = []
+        self._subloggers = {}
+
+    def sublogger(self, name):
+        subname = self._folder_name + "/" + name
+        register(**{name: ResultFolder(subname)})
+        logger = px(name=name)
+        self._subloggers[name] = logger
+        return logger
 
     def array(self, arr, title):
         filename = f'{self._folder_name}/{title}.npy'
@@ -115,14 +123,26 @@ class FolderSaver:
         return self.decorator(getattr(_px, name))
 
     def write_report(self):
+        for sublogger in self._subloggers.values():
+            sublogger.write_report()
+
         with open(f'{self._folder_name}/report.html', 'w') as f:
             f.write(self.generate_html())
 
     def generate_html(self):
         html = html_string
         images = [image_template.replace('{{plot_url}}', plot_url) for plot_url in self._file_names]
+
         body = body_template.replace('{{name}}', 'Plots').replace('{{images}}', '\n'.join(images))
         html = html.replace('{{body}}', body)
+
+        sublogger_links = ""
+        if len(self._subloggers) > 0:
+            sublogger_links = '<p><b>Subloggers</b></p><ul>' + "".join([
+                f"<li><a target='_blank' href='{sublogger}/report.html'>{sublogger}</a></li>" for sublogger in self._subloggers
+            ]) + "</ul>"
+        html = html.replace('{{subloggers}}', sublogger_links)
+
         return html
 
 
@@ -144,6 +164,8 @@ html_string = '''
     </head>
     <body>
         {{body}}
+        <br><br>
+        {{subloggers}}
         <br><br>
         <iframe width="1000" height="550" name="plot" frameborder="0" seamless="seamless" scrolling="no" \
 src="{{plot_url}}"></iframe>

@@ -30,6 +30,11 @@ class LocationPair:
         mask = (self.location_a.contig_id == contig_id) | (self.location_b.contig_id == contig_id)
         return self.subset_with_mask(mask)
 
+    def filter_on_two_contigs(self, contig_a, contig_b):
+        mask = ((self.location_a.contig_id == contig_a) | (self.location_a.contig_id == contig_b)) & \
+               ((self.location_b.contig_id == contig_a) | (self.location_b.contig_id == contig_b))
+        return self.subset_with_mask(mask)
+
     @classmethod
     def from_multiple_location_pairs(cls, location_pairs: List['LocationPair']):
         return LocationPair(

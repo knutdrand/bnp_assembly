@@ -81,8 +81,9 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
 @app.command()
 def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, mapped_reads_bam: str, out_path: str):
 
-    truth = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(estimated_agp))
-    scaffolds = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(truth_agp))
+    truth_alignments = ScaffoldAlignments.from_agp(truth_agp)
+    truth = Scaffolds.from_scaffold_alignments(truth_alignments)
+    scaffolds = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(estimated_agp))
 
     genome = bnp.Genome.from_file(contigs_fasta, filter_function=None)
     reads = PairedReadStream.from_bam(genome, mapped_reads_bam, mapq_threshold=20)

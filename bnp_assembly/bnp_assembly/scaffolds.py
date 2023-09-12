@@ -100,12 +100,12 @@ class Scaffolds:
     def has_edge(self, edge: Edge) -> bool:
         return edge in self.edges
 
-    def get_neighbour(self, node_side: NodeSide) -> tp.Optional[NodeSide]:
+    def get_neighbour(self, contig: DirectedNode) -> tp.Optional[DirectedNode]:
         for scaffold in self._scaffolds:
             for dn_a, dn_b in more_itertools.pairwise(scaffold._path):
-                if dn_b == node_side:
+                if dn_b == contig and dn_a.orientation == "-":
                     return dn_a
-                elif dn_a == node_side:
+                elif dn_a == contig and dn_a.orientation == "+":
                     return dn_b
         return None
 

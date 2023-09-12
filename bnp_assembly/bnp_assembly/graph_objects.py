@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 from scipy.stats import poisson
 
 
+
 @dataclass
 class NodeSide:
     node_id: int
@@ -24,6 +25,10 @@ class NodeSide:
 
     def other_side(self):
         return self.__class__(self.node_id, 'r' if self.side == 'l' else 'l')
+
+    def to_directed_node(self):
+        from bnp_assembly.contig_graph import DirectedNode
+        return DirectedNode(self.node_id, '+' if self.side == 'r' else '-')
 
     def __hash__(self):
         if isinstance(self.node_id, str):
