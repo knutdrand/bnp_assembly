@@ -63,6 +63,22 @@ rule debug:
         """
 
 
+rule missing_data:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        hic_to_contig_mappings= HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bam",
+    output:
+        report = ScaffoldingResults.path() + "/missing_data/report.html",
+    params:
+        output_path = ScaffoldingResults.path() + "/missing_data",
+    shell:
+        """
+        bnp_assembly missing-data {input} {params.output_path} &&
+        google-chrome {output.report}
+        """
+
+
+
 rule run_edison:
     input:
         assembly = ScaffoldingResults.path() + "/scaffolds.fa",

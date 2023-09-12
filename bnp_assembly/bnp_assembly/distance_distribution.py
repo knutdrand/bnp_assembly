@@ -31,6 +31,8 @@ def calculate_distance_distritbution(contig_sizes, distances):
     else:
         occurances = sum(np.bincount(d, minlength=N) for d in distances)
 
+    assert np.sum(occurances) > 0, "No occurences of intra reads. No reads within contigs?"
+
     oppurtunity = np.zeros(N)
     for contig_size in contig_sizes:
         oppurtunity[:contig_size] += 1

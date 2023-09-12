@@ -1,8 +1,12 @@
 import pytest
-from bnp_assembly.location import LocationPair, Location
-from bnp_assembly.missing_data import find_regions_with_missing_data, get_binned_read_counts
-import numpy as np
 
+from bnp_assembly.distance_distribution import distance_dist
+from bnp_assembly.location import LocationPair, Location
+from bnp_assembly.make_scaffold import process_reads
+from bnp_assembly.missing_data import find_regions_with_missing_data, get_binned_read_counts, \
+    find_regions_with_missing_data_from_bincounts
+import numpy as np
+from bnp_assembly.io import PairedReadStream
 
 @pytest.fixture
 def contig_dict():
@@ -73,3 +77,27 @@ def test_find_regions_with_missing_data2(contig_dict_uneven, read_pairs2):
 
     assert regions == correct
 
+
+@pytest.fixture
+def read_pairs3():
+    read_pairs = PairedReadStream.from_location_pair(
+        LocationPair(
+            Location.from_entry_tuples([
+                (0, 5), (0, 25), (0, 3)
+            ]),
+            Location.from_entry_tuples([
+                (1, 5), (1, 25), (0, 2)
+            ])
+        )
+    )
+    return read_pairs
+
+
+def test_integration_from_read_pairs(read_pairs3):
+    read_pairs = read_pairs3
+    bin_size = 10
+    contig_dict = {0: 30, 1: 30}
+    cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
+    bins, bin_sizes, counts = process_reads(next(read_pairs), contig_dict, cumulative_distribution, bin_size)
+    regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
+    assert regions == {0: [(10, 20)], 1: [(10, 20)]}
