@@ -3,6 +3,7 @@ import numpy as np
 from bionumpy.bnpdataclass import bnpdataclass
 from dataclasses import dataclass
 
+
 @bnpdataclass
 class Location:
     contig_id: int
@@ -11,7 +12,6 @@ class Location:
     @classmethod
     def from_genomic_location(cls, genomic_location):
         return cls(genomic_location.chromosome.raw(), genomic_location.position)
-
 
 
 @dataclass

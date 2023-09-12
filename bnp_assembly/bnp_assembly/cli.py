@@ -38,7 +38,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     logging.info("Getting genomic reads")
-    # reads = get_genomic_read_pairs(genome, read_filename, mapq_threshold=20)
     read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
 
     logging.info("Making scaffold")

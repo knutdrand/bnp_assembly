@@ -135,5 +135,6 @@ class ScaffoldingDebugger:
                 if i >= 3:
                     break
 
+
     def finish(self):
         self.px.write_report()

@@ -107,7 +107,7 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
 
 
 def make_scaffold(genome: Genome,
-                  reads: Union[PairedReadStream ,Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]],
+                  reads: Union[PairedReadStream, Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]],
                   *args,
                   **kwargs) -> Scaffolds:
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
@@ -115,7 +115,7 @@ def make_scaffold(genome: Genome,
     if not isinstance(reads, PairedReadStream):
         # old format, convert to numeric
         reads = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
-                              reads)
+                 reads)
 
     contig_paths = make_scaffold_numeric(contig_sizes, reads, *args, **kwargs)
     scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
@@ -152,22 +152,26 @@ def process_reads(read_pairs, contig_dict, cumulative_distribution):
     return all_counts, bin_sizes, forbes_obj.counts
 
 
-def default_make_scaffold(contig_dict, read_pairs: LocationPair, threshold=0.2):
+def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], threshold=0.2):
+    distance_matrix = create_distance_matrix_from_reads(contig_dict, read_pairs)
+    path = join_all_contigs(distance_matrix)
+    logger.info(f"Joined contigs: {path}")
+    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000, threshold=threshold)
+    return s.split()
+
+
+def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair]):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
     bins, bin_sizes, counts = process_reads(next(read_pairs), contig_dict, cumulative_distribution)
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(1000, bin_sizes, bins)
     adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
     assert np.all(~np.isnan(list(adjusted_counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
-
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     # distance_matrix = forbes_obj.get_distance_matrix()
     distance_matrix = create_distance_matrix(len(contig_dict), adjusted_counts)
     distance_matrix.plot(name='forbes3')
-    path = join_all_contigs(distance_matrix)
-    logger.info(f"Joined contigs: {path}")
-    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000, threshold=threshold)
-    return s.split()
+    return distance_matrix
 
 
 def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.2,

@@ -7,7 +7,9 @@ import numpy as np
 from ..agp import ScaffoldAlignments
 from ..scaffolds import Scaffolds
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class ScaffoldComparison:
     def __init__(self, estimated_alignments: ScaffoldAlignments, true_alignments: ScaffoldAlignments):
@@ -46,4 +48,3 @@ class ScaffoldComparison:
 
     def false_edges(self):
         return self._estimated_scaffold.edges - self._true_scaffold.edges
-
