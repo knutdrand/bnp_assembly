@@ -125,7 +125,6 @@ class ScaffoldingDebugger:
             tickson="boundaries",
             ticklen=20
         )
-        fig.show()
         return fig
 
     def debug_edge(self, contig_a: DirectedNode, contig_b: DirectedNode):
@@ -200,7 +199,6 @@ def analyse_missing_data(contigs: bnp.Genome, reads: PairedReadStream, plotting_
     plotting.register(missing_data=plotting.ResultFolder(plotting_folder))
     px = plotting.px(name="missing_data")
     fig = px.histogram(regions_relative_to_border, title="Missing data", nbins=100)
-    fig.show()
     px.write_report()
 
 
