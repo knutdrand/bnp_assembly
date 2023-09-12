@@ -64,15 +64,17 @@ class ScaffoldingDebugger:
 
         contig_a_id = self.contig_name_translation[contig_a]
         contig_b_id = self.contig_name_translation[contig_b]
-        t0 = time.perf_counter()
         reads_between = self.get_reads_between_contigs(contig_a, contig_b)
-        logging.info("Time to get reads: %.4f" % (time.perf_counter() - t0))
 
         heatmap_size = self.contig_sizes[contig_a_id] + self.contig_sizes[contig_b_id]
         total_contig_sizes = self.contig_sizes[contig_a_id] + self.contig_sizes[contig_b_id]
-        if total_contig_sizes // bin_size > 5000:
+        n_bins = heatmap_size // bin_size
+
+        if n_bins > 5000:
             bin_size = total_contig_sizes // 5000
             logging.info("Adjusting bin size to %d", bin_size)
+        elif n_bins < 100:
+            bin_size = total_contig_sizes // 100
 
         heatmap = np.zeros((heatmap_size // bin_size + 1, heatmap_size // bin_size + 1))
         logging.info("IN total %d reads between nodes" % (len(reads_between.location_a)))
@@ -92,21 +94,23 @@ class ScaffoldingDebugger:
             if read_b.contig_id == contig_b_id:
                 pos_b += self.contig_sizes[contig_a_id]
 
-            try:
-                heatmap[pos_a // bin_size, pos_b // bin_size] += 1
-                heatmap[pos_b // bin_size, pos_a // bin_size] += 1
-            except IndexError:
-                print("REads")
-                print(read_a)
-                print(read_b)
-                print("Pos a", pos_a)
-                print("Pos b", pos_b)
-                print("Bin size", bin_size)
-                print("Read a contig size", self.contig_sizes[int(read_a.contig_id)])
-                print("Read b contig size", self.contig_sizes[int(read_b.contig_id)])
-                raise
+            heatmap[pos_a // bin_size, pos_b // bin_size] += 1
+            heatmap[pos_b // bin_size, pos_a // bin_size] += 1
 
         fig = self.px.imshow(np.log2(heatmap + 1), title=f"Heatmap for {node_a} and {node_b}")
+
+        # add contigs
+        contig_offsets = [0, self.contig_sizes[contig_a_id] // bin_size]
+        fig.update_layout(
+            xaxis=dict(tickmode='array', tickvals=contig_offsets, ticktext=[contig_a, contig_b]),
+            yaxis=dict(tickmode='array', tickvals=contig_offsets, ticktext=[contig_a, contig_b]),
+        )
+        fig.update_xaxes(
+            showgrid=True,
+            ticks="outside",
+            tickson="boundaries",
+            ticklen=20
+        )
         fig.show()
         return fig
 
