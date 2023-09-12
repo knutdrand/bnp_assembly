@@ -13,6 +13,8 @@ class DirectedNode:
     def __repr__(self):
         return f'{self.node_id}{self.orientation}'
 
+    def reverse(self):
+        return DirectedNode(self.node_id, '+' if self.orientation == '-' else '-')
 
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):

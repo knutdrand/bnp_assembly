@@ -8,7 +8,7 @@ import bionumpy as bnp
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
-from bnp_assembly.evaluation.debugging import ScaffoldingDebugger
+from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
 from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.scaffolds import Scaffolds
 from .io import get_genomic_read_pairs, PairedReadStream
@@ -75,6 +75,13 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
     fig.show()
     fig.write_image(out_file_name)
     interaction_matrix.normalize_matrix().plot().show()
+
+
+@app.command()
+def missing_data(contig_fasta: str, reads: str, out_folder: str, bin_size: int = 1000):
+    genome = bnp.Genome.from_file(contig_fasta, filter_function=None)
+    reads = PairedReadStream.from_bam(genome, reads, mapq_threshold=20)
+    analyse_missing_data(genome, reads, out_folder, bin_size)
 
 
 @app.command()

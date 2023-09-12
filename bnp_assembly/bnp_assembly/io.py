@@ -61,6 +61,10 @@ class PairedReadStream:
     def __next__(self):
         return next(self._stream)
 
+    @classmethod
+    def from_location_pair(cls, location_pair: LocationPair):
+        return cls(itertools.repeat([location_pair]))
+
     @staticmethod
     def parse_bam_entry(genome: bnp.Genome, bam_entry: BamEntry, mapq_threshold: int = 10):
         mask = bam_entry.mapq > mapq_threshold
