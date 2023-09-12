@@ -16,10 +16,13 @@ def generate_training_data_set(truth, genome, reads) -> pd.DataFrame:
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
     feature_matrix = create_distance_matrix_from_reads(contig_sizes, reads)
     rows = []
+    edge_names = {str(edge) for edge in truth.edges}
+    print(edge_names)
     for edge in feature_matrix.keys():
         translated_edge = Edge(NodeSide(contig_name_translation[edge.from_node_side.node_id], edge.from_node_side.side),
-                               NodeSide(contig_name_translation[edge.to_node_side.node_id], edge.from_node_side.side))
-        y = translated_edge in truth.edges
+                               NodeSide(contig_name_translation[edge.to_node_side.node_id], edge.to_node_side.side))
+        y = str(translated_edge) in edge_names# truth.edges
+        print(translated_edge)
         x = feature_matrix[edge]
         rows.append([x, y])
     return pd.DataFrame(rows, columns=["x", "y"])
