@@ -7,7 +7,7 @@ from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices, count_window_combinastions, NodeSide, Edge
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.path_finding import best_path
-from bnp_assembly.simulation.hic_read_simulation import simulate, simulate_raw
+from bnp_assembly.simulation.hic_read_simulation import simulate, simulate_raw, PairedReadPositionsDistribution
 
 np.random.seed(42)
 
@@ -135,9 +135,11 @@ def test_random(n_nodes, s):
 class Dummy:
     sequence: str
 
-def test_hic_simulation_acceptance():
 
+def test_hic_simulation_acceptance():
     contigs = bnp.as_encoded_array(['A'*1000, 'B'*500, 'C'*700])
     contigs= Dummy(contigs)
-    contigs1, contigs2, positions1, positions2, base_qualities = simulate_raw(contigs, 200, 100, 20, 0.5)
+    data = PairedReadPositionsDistribution(contigs, 200,  20, 0.5).sample(100)
+    assert len(data) == 100
+    # simulate_raw(contigs, 200, 100, 20, 0.5)
 

@@ -2,6 +2,8 @@ from dataclasses import dataclass, replace
 from bionumpy.bnpdataclass import bnpdataclass
 import numpy as np
 from typing import Dict, List
+
+from .pair_distribution import PairDistribution
 from ..graph_objects import NodeSide
 from ..contig_graph import ContigPath, DirectedNode
 
@@ -14,23 +16,6 @@ class SimulationParams:
     mean_distance: int = 10
     n_chromosomes: int = 1
     noise_proportion: float = 0.0
-
-
-class PairDistribution:
-    def __init__(self, contig_length, p):
-        self._contig_length = contig_length
-        self._p = p
-
-    def sample(self, rng, n_samples=1):
-        print(self._p)
-        distance = np.minimum(rng.geometric(self._p, size=n_samples), self._contig_length - 2)
-        print(np.min(distance))
-        first = rng.integers(0, self._contig_length - distance)
-        second = first + distance
-        assert np.all(second < self._contig_length), (second, self._contig_length)
-        assert np.all(first < self._contig_length), (first, self._contig_length)
-        direction = rng.choice([True, False], size=n_samples)
-        return (np.where(direction, first, first + distance), np.where(direction, first + distance, first))
 
 
 @bnpdataclass

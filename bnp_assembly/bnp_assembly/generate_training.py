@@ -21,18 +21,16 @@ def generate_training_data_set(truth, genome, reads) -> pd.DataFrame:
     for edge in feature_matrix.keys():
         translated_edge = Edge(NodeSide(contig_name_translation[edge.from_node_side.node_id], edge.from_node_side.side),
                                NodeSide(contig_name_translation[edge.to_node_side.node_id], edge.to_node_side.side))
-        y = str(translated_edge) in edge_names# truth.edges
-        print(translated_edge)
+        y = (translated_edge in truth.edges) or (translated_edge.reverse() in truth.edges)
         x = feature_matrix[edge]
-        rows.append([x, y])
-    return pd.DataFrame(rows, columns=["x", "y"])
+        rows.append([str(translated_edge), x, y])
+    return pd.DataFrame(rows, columns=['edge', "x", "y"])
 
 
 @app.command()
 def generate_training(contig_file_name: str, read_filename: str, true_agp_path, out_file_name: str):
     truth = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(true_agp_path))
     genome = bnp.Genome.from_file(contig_file_name, filter_function=None)
-    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
     reads = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
     data_set = generate_training_data_set(truth, genome, reads)
     data_set.write(out_file_name)
