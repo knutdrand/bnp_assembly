@@ -8,7 +8,7 @@ from bnp_assembly.scaffolds import Scaffolds
 
 
 def test_generate_training_data_set():
-    dir = "example_data/yeast_small/"
+    dir = "../example_data/yeast_small/"
     truth = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(dir + "hifiasm.hic.p_ctg.agp"))
     genome = bnp.Genome.from_file(dir + "hifiasm.hic.p_ctg.fa")
     reads = PairedReadStream.from_bam(genome,

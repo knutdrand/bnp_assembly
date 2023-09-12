@@ -36,8 +36,8 @@ def genome():
 
 def test_from_bam(genome, bam_entry):
     #stream = PairedReadStream.from_bam_entry(genome, bam_entry, mapq_threshold=10)
-    genome = bnp.Genome.from_file("example_data/hifiasm.hic.p_ctg.fa")
-    stream = PairedReadStream.from_bam(genome, "example_data/hic.sorted_by_read_name.bam", mapq_threshold=10)
+    genome = bnp.Genome.from_file("../example_data/hifiasm.hic.p_ctg.fa")
+    stream = PairedReadStream.from_bam(genome, "../example_data/hic.sorted_by_read_name.bam", mapq_threshold=10)
     element = next(stream)
     for chunk in element:
         print(chunk)

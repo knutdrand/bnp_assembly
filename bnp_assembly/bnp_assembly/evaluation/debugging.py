@@ -150,8 +150,8 @@ class ScaffoldingDebugger:
                 logging.info("False edge between %s and %s" % (contig_a, contig_b))
                 self.debug_edge(contig_a, contig_b)
                 i += 1
-                #if i >= 3:
-                #    break
+                if i >= 5:
+                    break
 
 
     def finish(self):

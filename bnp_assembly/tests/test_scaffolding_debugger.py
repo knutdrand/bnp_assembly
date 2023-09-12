@@ -8,7 +8,7 @@ from bnp_assembly.scaffolds import Scaffolds
 
 
 def test_scaffolding_debugger():
-    dir = "example_data/yeast_small/"
+    dir = "../example_data/yeast_small/"
     genome = bnp.Genome.from_file(dir + "hifiasm.hic.p_ctg.fa")
     truth = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(dir + "hifiasm.hic.p_ctg.agp"))
     scaffolds = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(dir + "scaffolds.agp"))
@@ -28,7 +28,7 @@ def test_scaffolding_debugger():
 
 
 def test_analyse_missing_data():
-    dir = "example_data/yeast_small/"
+    dir = "../example_data/yeast_small/"
     genome = bnp.Genome.from_file(dir + "hifiasm.hic.p_ctg.fa")
     reads = PairedReadStream.from_bam(genome,
                                       dir + "hifiasm.hic.p_ctg.sorted_by_read_name.bam",
