@@ -5,6 +5,7 @@ import pandas as pd
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.cli import app
+from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import get_numeric_contig_name_translation, create_distance_matrix_from_reads
@@ -15,8 +16,13 @@ def generate_training_data_set(truth, genome, reads) -> pd.DataFrame:
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
     feature_matrix = create_distance_matrix_from_reads(contig_sizes, reads)
     rows = []
+    edge_names = {str(edge) for edge in truth.edges}
+    print(edge_names)
     for edge in feature_matrix.keys():
-        y = edge in truth.edges
+        translated_edge = Edge(NodeSide(contig_name_translation[edge.from_node_side.node_id], edge.from_node_side.side),
+                               NodeSide(contig_name_translation[edge.to_node_side.node_id], edge.to_node_side.side))
+        y = str(translated_edge) in edge_names# truth.edges
+        print(translated_edge)
         x = feature_matrix[edge]
         rows.append([x, y])
     return pd.DataFrame(rows, columns=["x", "y"])
