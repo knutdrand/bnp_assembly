@@ -9,7 +9,7 @@ from bnp_assembly.io import get_genomic_read_pairs
 from bnp_assembly.make_scaffold import make_scaffold
 
 
-@pytest.mark.parametrize("folder_name", ["example_data/simulated_perfect_join"])
+@pytest.mark.parametrize("folder_name", ["../example_data/simulated_perfect_join"])
 def test_perfect_join(folder_name):
     print("Current directory: ", os.getcwd())
     #plotting.register(joining=plotting.ResultFolder('./tmp-joining/'))
