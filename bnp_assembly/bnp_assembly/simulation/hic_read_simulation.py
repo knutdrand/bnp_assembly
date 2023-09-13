@@ -3,9 +3,8 @@ import logging
 from collections import defaultdict
 from typing import Dict
 
-from bionumpy.bnpdataclass import bnpdataclass
-
 from bnp_assembly.simulation.distribution import Distribution
+from bnp_assembly.simulation.paired_read_positions import PairedReadPositions
 
 logging.basicConfig(level=logging.INFO)
 import bionumpy as bnp
@@ -46,14 +45,6 @@ def simulate(contigs_file_name: str, n_reads: int, read_length: int, fragment_si
         with bnp.open(out_base_name + f"{i + 1}.fq.gz", "w") as f:
             f.write(data)
 
-
-
-@bnpdataclass
-class PairedReadPositions:
-    contig_1: str
-    position_1: int
-    contig_2: str
-    position_2: int
 
 #DistributionOrData[T] = Union[Distribution[T], T]
 
