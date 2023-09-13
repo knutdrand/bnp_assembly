@@ -1,7 +1,7 @@
 # Naive simulation of actualy HiC reads
 import logging
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, List
 
 from bnp_assembly.simulation.distribution import Distribution
 from bnp_assembly.simulation.paired_read_positions import PairedReadPositions
@@ -22,14 +22,10 @@ def _random_genome_locations(contigs, n_reads, read_length):
     return drawn_positions, drawn_contigs
 
 
-def simulate(contigs: bnp.datatypes.SequenceEntry, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, read_name_prefix: str= ''):
+def simulate(contigs: bnp.datatypes.SequenceEntry, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, read_name_prefix: str= '') -> List[bnp.datatypes.SequenceEntryWithQuality]:
     read_pair_dist = PairedReadPositionsDistribution(contigs, fragment_size_mean, read_length, signal)
     paired_reads = read_pair_dist.sample(n_reads)
-    # all_contigs1, all_contigs2, all_positions1, all_positions2, base_qualities = simulate_raw(contigs,
-    #                                                                                          fragment_size_mean,
-    #                                                                                          n_reads, read_length,
-    #                                                                                          signal)
-
+    single_reads = []
     for i, (contig_names, positions) in enumerate([[paired_reads.contig_1, paired_reads.position_1], [paired_reads.contig_2, paired_reads.position_2]]):
         out_sequences = []
         logging.info(f"Writing {len(contig_names)} reads contig number {i}")
@@ -37,7 +33,8 @@ def simulate(contigs: bnp.datatypes.SequenceEntry, n_reads: int, read_length: in
             sequence = contigs.sequence[contig][position:position + read_length]
             out_sequences.append((f"{read_name_prefix}{read_number}", sequence, "I" * len(sequence)))
 
-        yield bnp.datatypes.SequenceEntryWithQuality.from_entry_tuples(out_sequences)
+        single_reads.append(bnp.datatypes.SequenceEntryWithQuality.from_entry_tuples(out_sequences))
+    return single_reads
 
 
 def simulate_from_file(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
