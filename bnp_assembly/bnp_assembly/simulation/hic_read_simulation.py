@@ -22,11 +22,29 @@ def _random_genome_locations(contigs, n_reads, read_length):
     return drawn_positions, drawn_contigs
 
 
+class ReadSimulator(Distribution):
+
+    def __init__(self, contigs: bnp.datatypes.SequenceEntry, pair_read_positions: PairedReadPositions, read_length: int, read_name_prefix: str = ''):
+        self._contigs = contigs
+        self._pair_read_positions = pair_read_positions
+        self._read_length = read_length
+        self._read_name_prefix = read_name_prefix
+
+    def sample(self, n_reads):
+        pair_read_positions = self._pair_read_positions.sample(n_reads)
+        return get_reads_from_positions(self._contigs, pair_read_positions, self._read_length, self._read_name_prefix)
+
+
 def simulate(contigs: bnp.datatypes.SequenceEntry, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, read_name_prefix: str= '') -> List[bnp.datatypes.SequenceEntryWithQuality]:
     read_pair_dist = PairedReadPositionsDistribution(contigs, fragment_size_mean, read_length, signal)
     paired_reads = read_pair_dist.sample(n_reads)
+    return get_reads_from_positions(contigs, paired_reads, read_length, read_name_prefix)
+
+
+def get_reads_from_positions(contigs, paired_reads, read_length, read_name_prefix):
     single_reads = []
-    for i, (contig_names, positions) in enumerate([[paired_reads.contig_1, paired_reads.position_1], [paired_reads.contig_2, paired_reads.position_2]]):
+    for i, (contig_names, positions) in enumerate(
+        [[paired_reads.contig_1, paired_reads.position_1], [paired_reads.contig_2, paired_reads.position_2]]):
         out_sequences = []
         logging.info(f"Writing {len(contig_names)} reads contig number {i}")
         for read_number, (contig, position) in enumerate(zip(contig_names, positions)):
@@ -40,8 +58,11 @@ def simulate(contigs: bnp.datatypes.SequenceEntry, n_reads: int, read_length: in
 def simulate_from_file(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
                        out_base_name: str,
                        read_name_prefix: str):
-    contigs_file_name = bnp.open(contigs_file_name).read()
-    data_stream = simulate(contigs_file_name, n_reads, read_length, fragment_size_mean, signal, read_name_prefix)
+    contigs = bnp.open(contigs_file_name).read()
+    paired_reads_dist = PairedReadPositionsDistribution(contigs, fragment_size_mean, read_length, signal)
+    reads_sequence_dist = ReadSimulator(contigs, paired_reads_dist, read_length, read_name_prefix)
+    data_stream = reads_sequence_dist.sample(n_reads)
+    # data_stream = simulate(contigs_file_name, n_reads, read_length, fragment_size_mean, signal, read_name_prefix)
     for i, data in enumerate(data_stream):
         with bnp.open(out_base_name + f"{i + 1}.fq.gz", "w") as f:
             f.write(data)
