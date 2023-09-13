@@ -7,7 +7,7 @@ from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices, count_window_combinastions, NodeSide, Edge
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.path_finding import best_path
-from bnp_assembly.simulation.hic_read_simulation import simulate_from_file, simulate_raw, \
+from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file, simulate_raw, \
     PairedReadPositionsDistribution, simulate
 
 np.random.seed(42)

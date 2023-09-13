@@ -11,6 +11,7 @@ from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparis
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
 from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.scaffolds import Scaffolds
+from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file
 from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
@@ -104,11 +105,10 @@ def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, ma
 
 
 @app.command()
-def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
-                 out_base_name: str, read_name_prefix: str, seed: int = 1):
+def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, out_base_name: str, read_name_prefix: str, mask_missing: bool = False, seed: int = 1):
     np.random.seed(seed)
-    hic_read_simulation.simulate_from_file(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
-                                           read_name_prefix)
+    hic_read_simulation.simulate_hic_from_file(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
+                                               read_name_prefix, do_mask_missing=mask_missing)
 
 
 @app.command()
