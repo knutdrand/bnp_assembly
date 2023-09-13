@@ -107,8 +107,8 @@ def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, ma
 def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
                  out_base_name: str, read_name_prefix: str, seed: int = 1):
     np.random.seed(seed)
-    hic_read_simulation.simulate(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
-                                 read_name_prefix)
+    hic_read_simulation.simulate_from_file(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
+                                           read_name_prefix)
 
 
 @app.command()

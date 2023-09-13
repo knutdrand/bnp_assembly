@@ -22,31 +22,32 @@ def _random_genome_locations(contigs, n_reads, read_length):
     return drawn_positions, drawn_contigs
 
 
-def simulate(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
-             out_base_name: str,
-             read_name_prefix: str):
-    contigs_file_name = bnp.open(contigs_file_name).read()
+def simulate(contigs: bnp.datatypes.SequenceEntry, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, read_name_prefix: str= ''):
+    read_pair_dist = PairedReadPositionsDistribution(contigs, fragment_size_mean, read_length, signal)
+    paired_reads = read_pair_dist.sample(n_reads)
+    # all_contigs1, all_contigs2, all_positions1, all_positions2, base_qualities = simulate_raw(contigs,
+    #                                                                                          fragment_size_mean,
+    #                                                                                          n_reads, read_length,
+    #                                                                                          signal)
 
-    # signal is ratio of reads that are not noise
-    all_contigs1, all_contigs2, all_positions1, all_positions2, base_qualities = simulate_raw(contigs_file_name,
-                                                                                              fragment_size_mean,
-                                                                                              n_reads, read_length,
-                                                                                              signal)
-
-    for i, (contig_names, positions) in enumerate([[all_contigs1, all_positions1], [all_contigs2, all_positions2]]):
+    for i, (contig_names, positions) in enumerate([[paired_reads.contig_1, paired_reads.position_1], [paired_reads.contig_2, paired_reads.position_2]]):
         out_sequences = []
         logging.info(f"Writing {len(contig_names)} reads contig number {i}")
         for read_number, (contig, position) in enumerate(zip(contig_names, positions)):
-            sequence = contigs_file_name.sequence[contig][position:position + read_length]
-            out_sequences.append((f"{read_name_prefix}{read_number}", sequence, base_qualities))
+            sequence = contigs.sequence[contig][position:position + read_length]
+            out_sequences.append((f"{read_name_prefix}{read_number}", sequence, "I" * len(sequence)))
 
-        data = bnp.datatypes.SequenceEntryWithQuality.from_entry_tuples(out_sequences)
+        yield bnp.datatypes.SequenceEntryWithQuality.from_entry_tuples(out_sequences)
 
+
+def simulate_from_file(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
+                       out_base_name: str,
+                       read_name_prefix: str):
+    contigs_file_name = bnp.open(contigs_file_name).read()
+    data_stream = simulate(contigs_file_name, n_reads, read_length, fragment_size_mean, signal, read_name_prefix)
+    for i, data in enumerate(data_stream):
         with bnp.open(out_base_name + f"{i + 1}.fq.gz", "w") as f:
             f.write(data)
-
-
-#DistributionOrData[T] = Union[Distribution[T], T]
 
 
 class MissingRegionsDistribution(Distribution):
@@ -140,4 +141,4 @@ def simulate_raw(contigs: bnp.datatypes.SequenceEntry, fragment_size_mean: float
 
 
 if __name__ == "__main__":
-    typer.run(simulate)
+    typer.run(simulate_from_file)
