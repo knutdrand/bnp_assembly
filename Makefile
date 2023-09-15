@@ -57,9 +57,10 @@ test: ## run tests quickly with the default Python
 	pytest
 
 test-all: ## run pytest, doctests, examples
-	cd bnp_assembly && \
+	cd bnp_assembly/tests/ && \
 	pytest --cov=bnp_assembly --cov-report html && \
-	pytest tests/test_simulated.py && pytest tests/test_perfect_join.py && \
+	pytest test_simulated.py && pytest test_perfect_join.py && \
+	cd ../ && \
 	pytest --cov=bnp_assembly --cov-report html --cov-append scripts/*_example.py && \
 	cd ../benchmarking/ && \
 	snakemake --cores 1 --use-conda test_accuracy -R run_bnp_scaffolding

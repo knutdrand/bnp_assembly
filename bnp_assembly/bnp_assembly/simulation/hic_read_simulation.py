@@ -44,7 +44,8 @@ def get_reads_from_positions(contigs, paired_reads, read_length, read_name_prefi
     return single_reads
 
 
-def simulate_hic_from_file(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
+def simulate_hic_from_file(contigs_file_name: str, n_reads: int, read_length: int, fragment_size_mean: int,
+                           signal: float,
                            out_base_name: str,
                            read_name_prefix: str, do_mask_missing: bool = False):
     contigs = bnp.open(contigs_file_name).read()
@@ -72,7 +73,12 @@ class MissingRegionsDistribution(Distribution):
         self._prob_missing = prob_missing
         self._mean_size = mean_size
 
-    def sample(self, shape=()):
+    def _missing_dict_to_bed(self, missing_dict: Dict[str, List[int]])->bnp.datatypes.Interval:
+        bed_entries = [(name, start, stop) for name, missing_regions in
+                       missing_dict.items() for start, stop in missing_regions]
+        return bnp.datatypes.Interval.from_entries(bed_entries)
+
+    def sample(self, shape=()) -> bnp.datatypes.Interval:
         assert shape == ()
         missing_dict = defaultdict(list)
         for contig, size in self._contig_dict.items():
@@ -80,7 +86,7 @@ class MissingRegionsDistribution(Distribution):
                 missing_dict[contig].append((0, self._mean_size))
             if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
                 missing_dict[contig].append((size - self._mean_size, size))
-        return missing_dict
+        return self._missing_dict_to_bed(missing_dict)
 
 
 class PairedReadPositionsDistribution(Distribution):

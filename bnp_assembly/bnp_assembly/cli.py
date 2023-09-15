@@ -11,7 +11,7 @@ from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparis
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
 from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.scaffolds import Scaffolds
-from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file
+from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file, MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix
@@ -122,6 +122,13 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str
         f.write(f'edge_precision\t{comparison.edge_precision()}\n')
     with open(out_file_name+".missing_edges", "w") as f:
         f.write('\n'.join([str(e) for e in missing_edges]))
+
+
+@app.command()
+def simulate_missing_regions(genome_file: str, out_file: str, prob_missing: float = 0.1, mean_size: int = 1000):
+    genome = bnp.Genome.from_file(genome_file)
+    missing_regions = MissingRegionsDistribution(genome.get_genome_context().chrom_sizes, prob_missing, mean_size)
+    bnp.open(out_file, 'w').write(missing_regions.sample())
 
 
 def main():
