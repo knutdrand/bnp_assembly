@@ -25,6 +25,17 @@ def random_spaced_locations(start, stop, n, min_space=1000, rng=np.random.defaul
     return candidates[0:n]
 
 
+class ContigSplitSimulator:
+    def __init__(self, genome: bnp.datatypes.SequenceEntry, n_splits: int, min_contig_size: int = 15000, rng=np.random.default_rng()):
+        self._genome = genome
+        self._n_splits = n_splits
+        self._min_contig_size = min_contig_size
+        self._rng = rng
+
+    def sample(self, shape=()) -> SimulatedContigs:
+        return simulate_contigs_from_genome(self._genome, self._n_splits, self._min_contig_size, self._rng)
+
+
 def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: int,
                                  min_contig_size: int = 15000, rng=np.random.default_rng(),
                                  also_split_at_ns=0) -> SimulatedContigs:
