@@ -41,6 +41,29 @@ rule map_hic:
     #"""
 
 
+rule simulate_unmappable_regions:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/{assembly}.fa",
+    output:
+        regions = HifiasmResultsWithExtraSplits.path() + "/{assembly}.unmappable_regions.bed"
+    shell:
+        """
+        bnp_assembly 
+        """
+
+
+rule remove_hic_reads_in_unmappable_regions:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/{assembly}.fa",
+        regions = HifiasmResultsWithExtraSplits.path() + "/{assembly}.unmappable_regions.bed",
+        reads = HifiasmResultsWithExtraSplits.path() + "/{assembly}.bam"
+    output:
+        filtered_reads = HifiasmResultsWithExtraSplits.path() + "/{assembly}.masked.bam"
+    shell:
+        """
+        bnp_assembly
+        """
+
 
 rule sort_hic_mapped_reads_by_name:
     input:

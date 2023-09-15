@@ -50,7 +50,7 @@ def simulate_hic_from_file(contigs_file_name: str, n_reads: int, read_length: in
     contigs = bnp.open(contigs_file_name).read()
     paired_reads_dist = PairedReadPositionsDistribution(contigs, fragment_size_mean, read_length, signal)
     if do_mask_missing:
-        missing_mask = MissingRegionsDistribution(contigs, 0.1, 1000)
+        missing_mask = MissingRegionsDistribution(contigs, 0.1, 10000)
     else:
         missing_mask = None
     reads_sequence_dist = ReadSimulator(contigs, paired_reads_dist, read_length, read_name_prefix, missing_mask)
@@ -76,10 +76,19 @@ class MissingRegionsDistribution(Distribution):
         assert shape == ()
         missing_dict = defaultdict(list)
         for contig, size in self._contig_dict.items():
+            n_sites = int((size // self._mean_size) * self._prob_missing)
+            logging.info("%d missing sites on contig %s" % (n_sites, contig))
+            starts = np.random.randint(0, size-self._mean_size, n_sites)
+            missing_dict[contig].extend(
+                (start, start+self._mean_size) for start in starts
+            )
+            """
             if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
                 missing_dict[contig].append((0, self._mean_size))
             if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
                 missing_dict[contig].append((size - self._mean_size, size))
+            """
+        logging.info("Regions which will have missing data: %s" % missing_dict)
         return missing_dict
 
 
