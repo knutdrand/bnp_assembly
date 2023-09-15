@@ -48,7 +48,7 @@ rule simulate_unmappable_regions:
         regions = HifiasmResultsWithExtraSplits.path() + "/{assembly}.unmappable_regions.bed"
     shell:
         """
-        bnp_assembly 
+        bnp_assembly simulate-missing-regions {input.contigs} {output.regions} --prob-missing 0.3 --mean-size 1000
         """
 
 
@@ -59,9 +59,11 @@ rule remove_hic_reads_in_unmappable_regions:
         reads = HifiasmResultsWithExtraSplits.path() + "/{assembly}.bam"
     output:
         filtered_reads = HifiasmResultsWithExtraSplits.path() + "/{assembly}.masked.bam"
+    conda:
+        "../envs/bedtools.yml"
     shell:
         """
-        bnp_assembly
+        bedtools intersect -v -abam {input.reads} -b {input.regions} > {output.filtered_reads}
         """
 
 
@@ -78,3 +80,17 @@ rule sort_hic_mapped_reads_by_name:
         """
 
 
+rule sort_hic_mapped_reads_by_position:
+    input:
+        "{file}.bam"
+    output:
+        "{file}.sorted_by_position.bam"
+    conda:
+        "../envs/samtools.yml"
+    shell:
+        """
+        samtools sort {input} -o {output}
+        """
+
+
+rule bed_to_bam:

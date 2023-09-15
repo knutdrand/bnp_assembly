@@ -10,7 +10,7 @@ rule naive_hic_simulation:
     params:
         output_base_name = lambda wildcards, input, output: os.path.sep.join(output.reads1.split(os.path.sep)[:-1]) + "/",
     shell:
-        "bnp_assembly simulate-hic {input.reference} {wildcards.n_reads} 150 10000 0.6 {params.output_base_name} reads_haplotype{wildcards.haplotype}_ --seed {wildcards.seed} --mask-missing"
+        "bnp_assembly simulate-hic {input.reference} {wildcards.n_reads} 150 10000 0.6 {params.output_base_name} reads_haplotype{wildcards.haplotype}_ --seed {wildcards.seed}"
 
 
 rule merge_hic_haplotype_reads:

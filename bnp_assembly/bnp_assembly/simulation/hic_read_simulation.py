@@ -76,13 +76,15 @@ class MissingRegionsDistribution(Distribution):
     def _missing_dict_to_bed(self, missing_dict: Dict[str, List[int]])->bnp.datatypes.Interval:
         bed_entries = [(name, start, stop) for name, missing_regions in
                        missing_dict.items() for start, stop in missing_regions]
-        return bnp.datatypes.Interval.from_entries(bed_entries)
+        if len(bed_entries) == 0:
+            return bnp.datatypes.Interval.empty()
+        return bnp.datatypes.Interval.from_entry_tuples(bed_entries)
 
     def sample(self, shape=()) -> bnp.datatypes.Interval:
         assert shape == ()
         missing_dict = defaultdict(list)
         for contig, size in self._contig_dict.items():
-           if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
+            if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
                 missing_dict[contig].append((0, self._mean_size))
             if np.random.choice([True, False], p=[self._prob_missing, 1 - self._prob_missing]):
                 missing_dict[contig].append((size - self._mean_size, size))

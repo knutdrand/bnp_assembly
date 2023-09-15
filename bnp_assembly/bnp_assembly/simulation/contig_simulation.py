@@ -5,6 +5,8 @@ import logging
 from ..agp import ScaffoldAlignments
 from dataclasses import dataclass
 import typing as tp
+from .hic_read_simulation import MissingRegionsDistribution
+
 
 @dataclass
 class SimulatedContigs:
@@ -110,6 +112,23 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
     return SimulatedContigs(new_fasta, ScaffoldAlignments.from_entry_tuples(scaffold_alignments),
                             inter_chromosome_splits, intra_chromosome_splits)
 
+
+def introduce_unmappable_regions_to_contigs(contig_sequences: bnp.datatypes.SequenceEntry,
+                                            prob_missing: float,
+                                            missing_size: int,
+                                            rng=np.random.default_rng()):
+    """
+    Replaces contig_sequences inplace
+    """
+
+    contig_dict = {entry.name.to_string(): len(entry.sequence) for entry in contig_sequences}
+    missing_regions = MissingRegionsDistribution(contig_dict, prob_missing, missing_size).sample()
+    logging.info(missing_regions)
+
+    for contig in contig_sequences:
+        for interval in missing_regions:
+            if interval.chromosome.to_string() == contig.name.to_string():
+                contig.sequence[int(interval.start):int(interval.stop)] = "N"
 
 
 def trim_contig_sequences_for_ns(contig_sequences):

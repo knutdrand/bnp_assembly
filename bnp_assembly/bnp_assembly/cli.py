@@ -25,13 +25,7 @@ app = typer.Typer()
 
 @app.command()
 def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
-             logging_folder: str = None, bin_size: int = 5000):
-    '''
-    Simple function
-
-    >>> main()
-
-    '''
+             logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None):
     logging.info(f"Using threshold {threshold}")
     if logging_folder is not None:
         plotting.register(splitting=plotting.ResultFolder(logging_folder+'/splitting'))
