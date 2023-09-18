@@ -65,7 +65,7 @@ def simulate_hic_from_file(contigs_file_name: str, n_reads: int, read_length: in
             f.write(data)
 
 
-class MissingRegionsDistribution(Distribution):
+class _MissingRegionsDistribution(Distribution):
     def __init__(self, contig_dict: Dict[str, int], prob_missing, mean_size):
         if isinstance(contig_dict, bnp.datatypes.SequenceEntry):
             self._contig_dict = {str(entry.name): len(entry.sequence) for entry in contig_dict}
