@@ -140,16 +140,13 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def process_reads(read_pairs, contig_dict, cumulative_distribution, bin_size=1000):
+def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size=1000):
     forbes_obj = OrientationWeightedCounter(contig_dict, cumulative_length_distribution=cumulative_distribution)
-    all_counts = Counter()
     if isinstance(read_pairs, LocationPair):
         read_pairs = [read_pairs]
     for chunk in read_pairs:
         forbes_obj.register_location_pairs(chunk)
-        local_counts, bin_sizes = get_binned_read_counts(bin_size, contig_dict, chunk)
-        all_counts = add_dict_counts(all_counts, local_counts)
-    return all_counts, bin_sizes, forbes_obj.counts
+    return forbes_obj.counts
 
 
 def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], threshold=0.2):
@@ -160,9 +157,21 @@ def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], thres
     return s.split()
 
 
+def get_missing_region_counts(contig_dict, read_pairs, bin_size):
+    all_counts = Counter()
+    if isinstance(read_pairs, LocationPair):
+        read_pairs = [read_pairs]
+    for chunk in read_pairs:
+        local_counts, bin_sizes = get_binned_read_counts(bin_size, contig_dict, chunk)
+        all_counts = add_dict_counts(all_counts, local_counts)
+    return all_counts, bin_sizes
+
+
 def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
-    bins, bin_sizes, counts = process_reads(next(read_pairs), contig_dict, cumulative_distribution, bin_size)
+    counts = get_forbes_counts(next(read_pairs), contig_dict, cumulative_distribution, bin_size)
+    bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
+
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
     adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
     assert np.all(~np.isnan(list(adjusted_counts.values())))
