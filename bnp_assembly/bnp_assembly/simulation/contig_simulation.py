@@ -116,7 +116,7 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
 def introduce_unmappable_regions_to_contigs(contig_sequences: bnp.datatypes.SequenceEntry,
                                             prob_missing: float,
                                             missing_size: int,
-                                            rng=np.random.default_rng(), mapping_ratio=0):
+                                            mapping_ratio=0):
     """
     Replaces contig_sequences inplace
     """
@@ -136,8 +136,8 @@ def make_unmappable_sequence(base_sequence, mapping_ratio):
     if mapping_ratio == 0:
         return "N"
     else:
-        unmappable_mask = np.random.choice([True, False], size=len(base_sequence), p=[mapping_ratio, 1 - mapping_ratio])
-        return np.where(unmappable_mask, bnp.as_encoded_array('N'*len(base_sequence)), base_sequence)
+        is_n = np.random.choice([True, False], size=len(base_sequence), p=[1 - mapping_ratio, mapping_ratio])
+        return np.where(is_n, bnp.as_encoded_array('N'*len(base_sequence)), base_sequence)
 
 
 def trim_contig_sequences_for_ns(contig_sequences):
