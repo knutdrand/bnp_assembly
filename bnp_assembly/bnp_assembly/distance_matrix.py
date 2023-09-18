@@ -77,7 +77,7 @@ class DirectedDistanceMatrix:
                 new_matrix[node_id_2, node_id] = self[edge_r]
 
         assert np.all(~np.isnan(new_matrix))
-        self.px.array(new_matrix, title="distance_matrix")
+        #self.px.array(new_matrix, title="distance_matrix")
         return self.px.imshow(new_matrix, zmax=0, title=name)
         # fig = px(level).imshow(new_matrix)
         #go = self._genome_context.global_offset

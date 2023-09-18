@@ -10,7 +10,7 @@ from ..distance_distribution import distance_dist
 from ..graph_objects import NodeSide
 from ..io import PairedReadStream
 from ..location import LocationPair, Location
-from ..make_scaffold import get_numeric_contig_name_translation, process_reads
+from ..make_scaffold import get_numeric_contig_name_translation, get_forbes_counts, get_missing_region_counts
 from ..missing_data import find_regions_with_missing_data_from_bincounts
 from ..scaffolds import Scaffolds
 import logging
@@ -171,7 +171,8 @@ def analyse_missing_data(contigs: bnp.Genome, reads: PairedReadStream, plotting_
     print(contig_global_starts)
 
     cumulative_distribution = distance_dist(next(reads), contig_sizes)
-    bins, bin_sizes, counts = process_reads(next(reads), contig_sizes, cumulative_distribution, bin_size=bin_size)
+    counts = get_forbes_counts(next(reads), contig_sizes, cumulative_distribution, bin_size=bin_size)
+    bins, bin_sizes = get_missing_region_counts(contig_sizes, next(reads), bin_size)
 
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
 

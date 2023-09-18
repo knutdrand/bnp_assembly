@@ -1,7 +1,7 @@
 from .distance_distribution import DISTANCE_CUTOFF
 from .graph_objects import NodeSide, Edge
 from .location import LocationPair
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from collections import Counter
 import itertools
 import numpy as np
@@ -38,6 +38,46 @@ def find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, counts):
     logger.info('Found %d regions with missing data',
                 sum(len(positions) for positions in positions_with_missing_data.values()))
     return positions_with_missing_data, average_bin_count
+
+
+def find_start_and_end_split_site_for_contig(contig_size, contig_missing_regions):
+    prev = 0
+    for start, end in contig_missing_regions:
+        if start > prev:
+            break
+        prev = end
+
+    start_split = prev
+    # split at prev
+    # missing region at end
+    prev = contig_size
+    for start, end in contig_missing_regions[::-1]:
+        if end != prev:
+            break
+        prev = start
+
+    end_split = prev
+
+    start_split = min(end_split, start_split)  # happens if whole contig is missing
+
+    return start_split, end_split
+
+
+def find_missing_regions_at_start_and_end_of_contigs(contig_dict: Dict[str, int], missing_regions: Dict[str, List[Tuple]]) -> Dict[str, Tuple]:
+    """
+    Returns a dict of contig ids to new start and end positions (where missing regions at end and start are removed)
+    """
+    split_sites = {}
+    for contig in contig_dict:
+        contig_size = contig_dict[contig]
+        if contig not in missing_regions:
+            split_sites[contig] = (0, contig_size)
+            continue
+        # missing region at start
+        contig_missing_regions = missing_regions[contig]
+        split_sites[contig] = find_start_and_end_split_site_for_contig(contig_size, contig_missing_regions)
+
+    return split_sites
 
 
 def get_binned_read_counts(bin_size, contig_dict, read_pairs):
