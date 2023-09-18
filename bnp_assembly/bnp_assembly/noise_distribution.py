@@ -8,16 +8,15 @@ from scipy.special import logsumexp
 
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.plotting import px
-from bnp_assembly.distance_distribution import DISTANCE_CUTOFF
 
 
 class NoiseDistribution:
-    distance_cutoff = DISTANCE_CUTOFF
 
-    def __init__(self, contig_dict, distance_matrix, contig_path):
+    def __init__(self, contig_dict, distance_matrix, contig_path, max_distance=100000):
         self._contig_dict = contig_dict
         self._distance_matrix = distance_matrix
         self._contig_path = contig_path
+        self.distance_cutoff  = max_distance
         values = [self.transform(distance_matrix[edge]) / self.size_factor(edge) for edge in
                   [Edge(NodeSide(i, dir_a), NodeSide(j, dir_b)) for i  in contig_dict.keys() for j in contig_dict.keys()
                    for

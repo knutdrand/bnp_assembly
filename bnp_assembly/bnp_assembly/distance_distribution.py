@@ -5,7 +5,6 @@ from bnp_assembly.plotting import px
 from .datatypes import StreamedGenomicLocationPair, GenomicLocationPair
 from .location import LocationPair
 
-DISTANCE_CUTOFF = 100000
 
 
 def distance_dist(location_pairs, contig_dict):
@@ -52,13 +51,13 @@ class DistanceDistribution:
         return cls(np.log(probabilities))
 
     @classmethod
-    def from_cumulative_distribution(cls, cumulative_distribution):
+    def from_cumulative_distribution(cls, cumulative_distribution, max_distance=100000):
         base = np.diff(cumulative_distribution)
         smoothed = scipy.ndimage.gaussian_filter1d(base, 10)
         px(name='joining').line(smoothed, title='smoothed')
         smoothed[-1] = 0
-        for i in range(1, len(smoothed) // DISTANCE_CUTOFF + 1):
-            s = slice(i * DISTANCE_CUTOFF, (i + 1) * DISTANCE_CUTOFF)
+        for i in range(1, len(smoothed) // max_distance + 1):
+            s = slice(i * max_distance, (i + 1) * max_distance)
             smoothed[s] = np.mean(smoothed[s])
         smoothed = smoothed + 0.000001 / len(smoothed)
         px(name='joining').line(smoothed / np.sum(smoothed), title='smoothed2')

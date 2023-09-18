@@ -1,4 +1,3 @@
-from .distance_distribution import DISTANCE_CUTOFF
 from .graph_objects import NodeSide, Edge
 from .location import LocationPair
 from typing import Dict, Tuple, List
@@ -96,21 +95,23 @@ def get_binned_read_counts(bin_size, contig_dict, read_pairs):
 
 def find_missing_data_and_adjust(existing_counts: Counter, contig_dict: Dict[str, int], read_pairs: LocationPair,
                                  cumulative_length_distribution,
-                                 bin_size):
+                                 bin_size,
+                                 max_distance):
     regions, reads_per_bp = find_regions_with_missing_data(contig_dict, read_pairs, bin_size)
     return adjust_counts_by_missing_data(existing_counts, contig_dict, regions, cumulative_length_distribution,
-                                         reads_per_bp)
+                                         reads_per_bp, max_distance=max_distance)
 
 
 def adjust_counts_by_missing_data(existing_counts: Counter,
                                   contig_dict: Dict[str, int],
                                   missing_data: Dict[str, Tuple],
                                   cumulative_length_distribution: np.ndarray,
-                                  reads_per_bp: float) -> Counter:
+                                  reads_per_bp: float,
+                                  max_distance: int) -> Counter:
     """
     Adjusts the counts in existing_counts by estimating counts from missing data
     """
-    distance_cutoff = DISTANCE_CUTOFF
+    distance_cutoff = max_distance
 
     adjusted_counts = Counter()
     missing_counts = Counter()

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from bnp_assembly.contig_sizes import ContigSizes
-from bnp_assembly.distance_distribution import DISTANCE_CUTOFF, distance_dist, DistanceDistribution
+from bnp_assembly.distance_distribution import distance_dist, DistanceDistribution
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_counts import EdgeCounts
 from bnp_assembly.edge_scorer import EdgeScorer
@@ -53,14 +53,14 @@ def create_distance_matrix(n_nodes, pair_counts)->DirectedDistanceMatrix:
 
 class OrientationWeightedCounter(EdgeScorer):
 
-    def __init__(self, contig_dict, read_pairs=None, cumulative_length_distribution=None):
+    def __init__(self, contig_dict, read_pairs=None, cumulative_length_distribution=None, max_distance=100000):
         self._contig_dict = ContigSizes.from_dict(contig_dict)
         self._read_pairs = read_pairs
         if cumulative_length_distribution is None:
             cumulative_length_distribution = distance_dist(read_pairs, contig_dict)
         self._cumulative_distance_distribution = cumulative_length_distribution
         self._distance_distribution = DistanceDistribution.from_cumulative_distribution(
-            self._cumulative_distance_distribution)
+            self._cumulative_distance_distribution, max_distance)
         self._distance_distribution.plot()
         self.orientation_distributions = OrientationDistributions(self._contig_dict, self._distance_distribution)
         self.__orientation_distributions = {
@@ -72,6 +72,7 @@ class OrientationWeightedCounter(EdgeScorer):
         self._counts = EdgeCounts(len(self._contig_dict))
         self.positions = defaultdict(list)
         self.scores = defaultdict(list)
+        self._max_distance = 100000
 
     def get_distance_matrix(self, method='logprob'):
         assert method == 'logprob', method
@@ -119,7 +120,7 @@ class OrientationWeightedCounter(EdgeScorer):
     def register_location_pairs(self, location_pairs):
         lengths_a = self._length_array[location_pairs.location_a.contig_id]
         lengths_b = self._length_array[location_pairs.location_b.contig_id]
-        mask_a, mask_b = ((location.offset<=DISTANCE_CUTOFF) | (location.offset>=lengths-DISTANCE_CUTOFF)
+        mask_a, mask_b = ((location.offset <= self._max_distance) | (location.offset >= lengths - self._max_distance)
                           for location, lengths in zip((location_pairs.location_a, location_pairs.location_b),
                                                        [lengths_a, lengths_b]))
         mask = mask_a & mask_b
@@ -139,9 +140,9 @@ class OrientationWeightedCounter(EdgeScorer):
 
     def register_location_pair(self, location_pair):
         a, b = location_pair.location_a, location_pair.location_b
-        if DISTANCE_CUTOFF < a.offset < self._contig_dict[int(a.contig_id)] - DISTANCE_CUTOFF:
+        if self._max_distance < a.offset < self._contig_dict[int(a.contig_id)] - self._max_distance:
             return
-        if DISTANCE_CUTOFF < b.offset < self._contig_dict[int(b.contig_id)] - DISTANCE_CUTOFF:
+        if self._max_distance < b.offset < self._contig_dict[int(b.contig_id)] - self._max_distance:
             return
         probability_matrix = self.orientation_distributions[location_pair]
         pair = (int(a.contig_id), int(b.contig_id))
@@ -182,11 +183,13 @@ class OrientationWeightedCountesWithMissing(OrientationWeightedCounter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._bin_counts_for_missing = Counter()
+        self._max_distance = kwargs["max_distance"]
 
     def _calculate_log_prob_weighted_counts(self):
         super()._calculate_log_prob_weighted_counts()
         adjusted_counts = find_missing_data_and_adjust(self._counts, self._contig_dict, self._read_pairs,
-                                                       self._cumulative_distance_distribution, 1000)
+                                                       self._cumulative_distance_distribution, 1000,
+                                                       self._max_distance)
         self._counts = adjusted_counts
         return adjusted_counts
 

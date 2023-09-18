@@ -1,5 +1,7 @@
 """Console script for bnp_assembly."""
 import os
+from typing import Iterable
+
 # todo
 import numpy as np
 
@@ -14,7 +16,7 @@ from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
+from bnp_assembly.make_scaffold import make_scaffold
 from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging
@@ -24,20 +26,37 @@ logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
 
 
+def estimate_max_distance(contig_sizes: Iterable[int]):
+    return int(np.median(list(contig_sizes)) / 4)
+
+
 @app.command()
 def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
-             logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None):
+             logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None):
     logging.info(f"Using threshold {threshold}")
+
     if logging_folder is not None:
         plotting.register(splitting=plotting.ResultFolder(logging_folder+'/splitting'))
         plotting.register(joining=plotting.ResultFolder(logging_folder+'/joining'))
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
+    if max_distance is None:
+        max_distance = estimate_max_distance(genome.get_genome_context().chrom_sizes.values())
+        max_distance = max(bin_size*2, max_distance)
+        max_distance -= max_distance % bin_size  # max distance must be divisible by bin size
+        logging.info("Chose max distance from contig ends to be %d" % max_distance)
+
     logging.info("Getting genomic reads")
     read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
 
     logging.info("Making scaffold")
-    scaffold = make_scaffold(genome, read_stream, window_size=2500, distance_measure='forbes3', threshold=threshold, splitting_method='matrix', bin_size=2000)
+    scaffold = make_scaffold(genome, read_stream,
+                             window_size=2500,
+                             distance_measure='forbes3',
+                             threshold=threshold,
+                             splitting_method='matrix',
+                             bin_size=bin_size,
+                             max_distance=max_distance)
     alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_directory + "/scaffolds.agp")
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())

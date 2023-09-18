@@ -46,12 +46,12 @@ def _split_contig(distance_matrix, path, T=-0.1):
     return path.split_on_edges(split_edges)
 
 
-def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs):
+def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs, max_distance=100000):
     logging.info(f"Splitting with threshold {threshold}")
-    expected_edge_counts = ExpectedEdgeCounts(contig_dict, cumulative_distribution)
+    expected_edge_counts = ExpectedEdgeCounts(contig_dict, cumulative_distribution, max_distance=max_distance)
     p_value_func = lambda observed, expected: poisson.cdf(observed, expected)
     log_prob_func = lambda observed, expected: poisson.logpmf(observed.astype(int), expected)
-    noise_distribution = NoiseDistribution(contig_dict, distance_matrix, contig_path)
+    noise_distribution = NoiseDistribution(contig_dict, distance_matrix, contig_path, max_distance=max_distance)
     px_func(name='splitting').histogram(noise_distribution.get_non_neighbour_scores(), nbins=100,
                                         title='non_neighbours')
     edge_scores = [np.exp(-distance_matrix[edge]) / noise_distribution.size_factor(edge) for edge in contig_path.edges]
@@ -140,8 +140,10 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size=1000):
-    forbes_obj = OrientationWeightedCounter(contig_dict, cumulative_length_distribution=cumulative_distribution)
+def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size=1000, max_distance=100000):
+    forbes_obj = OrientationWeightedCounter(contig_dict,
+                                            cumulative_length_distribution=cumulative_distribution,
+                                            max_distance=max_distance)
     if isinstance(read_pairs, LocationPair):
         read_pairs = [read_pairs]
     for chunk in read_pairs:
@@ -149,11 +151,11 @@ def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size
     return forbes_obj.counts
 
 
-def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], threshold=0.2):
-    distance_matrix = create_distance_matrix_from_reads(contig_dict, read_pairs)
+def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], threshold=0.2, max_distance=100000, bin_size=5000):
+    distance_matrix = create_distance_matrix_from_reads(contig_dict, read_pairs, max_distance=max_distance)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
-    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=100000, bin_size=5000, threshold=threshold)
+    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=max_distance, bin_size=bin_size, threshold=threshold)
     return s.split()
 
 
@@ -167,7 +169,7 @@ def get_missing_region_counts(contig_dict, read_pairs, bin_size):
     return all_counts, bin_sizes
 
 
-def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000):
+def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000, max_distance=100000):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
@@ -177,8 +179,9 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
 
     mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
     counts = get_forbes_counts(mapped_stream, new_contig_dict,
-                               cumulative_distribution, bin_size)
-    adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
+                               cumulative_distribution, bin_size,
+                               max_distance=max_distance)
+    adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp, max_distance)
     assert np.all(~np.isnan(list(counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
@@ -189,9 +192,9 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
 
 
 def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.2,
-                          bin_size=5000, splitting_method='poisson', **distance_kwargs):
+                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs):
     if distance_measure == 'forbes3' and splitting_method != 'poisson':
-        return default_make_scaffold(contig_dict, read_pairs, threshold=threshold)
+        return default_make_scaffold(contig_dict, read_pairs, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
     # assert False
     px = px_func(name='joining')
     logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")
@@ -216,7 +219,7 @@ def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_
         original_distance_matrix = OrientationWeightedCounter(contig_dict, read_pairs).get_distance_matrix()
         original_distance_matrix.plot(name='forbes2')
     elif distance_measure == 'forbes3':
-        forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, read_pairs)
+        forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, read_pairs, max_distance=max_distance)
         original_distance_matrix = forbes_obj.get_distance_matrix()
         original_distance_matrix.plot(name='forbes3')
     original_distance_matrix.inversion_plot('forbes2')

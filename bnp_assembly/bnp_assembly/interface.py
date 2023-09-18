@@ -81,7 +81,8 @@ def score_matrix(observed: np.ndarray, expected: np.ndarray, edge: Edge=None)->f
 
 
 class SplitterInterface:
-    def __init__(self, contig_dict: dict, location_pairs: LocationPair, contig_path, max_distance=100000, bin_size=1000, threshold=0.2):
+    def __init__(self, contig_dict: dict, location_pairs: LocationPair, contig_path,
+                 max_distance=100000, bin_size=1000, threshold=0.2):
         self._contig_dict = contig_dict
         self._location_pairs = location_pairs
         self._contig_path = contig_path

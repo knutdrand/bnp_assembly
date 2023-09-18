@@ -2,7 +2,6 @@ from functools import lru_cache
 
 import numpy as np
 
-from bnp_assembly.distance_distribution import DISTANCE_CUTOFF
 from bnp_assembly.plotting import px
 
 
@@ -41,11 +40,11 @@ class PairWithinContigDistribution:
 
 
 class ExpectedEdgeCounts:
-    distance_cutoff = DISTANCE_CUTOFF
-    def __init__(self, contig_dict, cumulative_distribution):
+    def __init__(self, contig_dict, cumulative_distribution, max_distance=100000):
         self._contig_dict = contig_dict
         self._cumulative_distribution = cumulative_distribution
         self._genome_size = sum(contig_dict.values())
+        self._max_distance = 100000
 
     @property
     @lru_cache()
@@ -60,7 +59,7 @@ class ExpectedEdgeCounts:
         return np.insert(probs, 0, 0)
 
     def get_truncated_node_size(self, node_id):
-        return min(self._contig_dict[node_id], self.distance_cutoff)
+        return min(self._contig_dict[node_id], self._max_distance)
 
     def get_expected_edge_count(self, edge):
         probs = self._prob_pair_within_region_size
