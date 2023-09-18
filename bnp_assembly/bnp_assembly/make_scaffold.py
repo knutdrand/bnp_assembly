@@ -1,4 +1,3 @@
-from collections import Counter
 from dataclasses import dataclass
 from typing import Iterable, Union
 
@@ -16,10 +15,9 @@ from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
 from bnp_assembly.io import PairedReadStream
-from bnp_assembly.missing_data import get_binned_read_counts, find_regions_with_missing_data_from_bincounts, \
-    adjust_counts_by_missing_data, find_missing_regions_at_start_and_end_of_contigs
+from bnp_assembly.missing_data import find_contig_clips
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing, \
-    add_dict_counts, create_distance_matrix
+    create_distance_matrix
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.iterative_join import create_merged_graph
@@ -159,21 +157,9 @@ def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], thres
     return s.split()
 
 
-def get_missing_region_counts(contig_dict, read_pairs, bin_size):
-    all_counts = Counter()
-    if isinstance(read_pairs, LocationPair):
-        read_pairs = [read_pairs]
-    for chunk in read_pairs:
-        local_counts, bin_sizes = get_binned_read_counts(bin_size, contig_dict, chunk)
-        all_counts = add_dict_counts(all_counts, local_counts)
-    return all_counts, bin_sizes
-
-
 def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000, max_distance=100000):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
-    bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
-    regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
-    contig_clips = find_missing_regions_at_start_and_end_of_contigs(contig_dict, regions)
+    contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
     new_contig_dict = {contig_id: end-start for contig_id, (start, end) in contig_clips.items()}
     clip_mapper = ClipMapper(contig_clips)
 

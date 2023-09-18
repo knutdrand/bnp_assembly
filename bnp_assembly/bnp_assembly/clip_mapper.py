@@ -30,3 +30,5 @@ class ClipMapper:
         if isinstance(read_pair_stram, LocationPair):
             return self.map_coordinates(read_pair_stram)
         return (self.map_coordinates(read_pair) for read_pair in read_pair_stram)
+
+

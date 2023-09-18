@@ -10,8 +10,8 @@ from ..distance_distribution import distance_dist
 from ..graph_objects import NodeSide
 from ..io import PairedReadStream
 from ..location import LocationPair, Location
-from ..make_scaffold import get_numeric_contig_name_translation, get_forbes_counts, get_missing_region_counts
-from ..missing_data import find_regions_with_missing_data_from_bincounts
+from ..make_scaffold import get_numeric_contig_name_translation, get_forbes_counts
+from ..missing_data import find_regions_with_missing_data_from_bincounts, get_missing_region_counts
 from ..scaffolds import Scaffolds
 import logging
 
