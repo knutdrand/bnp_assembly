@@ -11,8 +11,9 @@ rule run_bnp_scaffolding:
         fa = ScaffoldingResults.path(scaffolder="bnp_scaffolding") + "/scaffolds.fa",
         agp = ScaffoldingResults.path(scaffolder="bnp_scaffolding") + "/scaffolds.agp"
     shell:
-        #"bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 0.001 --logging-folder {params.log_folder} --bin-size 3567"
-        "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 0.001 --bin-size 5000 --max-distance 100000"
+        #"bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 0.001 --bin-size 3567"
+        # "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 0.001 --bin-size 5000 --max-distance 100000"
+        "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 0.001 --bin-size 5000 --max-distance 100000 --logging-folder {params.log_folder} "
 
 
 rule run_bnp_scaffolding_nosplit:

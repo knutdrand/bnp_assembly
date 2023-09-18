@@ -153,8 +153,16 @@ def find_end_clip(bins, window_size, mean_coverage):
 def find_start_clip(bins, window_size, mean_coverage):
     running_sum = np.insert(np.cumsum(bins), 0, 0)
     diffs = running_sum[window_size:] - running_sum[:-window_size]
-    mask = diffs > mean_coverage*window_size
-    return next((i for i, value in enumerate(mask) if value), 0)
+
+    threshold = mean_coverage * window_size
+    logging.info(f'Threshold: {threshold}, Diffs {diffs}')
+    mask = diffs > threshold
+    index = next((i for i, value in enumerate(mask) if value), 0)
+    for i in range(index, index+window_size):
+        if bins[i] >= mean_coverage/2:
+            logging.info(f'{i}: {bins}')
+            return i
+    return index
 
 
 def find_clips(bins, mean_coverage, window_size):
@@ -165,9 +173,12 @@ def find_clips(bins, mean_coverage, window_size):
 def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
     mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values())*bin_size
+    logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
     clip_ids= {contig_id: find_clips(counts, mean_coverage/2, window_size) for contig_id, counts in bins.items()}
-    return {contig_id: (start_id*bin_size, contig_dict[contig_id]-end_id*bin_size)
-            for contig_id, (start_id, end_id) in clip_ids.items()}
+    logger.info(f"Found clips: {clip_ids}")
+    clips = {contig_id: (start_id * bin_size, contig_dict[contig_id] - end_id * bin_size) for
+              contig_id, (start_id, end_id) in clip_ids.items()}
+    return clips
 
 
 def get_missing_region_counts(contig_dict, read_pairs, bin_size):
