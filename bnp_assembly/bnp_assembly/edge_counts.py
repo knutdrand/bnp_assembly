@@ -26,8 +26,14 @@ class EdgeCounts:
                 for dir_a, dir_b, id_a, id_b in
                 product('lr', 'lr', range(self._n_nodes), range(self._n_nodes)))
 
+    def values(self):
+        return iter(self._counts.ravel())
+
     def __iter__(self):
         return iter(self.keys())
+
+    def __len__(self):
+        return len(self._counts.ravel())
 
     @singledispatchmethod
     def __getitem__(self, edge):

@@ -169,15 +169,17 @@ def get_missing_region_counts(contig_dict, read_pairs, bin_size):
 
 def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
-    counts = get_forbes_counts(next(read_pairs), contig_dict, cumulative_distribution, bin_size)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
     contig_clips = find_missing_regions_at_start_and_end_of_contigs(contig_dict, regions)
     new_contig_dict = {contig_id: end-start for contig_id, (start, end) in contig_clips.items()}
     clip_mapper = ClipMapper(contig_clips)
 
+    mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
+    counts = get_forbes_counts(mapped_stream, new_contig_dict,
+                               cumulative_distribution, bin_size)
     adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
-    assert np.all(~np.isnan(list(adjusted_counts.values())))
+    assert np.all(~np.isnan(list(counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     # distance_matrix = forbes_obj.get_distance_matrix()
