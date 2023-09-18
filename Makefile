@@ -64,6 +64,7 @@ test-all: ## run pytest, doctests, examples
 	pytest --cov=bnp_assembly --cov-report html --cov-append scripts/*_example.py && \
 	cd ../benchmarking/ && \
 	snakemake --cores 1 --use-conda test_accuracy -R run_bnp_scaffolding
+	snakemake --cores 1 --use-conda test_accuracy_with_missing -R run_bnp_scaffolding
 	#pytest --cov-report html --cov=bnp_assembly --cov-append --doctest-modules bnp_assembly/
 
 coverage: ## check code coverage quickly with the default Python
