@@ -16,7 +16,8 @@ simulated = simulate_contigs_from_genome(contigs, extra_splits, rng=rng, also_sp
 new_fasta = simulated.contigs
 
 introduce_unmappable_regions_to_contigs(new_fasta, float(snakemake.wildcards.prob_low_mappability_region),
-                                        int(snakemake.wildcards.mean_low_mappability_size))
+                                        int(snakemake.wildcards.mean_low_mappability_size),
+                                        float(snakemake.wildcards.missing_region_mappability))
 
 agp = simulated.alignment
 

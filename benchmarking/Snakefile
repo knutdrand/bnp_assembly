@@ -71,6 +71,7 @@ class HifiasmResultsWithExtraSplits:
     splits_on_n_ns: int = 0
     prob_low_mappability_region: float = 0.0
     mean_low_mappability_size: int = 0
+    missing_region_mappability: float = 0.0
 
 @parameters
 class ScaffoldingResults:
