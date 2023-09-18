@@ -6,7 +6,7 @@ import numpy as np
 from bnp_assembly.simulation.contig_simulation import simulate_contigs_from_genome, \
     introduce_unmappable_regions_to_contigs
 
-rng = np.random.default_rng(1)
+rng = np.random.default_rng(int(snakemake.wildcards.seed))
 np.random.seed(int(snakemake.wildcards.seed))
 
 extra_splits = int(snakemake.wildcards.extra_splits)
