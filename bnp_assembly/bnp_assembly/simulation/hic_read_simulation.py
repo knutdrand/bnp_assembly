@@ -13,7 +13,6 @@ import bionumpy as bnp
 import numpy as np
 import typer
 
-
 def _random_genome_locations(contigs, n_reads, read_length):
     genome_size = np.sum(contigs.sequence.shape[1])
     contig_weights = contigs.sequence.shape[1] / genome_size

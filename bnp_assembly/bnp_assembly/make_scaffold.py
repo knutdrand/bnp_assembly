@@ -1,4 +1,3 @@
-import logging
 from collections import Counter
 from dataclasses import dataclass
 from typing import Iterable, Union
@@ -9,6 +8,7 @@ from bionumpy import Genome
 from numpy.testing import assert_array_equal
 from scipy.stats import poisson
 
+from bnp_assembly.clip_mapper import ClipMapper
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.distance_distribution import distance_dist
@@ -17,7 +17,7 @@ from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDist
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.missing_data import get_binned_read_counts, find_regions_with_missing_data_from_bincounts, \
-    adjust_counts_by_missing_data
+    adjust_counts_by_missing_data, find_missing_regions_at_start_and_end_of_contigs
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing, \
     add_dict_counts, create_distance_matrix
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
@@ -28,7 +28,7 @@ from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
 from bnp_assembly.scaffolds import Scaffolds
-from bnp_assembly.scaffold_splitting.binned_bayes import BinnedBayes, NewSplitter
+from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
 import logging
 
@@ -171,8 +171,11 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
     counts = get_forbes_counts(next(read_pairs), contig_dict, cumulative_distribution, bin_size)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
-
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
+    contig_clips = find_missing_regions_at_start_and_end_of_contigs(contig_dict, regions)
+    new_contig_dict = {contig_id: end-start for contig_id, (start, end) in contig_clips.items()}
+    clip_mapper = ClipMapper(contig_clips)
+
     adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp)
     assert np.all(~np.isnan(list(adjusted_counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
