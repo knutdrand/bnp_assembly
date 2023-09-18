@@ -1,5 +1,7 @@
 import numpy as np
 
+from bnp_assembly.simulation.distribution import Distribution
+
 
 class ContigLengths:
     def __init__(self, expected_length):
@@ -9,7 +11,7 @@ class ContigLengths:
         return np.random.poisson(self._expected_length, size=n)
 
 
-class ContigDict:
+class ContigDict(Distribution):
     def __init__(self, n_contigs, contig_lengths):
         self._n_contigs = n_contigs
         self._contig_lengths = contig_lengths

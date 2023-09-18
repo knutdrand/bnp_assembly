@@ -9,3 +9,6 @@ def test_simulate_scaffolds():
         scaffolds = Scaffolds(contig_dict, 2).sample()
         assert sum(scaffold.n_contigs for scaffold in scaffolds) == 10
 
+
+def test_all():
+    test_simulate_scaffolds()

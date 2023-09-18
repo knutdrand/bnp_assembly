@@ -15,7 +15,9 @@ class Scaffolds(Distribution):
 
     def _sample(self):
         scaffold_names = [f'scaffold_{i}' for i in range(self._n_scaffolds)]
-        contig_dict = self._contig_dict.sample()
+        contig_dict = self._contig_dict
+        if isinstance(contig_dict, Distribution):
+            contig_dict = contig_dict.sample()
         contig_names = list(contig_dict)
         n_contigs = len(contig_dict)
         matching = np.random.choice(scaffold_names, size=n_contigs, replace=True)

@@ -3,7 +3,7 @@ from bionumpy.bnpdataclass import bnpdataclass
 import numpy as np
 from typing import Dict, List
 
-from .pair_distribution import PairDistribution
+from .pair_distribution import SingleContigPairDistribution
 from ..graph_objects import NodeSide
 from ..contig_graph import ContigPath, DirectedNode
 
@@ -105,7 +105,7 @@ class SplitAndPairs:
 def simulate_split_contig_reads(contig_length, n_parts, n_pairs, p=0.1, rng=None):
     if rng is None:
         rng = np.random.default_rng()
-    first, second = PairDistribution(contig_length, 0.1).sample(rng, n_pairs)
+    first, second = SingleContigPairDistribution(contig_length, 0.1).sample(rng, n_pairs)
     contig_split = split_contig_on_size(contig_length, contig_length // n_parts)
     first_split = contig_split.map(first)
     second_split = contig_split.map(second)
@@ -116,8 +116,7 @@ def simulate_merged_contig_reads(node_length, n_parts, n_pairs, p=0.1, rng=None)
     contig_length = node_length * n_parts
     if rng is None:
         rng = np.random.default_rng()
-    print(',', p)
-    first, second = PairDistribution(contig_length, p).sample(rng, n_pairs)
+    first, second = SingleContigPairDistribution(contig_length, p).sample(n_pairs)
     contig_split = split_contig_on_size(contig_length, contig_length // n_parts)
     first_split = contig_split.map(first)
     second_split = contig_split.map(second)

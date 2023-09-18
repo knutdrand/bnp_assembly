@@ -11,7 +11,8 @@ from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparis
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
 from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.scaffolds import Scaffolds
-from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file, MissingRegionsDistribution
+from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file
+from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold_numeric as scaffold_func, make_scaffold
 from .interaction_matrix import InteractionMatrix

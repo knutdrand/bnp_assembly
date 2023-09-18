@@ -1,8 +1,6 @@
 import numpy as np
 
-from bnp_assembly.simulation.pair_distribution import PairDistribution
-
-
+from bnp_assembly.simulation.pair_distribution import SingleContigPairDistribution
 
 
 class MappedReadPairs:
@@ -17,5 +15,3 @@ class MappedReadPairs:
         signal_pairs = self._pair_distribution.sample(n_signal)
         noise_pairs = self._noise_distribution.sample(n_noise)
         return np.concatenate([signal_pairs, noise_pairs])
-
-
