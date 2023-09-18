@@ -181,12 +181,12 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     counts = get_forbes_counts(mapped_stream, new_contig_dict,
                                cumulative_distribution, bin_size,
                                max_distance=max_distance)
-    adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp, max_distance)
+    # adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp, max_distance)
     assert np.all(~np.isnan(list(counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     # distance_matrix = forbes_obj.get_distance_matrix()
-    distance_matrix = create_distance_matrix(len(contig_dict), adjusted_counts)
+    distance_matrix = create_distance_matrix(len(contig_dict), counts)
     distance_matrix.plot(name='forbes3')
     return distance_matrix
 

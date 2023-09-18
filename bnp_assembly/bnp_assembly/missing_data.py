@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 
+
 def find_regions_with_missing_data(contig_dict: Dict[int, int], read_pairs: LocationPair, bin_size=100) -> Dict[
     str, Tuple]:
     """
