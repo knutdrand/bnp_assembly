@@ -2,12 +2,13 @@ import pytest
 
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.location import LocationPair, Location
-from bnp_assembly.make_scaffold import get_forbes_counts, get_missing_region_counts
+from bnp_assembly.make_scaffold import get_forbes_counts
 from bnp_assembly.missing_data import find_regions_with_missing_data, get_binned_read_counts, \
     find_regions_with_missing_data_from_bincounts, find_start_and_end_split_site_for_contig, \
-    find_missing_regions_at_start_and_end_of_contigs
+    find_missing_regions_at_start_and_end_of_contigs, get_missing_region_counts, find_clips
 import numpy as np
 from bnp_assembly.io import PairedReadStream
+
 
 @pytest.fixture
 def contig_dict():
@@ -44,7 +45,7 @@ def read_pairs2():
 
 
 def test_get_binned_read_counts(contig_dict, read_pairs):
-    counts, bin_sizes  = get_binned_read_counts(10, contig_dict, read_pairs)
+    counts, bin_sizes = get_binned_read_counts(10, contig_dict, read_pairs)
     assert np.all(counts[0] == [1, 0, 1])
     assert np.all(counts[1] == [2, 0, 0, 1])
 
@@ -53,7 +54,7 @@ def test_get_binned_read_counts(contig_dict, read_pairs):
 
 
 def test_get_binned_read_counts2(contig_dict_uneven, read_pairs2):
-    counts, bin_sizes  = get_binned_read_counts(10, contig_dict_uneven, read_pairs2)
+    counts, bin_sizes = get_binned_read_counts(10, contig_dict_uneven, read_pairs2)
     assert np.all(bin_sizes[1] == [10, 10, 10, 10, 5])
 
 
@@ -138,3 +139,10 @@ def test_find_missing_start_end_contigs(contig_sizes2, missing_regions):
         "contig3": (3, 5)
     }
 
+@pytest.fixture
+def bin_counts():
+    return np.array([1, 1, 100, 100, 2, 3,4])
+
+
+def test_find_clips(bin_counts):
+    find_clips(bin_counts, 50, 2) == (2, 3)

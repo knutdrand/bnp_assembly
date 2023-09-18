@@ -26,6 +26,9 @@ class EdgeCounts:
                 for dir_a, dir_b, id_a, id_b in
                 product('lr', 'lr', range(self._n_nodes), range(self._n_nodes)))
 
+    def items(self):
+        return ((key, self[key]) for key in self.keys())
+
     def values(self):
         return iter(self._counts.ravel())
 

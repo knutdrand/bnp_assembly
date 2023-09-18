@@ -1,14 +1,16 @@
 from .graph_objects import NodeSide, Edge
 from .location import LocationPair
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Iterable
 from collections import Counter
 import itertools
 import numpy as np
 import logging
 
+from .util import add_dict_counts
 from .plotting import px
 
 logger = logging.getLogger(__name__)
+
 
 
 
@@ -142,3 +144,37 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
         adjusted_counts[edge] = existing_counts[edge] + missing_counts[edge]
 
     return adjusted_counts
+
+
+def find_end_clip(bins, window_size, mean_coverage):
+    return find_start_clip(bins[::-1], window_size, mean_coverage)
+
+
+def find_start_clip(bins, window_size, mean_coverage):
+    running_sum = np.insert(np.cumsum(bins), 0, 0)
+    diffs = running_sum[window_size:] - running_sum[:-window_size]
+    mask = diffs > mean_coverage*window_size
+    return next((i for i, value in enumerate(mask) if value), 0)
+
+
+def find_clips(bins, mean_coverage, window_size):
+    return (find_start_clip(bins, window_size, mean_coverage),
+            find_end_clip(bins, window_size, mean_coverage))
+
+
+def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
+    bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
+    mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values())*bin_size
+    clip_ids= {contig_id: find_clips(counts, mean_coverage/2, window_size) for contig_id, counts in bins.items()}
+    return {contig_id: (start_id*bin_size, contig_dict[contig_id]-end_id*bin_size)
+            for contig_id, (start_id, end_id) in clip_ids.items()}
+
+
+def get_missing_region_counts(contig_dict, read_pairs, bin_size):
+    all_counts = Counter()
+    if isinstance(read_pairs, LocationPair):
+        read_pairs = [read_pairs]
+    for chunk in read_pairs:
+        local_counts, bin_sizes = get_binned_read_counts(bin_size, contig_dict, chunk)
+        all_counts = add_dict_counts(all_counts, local_counts)
+    return all_counts, bin_sizes
