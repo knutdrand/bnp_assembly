@@ -176,7 +176,6 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     distance_matrix.plot(name='forbes3')
     return distance_matrix
 
-
 def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.2,
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs):
     if distance_measure == 'forbes3' and splitting_method != 'poisson':
