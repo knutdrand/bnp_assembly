@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-conda init bash
-conda activate snakemake
-make test-all

@@ -17,7 +17,7 @@ def test_simulate_contigs(genome):
     rng = np.random.default_rng(1)
     simulated = simulate_contigs_from_genome(genome, 4, min_contig_size=3, rng=rng)
 
-    assert len(simulated.contigs) == 6
+    assert len(simulated.contigs) == 4
     assert np.all(simulated.contigs.sequence.shape[1] >= 3)
 
     print(simulated.alignment)
