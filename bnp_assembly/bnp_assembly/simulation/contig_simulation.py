@@ -16,7 +16,7 @@ class SimulatedContigs:
     intra_chromosome_splits: tp.Dict[str, tp.List[str]]
 
 
-def random_spaced_locations(start, stop, n, min_space=1000, rng=np.random.default_rng()):
+def random_spaced_locations(start, stop, n, min_space=1000):
     assert stop > min_space
     min_space = min(min_space, stop - start - 1)
     candidates = np.arange(start, stop, min_space)
@@ -25,6 +25,20 @@ def random_spaced_locations(start, stop, n, min_space=1000, rng=np.random.defaul
                         f"{stop} with spacing {min_space}. Made {len(candidates)}")
     np.random.shuffle(candidates)
     return candidates[0:n]
+
+
+def random_locations_with_some_short_intervals(start, stop, n_total, ratio_small=0, small_size=4000):
+    assert start == 0
+    n_small = int(n_total * ratio_small)
+    n_big = n_total - n_small
+    total_size = stop - start
+    big_size = int((total_size - n_small * small_size) / n_big)
+    sizes = np.array([big_size] * n_big + [small_size] * n_small)
+    print(f"Making {n_big} big contigs of size {big_size} and {n_small} small contigs of size {small_size} between {start} and {stop}")
+    np.random.shuffle(sizes)
+    positions = np.cumsum(sizes)[:-1]  # remove last to get n intervals
+    print("Positions: %s" % positions)
+    return positions
 
 
 class ContigSplitSimulator:
@@ -39,8 +53,9 @@ class ContigSplitSimulator:
 
 
 def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: int,
-                                 min_contig_size: int = 15000, rng=np.random.default_rng(),
-                                 also_split_at_ns=0) -> SimulatedContigs:
+                                 min_contig_size: int = 6000, rng=np.random.default_rng(),
+                                 also_split_at_ns=0,
+                                 ratio_small_contigs: float = 0.0) -> SimulatedContigs:
     """
     If also_split_at_ns > 0, genome will be split at contiguous Ns of this number (which are meant to give original scaffolds)
     """
@@ -77,8 +92,13 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
             continue
 
         random_split_positions = np.sort(
-            random_spaced_locations(min_contig_size, len(old_contig_sequence) - min_contig_size,
-                                    n_random_splits, min_space=min_contig_size, rng=rng))
+            #random_spaced_locations(min_contig_size, len(old_contig_sequence) - min_contig_size,
+            #                        n_random_splits, min_space=min_contig_size, rng=rng)
+            random_locations_with_some_short_intervals(0, len(old_contig_sequence), n_random_splits,
+                                                       ratio_small=ratio_small_contigs,
+                                                       small_size=min_contig_size)
+        )
+
         logging.info("Introducing random split positions: %s" % random_split_positions)
 
         split_positions = np.sort(np.concatenate([split_positions, random_split_positions]))
@@ -89,6 +109,7 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
         logging.info(f"Splitting contig {contig_id} between {split_positions}")
 
         for split_i, (start, end) in enumerate(zip(split_positions[0:-1], split_positions[1:])):
+            assert end-start >= min_contig_size, f"Contig {contig_id} split {split_i} between {start} and {end} is too small"
             logging.info(f"New contig at old contig {contig_id} between {start} and {end}")
             contig_name = f"contig{new_contig_id}"
             new_contig_names.append(contig_name)

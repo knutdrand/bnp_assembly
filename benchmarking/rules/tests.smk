@@ -119,8 +119,9 @@ rule test_accuracy_with_missing:
             prob_low_mappability_region=0.2,
             mean_low_mappability_size=4000,
             missing_region_mappability=missing_region_mappability,
+            ratio_small_contigs=0.0,
             scaffolder="bnp_scaffolding",
-        ).file_path() + "/accuracy.txt" for missing_region_mappability in [0.0, 0.5]]
+        ).file_path() + "/accuracy.txt" for missing_region_mappability in [0.0, 0.5]]  # 0.7 fails
     output:
         touch("test_accuracy_with_missing")
     run:
@@ -129,6 +130,34 @@ rule test_accuracy_with_missing:
                 lines = f.readlines()
                 assert float(lines[0].split()[1]) == 1.0
                 assert float(lines[1].split()[1]) == 1.0
+
+
+rule test_accuracy_with_missing_and_small_contigs:
+    input:
+        ScaffoldingResults.from_flat_params(
+            genome_build="sacCer3",
+            individual="simulated",
+            dataset_size="small",
+            depth="10",
+            n_reads="40000",
+            seed=123,
+            source="not_assembled",
+            extra_splits=12,
+            split_on_n_ns=0,
+            prob_low_mappability_region=0.2,
+            mean_low_mappability_size=2000,
+            missing_region_mappability=0.0,
+            ratio_small_contigs=0.4,
+            scaffolder="bnp_scaffolding",
+        ).file_path() + "/accuracy.txt"
+    output:
+        touch("test_accuracy_with_missing_and_small_contigs")
+    run:
+        with open(input[0]) as f:
+            lines = f.readlines()
+            assert float(lines[0].split()[1]) == 1.0
+            assert float(lines[1].split()[1]) == 1.0
+
 
 
 rule test_athalia_rosea_real_reads:
