@@ -21,7 +21,7 @@ def test_scaffolding_debugger():
 
     debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder="debugging")
     #debugger.debug_wrong_edges()
-    debugger.debug_edge(
+    debugger.debug_directed_nodes(
         DirectedNode("contig6", "-"),
         DirectedNode("contig7", "-")
     )

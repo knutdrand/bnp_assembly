@@ -1,5 +1,13 @@
+import dataclasses
+from typing import Dict
+
 import pytest
 from bnp_assembly.location import Location, LocationPair
+
+
+@dataclasses.dataclass
+class InputData:
+    contig_dict: Dict[str, int]
 
 
 @pytest.fixture

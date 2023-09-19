@@ -104,7 +104,7 @@ class Scaffolds:
     def has_edge(self, edge: Edge) -> bool:
         return edge in self.edges
 
-    def get_neighbour(self, contig: DirectedNode) -> tp.Optional[DirectedNode]:
+    def get_next_directed_node(self, contig: DirectedNode) -> tp.Optional[DirectedNode]:
         for scaffold in self._scaffolds:
             for dn_a, dn_b in more_itertools.pairwise(scaffold._path):
                 if dn_b == contig and dn_a.orientation == "-":
@@ -112,6 +112,22 @@ class Scaffolds:
                 elif dn_a == contig and dn_a.orientation == "+":
                     return dn_b
         return None
+
+    def get_neighbour(self, node_side: NodeSide):
+        side = node_side.side
+        node_id = node_side.node_id
+        for scaffold in self._scaffolds:
+            for dn_a, dn_b in more_itertools.pairwise(scaffold._path):
+                if dn_a.node_id == node_id:
+                    if (dn_a.orientation == "+" and side == "r") or (dn_a.orientation == "-" and side == "l"):
+                        neighbour_side = 'l' if dn_b.orientation == '+' else 'r'
+                        return NodeSide(dn_b.node_id, neighbour_side)
+                elif dn_b.node_id == node_id:
+                    if (dn_b.orientation == "+" and side == "l") or (dn_b.orientation == "-" and side == "r"):
+                        neighbour_side = 'r' if dn_a.orientation == '+' else 'l'
+                        return NodeSide(dn_a.node_id, neighbour_side)
+        return None
+
 
     def to_scaffold_alignments(self, genome, padding=200):
         return np.concatenate([scaffold.to_scaffold_alignments(genome, padding) for scaffold in self._scaffolds])
