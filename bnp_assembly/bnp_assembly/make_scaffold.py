@@ -162,6 +162,7 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
     logger.info(f'contig_clis: {contig_clips}')
     new_contig_dict = {contig_id: end-start for contig_id, (start, end) in contig_clips.items()}
+    assert all(v > 0 for v in new_contig_dict.values()), new_contig_dict
     del contig_dict
     clip_mapper = ClipMapper(contig_clips)
 
@@ -177,6 +178,7 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
     distance_matrix.plot(name='forbes3')
     return distance_matrix
+
 
 def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.2,
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs):

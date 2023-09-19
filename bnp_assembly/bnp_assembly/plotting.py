@@ -7,6 +7,7 @@ from pathlib import PurePath
 
 
 import re
+from typing import List, Iterable
 
 import numpy as np
 import pandas as pd
@@ -56,6 +57,21 @@ def px(level=logging.INFO, name=None):
     if level >= logging.getLogger().level:
         return _px
     return Dummy()
+
+
+class LazyDataFrame:
+    def __init__(self, data_generator: Iterable[(tuple)], columns: List[tuple]):
+        self._data_generator = data_generator
+        self._columns = columns
+        self._data = None
+
+    def to_csv(self, filename):
+        self.__dataframe__().to_csv(filename)
+
+    def __dataframe__(self, ):
+        if self._data is None:
+            self._data = pd.DataFrame(list(self._data_generator), columns=self._columns)
+        return self._data
 
 
 @dataclass

@@ -7,7 +7,7 @@ import bionumpy as bnp
 
 from ..contig_graph import DirectedNode
 from ..distance_distribution import distance_dist
-from ..graph_objects import NodeSide
+from ..graph_objects import NodeSide, Edge
 from ..io import PairedReadStream
 from ..location import LocationPair, Location
 from ..make_scaffold import get_numeric_contig_name_translation, get_forbes_counts
@@ -65,7 +65,7 @@ class ScaffoldingDebugger:
             for chunk in reads
         ])
 
-    def make_heatmap_for_two_contigs(self, node_a: DirectedNode, node_b: DirectedNode, bin_size=10000, px=None):
+    def make_heatmap_for_two_contigs(self, node_a: DirectedNode, node_b: DirectedNode, bin_size=10000, px=None, edge=None):
         contig_a = node_a.node_id
         contig_b = node_b.node_id
 
@@ -110,8 +110,8 @@ class ScaffoldingDebugger:
 
             heatmap[pos_a // bin_size, pos_b // bin_size] += 1
             heatmap[pos_b // bin_size, pos_a // bin_size] += 1
-
-        fig = px.imshow(np.log2(heatmap + 1), title=f"Heatmap for {node_a} and {node_b}")
+        title = f"Heatmap for {node_a} and {node_b}" if edge is None else f"Heatmap for {edge}"
+        fig = px.imshow(np.log2(heatmap + 1), title=title)
 
         # add contigs
         contig_offsets = [0, self.contig_sizes[contig_a_id] // bin_size]
@@ -125,37 +125,71 @@ class ScaffoldingDebugger:
             tickson="boundaries",
             ticklen=20
         )
+        fig.show()
         return fig
 
-    def debug_edge(self, contig_a: DirectedNode, contig_b: DirectedNode):
-        px = self.px.sublogger(f"{contig_a} vs {contig_b}")
+    def debug_directed_nodes(self, contig_a: DirectedNode, contig_b: DirectedNode):
+        px = self.px.sublogger(f"{contig_a} should be linked to {contig_b}")
         self.make_heatmap_for_two_contigs(contig_a, contig_b, px=px)
 
-        contig_a_neighbour = self.truth_scaffolds.get_neighbour(contig_a)
+        contig_a_neighbour = self.estimated_scaffolds.get_next_directed_node(contig_a)
         if contig_a_neighbour:
-            logging.info(f"   Contig {contig_a} should be linked to {contig_a_neighbour}")
+            logging.info(f"   Contig {contig_a} was linked to {contig_a_neighbour}")
             self.make_heatmap_for_two_contigs(contig_a, contig_a_neighbour, px=px)
 
-        contig_b_neighbour = self.truth_scaffolds.get_neighbour(contig_b.reverse())
+        contig_b_neighbour = self.estimated_scaffolds.get_next_directed_node(contig_b.reverse())
         if contig_b_neighbour:
-            logging.info(f"   Contig {contig_b} should be linked to {contig_b_neighbour}")
+            logging.info(f"   Contig {contig_b} was linked to {contig_b_neighbour}")
             self.make_heatmap_for_two_contigs(contig_b, contig_b_neighbour, px=px)
+
+    def debug_edge(self, edge: Edge):
+        contig_a = DirectedNode(edge.from_node_side.node_id, "+" if edge.from_node_side.side == "r" else "-")
+        contig_b = DirectedNode(edge.to_node_side.node_id, "+" if edge.to_node_side.side == "l" else "-")
+        logging.info("True edge between %s and %s" % (contig_a, contig_b))
+        px = self.px.sublogger(f"True edge : {edge}")
+        self.make_heatmap_for_two_contigs(contig_a, contig_b, px=px, edge=edge)
+
+        neibhour_a_node_side = self.estimated_scaffolds.get_neighbour(edge.from_node_side)
+        contig_a_neighbour = DirectedNode(neibhour_a_node_side.node_id,
+                                          "+" if neibhour_a_node_side.side == "l" else "-")
+        # contig_a_neighbour = self.estimated_scaffolds.get_next_directed_node(contig_a)
+        if contig_a_neighbour:
+            logging.info(f"   Contig {contig_a} was linked to {contig_a_neighbour}")
+            self.make_heatmap_for_two_contigs(contig_a, contig_a_neighbour, px=px, edge=Edge(edge.from_node_side, neibhour_a_node_side))
+
+        neighbour_b_node_side = self.estimated_scaffolds.get_neighbour(edge.to_node_side)
+        contig_b_neighbour = DirectedNode(neighbour_b_node_side.node_id,
+                                          "+" if neighbour_b_node_side.side == "r" else "-")
+        if contig_b_neighbour:
+            logging.info(f"   Contig {contig_b} was linked to {contig_b_neighbour}")
+            self.make_heatmap_for_two_contigs(contig_b_neighbour, contig_b, px=px, edge=Edge(neighbour_b_node_side, edge.to_node_side))
 
     def debug_wrong_edges(self):
         i = 0
-        for edge in self.estimated_scaffolds.edges:
-            if edge not in self.truth_scaffolds.edges:
-                contig_a = DirectedNode(edge.from_node_side.node_id, "+" if edge.from_node_side.side == "r" else "-")
-                contig_b = DirectedNode(edge.to_node_side.node_id, "+" if edge.to_node_side.side == "l" else "-")
-                logging.info("False edge between %s and %s" % (contig_a, contig_b))
-                self.debug_edge(contig_a, contig_b)
+        sorted_edges = self._get_sorted_edges()
+        seen_edges = set()
+        for edge in sorted_edges:
+            if edge.reverse() in seen_edges:
+                continue
+            seen_edges.add(edge)
+            if edge not in self.estimated_scaffolds.edges:
+                #contig_a = DirectedNode(edge.from_node_side.node_id, "+" if edge.from_node_side.side == "r" else "-")
+                #contig_b = DirectedNode(edge.to_node_side.node_id, "+" if edge.to_node_side.side == "l" else "-")
+                #logging.info("False edge between %s and %s" % (contig_a, contig_b))
+                self.debug_edge(edge)
+                # self.debug_directed_nodes(contig_a, contig_b)
                 i += 1
-                if i >= 5:
+                if i >= 10:
                     break
 
 
     def finish(self):
         self.px.write_report()
+
+    def _get_sorted_edges(self):
+        edge_scores = {edge: self.contig_sizes[self.contig_name_translation[edge.from_node_side.node_id]] * self.contig_sizes[self.contig_name_translation[edge.to_node_side.node_id]]
+                       for edge in self.truth_scaffolds.edges}
+        return sorted(edge_scores, key=lambda x: edge_scores[x], reverse=True)
 
 
 def analyse_missing_data(contigs: bnp.Genome, reads: PairedReadStream, plotting_folder="./", bin_size=1000):

@@ -58,7 +58,6 @@ def find_start_and_end_split_site_for_contig(contig_size, contig_missing_regions
         prev = start
 
     end_split = prev
-
     start_split = min(end_split, start_split)  # happens if whole contig is missing
 
     return start_split, end_split
@@ -166,8 +165,11 @@ def find_start_clip(bins, window_size, mean_coverage):
 
 
 def find_clips(bins, mean_coverage, window_size):
-    return (find_start_clip(bins, window_size, mean_coverage),
-            find_end_clip(bins, window_size, mean_coverage))
+    start, end = (find_start_clip(bins, window_size, mean_coverage),
+                  find_end_clip(bins, window_size, mean_coverage))
+    if start+end>= len(bins):
+        return (0, 0) # Whole node disappears, just use the whole node
+    return (start, end)
 
 
 def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
