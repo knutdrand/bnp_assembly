@@ -47,14 +47,16 @@ class NoiseDistribution:
         assert len(logpmfs) == len(edge_scores)
 
         r = logsumexp(logpmfs) - np.log(len(logpmfs))
-        df = [(x, np.exp(f(i)), 'new') for i in x]
-        df.extend([(x, np.exp(g(i)), 'old') for i in x])
-        df = pd.DataFrame(df, columns=['x', 'y', 'type'])
-        px(name='splitting').line(df, x='x', y='y', color='type', title=f'dist {edge}-{count}')
+        if False:
+            # Should be lazy df construction
+            df = [(x, np.exp(f(i)), 'new') for i in x]
+            df.extend([(x, np.exp(g(i)), 'old') for i in x])
+            df = pd.DataFrame(df, columns=['x', 'y', 'type'])
+            px(name='splitting').line(df, x='x', y='y', color='type', title=f'dist {edge}-{count}')
         # px(name='splitting').line([np.exp(f(i)) for i in x], title=f'dist {edge}')
         # px(name='splitting').line([np.exp(g(i)) for i in x], title=f'dist-old {edge}')
-        old_logpmf = scipy.stats.poisson(mu=self._mean_rate() * self.size_factor(edge)).logpmf(count)
-        print(count, np.exp(r), np.exp(old_logpmf))
+        # old_logpmf = scipy.stats.poisson(mu=self._mean_rate() * self.size_factor(edge)).logpmf(count)
+        # print(count, np.exp(r), np.exp(old_logpmf))
         return r
         return scipy.stats.poisson(mu=self._mean_rate() * self.size_factor(edge)).logpmf(
             np.int64(self.transform(self._distance_matrix[edge])))

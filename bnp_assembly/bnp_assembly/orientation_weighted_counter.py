@@ -42,11 +42,15 @@ class OrientationDistributions:
         return self._orientation_distributions[node_ids].distribution_matrix(*offsets)
 
 
-def create_distance_matrix(n_nodes, pair_counts)->DirectedDistanceMatrix:
+def create_distance_matrix(n_nodes, pair_counts, contig_dict = None)->DirectedDistanceMatrix:
     distance_matrix = DirectedDistanceMatrix(n_nodes)
     for edge, value in pair_counts.items():
-        distance_matrix[edge] = -np.log(value)
-        distance_matrix[edge.reverse()] = -np.log(value)
+        if contig_dict is not None:
+            size_factor =  np.sqrt(contig_dict[edge.from_node_side.node_id] * contig_dict[edge.to_node_side.node_id])
+        else:
+            size_factor = 1
+        distance_matrix[edge] = -np.log(value/size_factor)
+        distance_matrix[edge.reverse()] = -np.log(value/size_factor)
     return distance_matrix
 
 

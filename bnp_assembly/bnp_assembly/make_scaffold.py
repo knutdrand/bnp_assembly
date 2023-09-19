@@ -160,7 +160,9 @@ def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], thres
 def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000, max_distance=100000):
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
     contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
+    logger.info(f'contig_clis: {contig_clips}')
     new_contig_dict = {contig_id: end-start for contig_id, (start, end) in contig_clips.items()}
+    del contig_dict
     clip_mapper = ClipMapper(contig_clips)
 
     mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
@@ -172,7 +174,7 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     # distance_matrix = forbes_obj.get_distance_matrix()
-    distance_matrix = create_distance_matrix(len(contig_dict), counts)
+    distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
     distance_matrix.plot(name='forbes3')
     return distance_matrix
 
