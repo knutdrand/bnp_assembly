@@ -14,6 +14,7 @@ from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
+from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.missing_data import find_contig_clips
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing, \
@@ -104,18 +105,17 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
     return YahsSplitter(contig_dict, bin_size).split(contig_path, locations_pair, threshold=threshold)
 
 
-def make_scaffold(genome: Genome,
-                  reads: Union[PairedReadStream, Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]],
+def make_scaffold(input_data: FullInputData,
                   *args,
                   **kwargs) -> Scaffolds:
-    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
-
+    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(input_data.contig_genome)
+    reads = input_data.paired_read_stream
     if not isinstance(reads, PairedReadStream):
         # old format, convert to numeric
         reads = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
                  reads)
-
-    contig_paths = make_scaffold_numeric(contig_sizes, reads, *args, **kwargs)
+    numeric_input_data = NumericInputData(contig_sizes, reads)
+    contig_paths = make_scaffold_numeric(numeric_input_data, *args, **kwargs)
     scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
     return scaffold
 
@@ -149,7 +149,9 @@ def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size
     return forbes_obj.counts
 
 
-def default_make_scaffold(contig_dict, read_pairs: Iterable[LocationPair], threshold=0.2, max_distance=100000, bin_size=5000):
+def default_make_scaffold(numeric_input_data, threshold=0.2, max_distance=100000, bin_size=5000):
+    contig_dict = numeric_input_data.contig_dict
+    read_pairs = numeric_input_data.location_pairs
     distance_matrix = create_distance_matrix_from_reads(contig_dict, read_pairs, max_distance=max_distance)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
@@ -180,10 +182,13 @@ def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[Location
     return distance_matrix
 
 
-def make_scaffold_numeric(contig_dict: dict, read_pairs: LocationPair, distance_measure='window', threshold=0.2,
+def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measure='window', threshold=0.2,
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs):
+
     if distance_measure == 'forbes3' and splitting_method != 'poisson':
-        return default_make_scaffold(contig_dict, read_pairs, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
+        return default_make_scaffold(numeric_input_data, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
+
+    contig_dict, read_pairs = numeric_input_data.contig_dict, next(numeric_input_data.location_pairs)
     # assert False
     px = px_func(name='joining')
     logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")

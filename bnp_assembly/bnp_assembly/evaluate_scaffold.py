@@ -1,3 +1,5 @@
+import itertools
+
 from .hic_distance_matrix import calculate_distance_matrices
 from .forbes_score import calculate_distance_matrices as forbes_matrix, get_pair_counts, get_node_side_counts, \
     get_pscore_matrix
@@ -6,6 +8,7 @@ from bnp_assembly.splitting import LinearSplitter2, LinearSplitter3, YahsSplitte
 from bnp_assembly.simulation.hic import simulate_merged_contig_reads, simulate_many_contigs, SimulationParams, \
     full_simulation
 from bnp_assembly.location import LocationPair
+from .input_data import NumericInputData
 from .interface import SplitterInterface
 from .make_scaffold import make_scaffold_numeric
 from dataclasses import dataclass
@@ -33,11 +36,13 @@ def run_simulated_experiment(simulation_params, rng, distance_measure='window'):
     n_nodes, n_reads = (simulation_params.n_nodes, simulation_params.n_reads)
     split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
     assert len(split_and_pairs.split.starts) == n_nodes
-    paths = make_scaffold_numeric(split_and_pairs.split.get_contig_dict(),
-                                  LocationPair(split_and_pairs.location_a,
-                                  split_and_pairs.location_b),
+    location_pair = LocationPair(split_and_pairs.location_a, split_and_pairs.location_b)
+    input_data = NumericInputData(split_and_pairs.split.get_contig_dict(),
+                                  (location_pair for _ in itertools.count()))
+    paths = make_scaffold_numeric(input_data,
                                   distance_measure=distance_measure,
-                                  window_size=30)
+                                  window_size=30,
+                                  )
     true_paths = split_and_pairs.split.get_paths()
     return true_paths, paths
 

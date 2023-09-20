@@ -12,6 +12,7 @@ from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
 from bnp_assembly.graph_objects import NodeSide
+from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
@@ -48,9 +49,9 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 
     logging.info("Getting genomic reads")
     read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
-
+    input_data = FullInputData(genome, read_stream)
     logging.info("Making scaffold")
-    scaffold = make_scaffold(genome, read_stream,
+    scaffold = make_scaffold(input_data,# genome, read_stream,
                              window_size=2500,
                              distance_measure='forbes3',
                              threshold=threshold,
