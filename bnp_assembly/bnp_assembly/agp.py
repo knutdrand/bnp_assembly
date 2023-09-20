@@ -15,12 +15,16 @@ class ScaffoldMap:
         self._ends = defaultdict(list)
         self._contig_ids = defaultdict(list)
         self._contig_dict = {}
+        self._scaffold_offsets = {}
+        self._all_positive = True
         for i, alignment in enumerate(scaffold_alignments):
             self._starts[str(alignment.scaffold_id)].append(int(alignment.scaffold_start))
             self._ends[str(alignment.scaffold_id)].append(int(alignment.scaffold_end))
             self._contig_ids[str(alignment.scaffold_id)].append(str(alignment.contig_id))
             self._contig_dict[str(alignment.contig_id)] = int(alignment.contig_end)-int(alignment.contig_start)
-            assert alignment.orientation == '+'
+            self._scaffold_offsets[str(alignment.contig_id)] = (str(alignment.scaffold_id), int(alignment.scaffold_start), str(alignment.orientation))
+            if not alignment.orientation == '+':
+                self._all_positive = False
             assert alignment.contig_start == 0
 
         starts = {scaffold_id: np.array(self._starts[scaffold_id]) for scaffold_id in self._starts}
@@ -35,6 +39,18 @@ class ScaffoldMap:
     def contig_sizes(self):
         return self._contig_dict
 
+    def map_to_scaffold_locations(self, contig_locations: LocationEntry):
+        entries = [self.map_to_scaffold_location(entry) for entry in contig_locations]
+        return LocationEntry.from_entry_tuples([(location.chromosome, location.position) for location in entries])
+
+    def map_to_scaffold_location(self, contig_location: LocationEntry):
+        scaffold, offset, orientation = self._scaffold_offsets[str(contig_location.chromosome)]
+        assert isinstance(orientation, str)
+        local_offset = int(contig_location.position)
+        if orientation == '-':
+            local_offset = self._contig_dict[str(contig_location.chromosome)] - int(local_offset)
+        return LocationEntry.single_entry(scaffold, offset+local_offset)
+
     def mask_and_map_locations(self, scaffold_locations: LocationEntry):
         single_entries = (self.map_location(scaffold_location) for scaffold_location in scaffold_locations)
         return LocationEntry.from_entry_tuples([(entry.chromosome, entry.position) for entry in single_entries if entry is not None])
@@ -48,6 +64,7 @@ class ScaffoldMap:
         return PairedLocationEntry(a, b)
 
     def map_location(self, scaffold_location: LocationEntry):
+        assert self._all_positive
         scaffold_id = str(scaffold_location.chromosome)
         scaffold_start = int(scaffold_location.position)
         start_id = np.searchsorted(self._starts[scaffold_id], scaffold_start, side='right')-1

@@ -106,8 +106,8 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
 
 
 def make_scaffold(input_data: FullInputData,
-                  *args,
-                  **kwargs) -> Scaffolds:
+                  *args: object,
+                  **kwargs: object) -> Scaffolds:
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(input_data.contig_genome)
     reads = input_data.paired_read_stream
     if not isinstance(reads, PairedReadStream):

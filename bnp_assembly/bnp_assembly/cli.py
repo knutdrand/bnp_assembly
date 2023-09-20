@@ -11,14 +11,12 @@ import bionumpy as bnp
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
-from bnp_assembly.graph_objects import NodeSide
+from bnp_assembly.heatmap import create_heatmap_figure
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
-from bnp_assembly.simulation.hic_read_simulation import simulate_hic_from_file
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold
-from .interaction_matrix import InteractionMatrix
 from .simulation import hic_read_simulation
 import logging
 from . import plotting
@@ -69,24 +67,9 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
-    bin_size = max(bin_size, genome.size // 1000, 1000)
-    print("Using bin size", bin_size)
     locations_pair = get_genomic_read_pairs(genome, interval_filename)
-    interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)
-    fig = interaction_matrix.plot()
-
-    # add contig ids from agp file
-    global_offset = genome.get_genome_context().global_offset
     alignments = ScaffoldAlignments.from_agp(agp_file)
-    scaffold_offsets = global_offset.get_offset(alignments.scaffold_id)
-    contig_offsets = (scaffold_offsets + alignments.scaffold_start) // bin_size
-    fig.update_layout(xaxis=dict(tickmode='array', tickvals=contig_offsets, ticktext=alignments.contig_id.tolist())),
-    fig.update_xaxes(
-        showgrid=True,
-        ticks="outside",
-        tickson="boundaries",
-        ticklen=20
-    )
+    fig, interaction_matrix = create_heatmap_figure(alignments, bin_size, genome, locations_pair)
 
     fig.show()
     fig.write_image(out_file_name)
