@@ -150,17 +150,17 @@ class ScaffoldingDebugger:
         self.make_heatmap_for_two_contigs(contig_a, contig_b, px=px, edge=edge)
 
         neibhour_a_node_side = self.estimated_scaffolds.get_neighbour(edge.from_node_side)
-        contig_a_neighbour = DirectedNode(neibhour_a_node_side.node_id,
-                                          "+" if neibhour_a_node_side.side == "l" else "-")
         # contig_a_neighbour = self.estimated_scaffolds.get_next_directed_node(contig_a)
-        if contig_a_neighbour:
+        if neibhour_a_node_side:
+            contig_a_neighbour = DirectedNode(neibhour_a_node_side.node_id,
+                                              "+" if neibhour_a_node_side.side == "l" else "-")
             logging.info(f"   Contig {contig_a} was linked to {contig_a_neighbour}")
             self.make_heatmap_for_two_contigs(contig_a, contig_a_neighbour, px=px, edge=Edge(edge.from_node_side, neibhour_a_node_side))
 
         neighbour_b_node_side = self.estimated_scaffolds.get_neighbour(edge.to_node_side)
-        contig_b_neighbour = DirectedNode(neighbour_b_node_side.node_id,
-                                          "+" if neighbour_b_node_side.side == "r" else "-")
-        if contig_b_neighbour:
+        if neighbour_b_node_side:
+            contig_b_neighbour = DirectedNode(neighbour_b_node_side.node_id,
+                                              "+" if neighbour_b_node_side.side == "r" else "-")
             logging.info(f"   Contig {contig_b} was linked to {contig_b_neighbour}")
             self.make_heatmap_for_two_contigs(contig_b_neighbour, contig_b, px=px, edge=Edge(neighbour_b_node_side, edge.to_node_side))
 
