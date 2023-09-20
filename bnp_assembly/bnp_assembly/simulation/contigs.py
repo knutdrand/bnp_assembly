@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 
 from bnp_assembly.simulation.distribution import Distribution
@@ -16,7 +18,7 @@ class ContigDict(Distribution):
         self._n_contigs = n_contigs
         self._contig_lengths = contig_lengths
 
-    def sample(self):
+    def sample(self) -> Dict[str, int]:
         sizes = self._contig_lengths.sample(self._n_contigs)
         return {f'contig_{i}': size for i, size in enumerate(sizes)}
 

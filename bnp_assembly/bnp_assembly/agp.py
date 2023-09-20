@@ -1,5 +1,62 @@
 from collections import defaultdict
+
+import numpy as np
+from bionumpy import LocationEntry
 from bionumpy.bnpdataclass import bnpdataclass
+
+from bnp_assembly.location import Location
+from bnp_assembly.simulation.pair_distribution import PairedLocationEntry
+
+
+class ScaffoldMap:
+    def __init__(self, scaffold_alignments):
+        self._scaffold_alignments = scaffold_alignments
+        self._starts = defaultdict(list)
+        self._ends = defaultdict(list)
+        self._contig_ids = defaultdict(list)
+        self._contig_dict = {}
+        for i, alignment in enumerate(scaffold_alignments):
+            self._starts[str(alignment.scaffold_id)].append(int(alignment.scaffold_start))
+            self._ends[str(alignment.scaffold_id)].append(int(alignment.scaffold_end))
+            self._contig_ids[str(alignment.scaffold_id)].append(str(alignment.contig_id))
+            self._contig_dict[str(alignment.contig_id)] = int(alignment.contig_end)-int(alignment.contig_start)
+            assert alignment.orientation == '+'
+            assert alignment.contig_start == 0
+
+        starts = {scaffold_id: np.array(self._starts[scaffold_id]) for scaffold_id in self._starts}
+        ends = {scaffold_id: np.array(self._ends[scaffold_id]) for scaffold_id in self._ends}
+        self._scaffold_dict = {scaffold_id: max(ends[scaffold_id])-min(starts[scaffold_id])  for scaffold_id in starts}
+
+    @property
+    def scaffold_sizes(self):
+        return self._scaffold_dict
+
+    @property
+    def contig_sizes(self):
+        return self._contig_dict
+
+    def mask_and_map_locations(self, scaffold_locations: LocationEntry):
+        single_entries = (self.map_location(scaffold_location) for scaffold_location in scaffold_locations)
+        return LocationEntry.from_entry_tuples([(entry.chromosome, entry.position) for entry in single_entries if entry is not None])
+
+    def mask_and_map_location_pairs(self, scaffold_location_pairs: PairedLocationEntry):
+        mapped_a = [self.map_location(scaffold_location) for scaffold_location in scaffold_location_pairs.a]
+        mapped_b = [self.map_location(scaffold_location) for scaffold_location in scaffold_location_pairs.b]
+        mask = [a is None or b is None for a, b in zip(mapped_a, mapped_b)]
+        a = LocationEntry.from_entry_tuples([(entry.chromosome, entry.position) for entry, m in zip(mapped_a, mask) if not m])
+        b = LocationEntry.from_entry_tuples([(entry.chromosome, entry.position) for entry, m in zip(mapped_b, mask) if not m])
+        return PairedLocationEntry(a, b)
+
+    def map_location(self, scaffold_location: LocationEntry):
+        scaffold_id = str(scaffold_location.chromosome)
+        scaffold_start = int(scaffold_location.position)
+        start_id = np.searchsorted(self._starts[scaffold_id], scaffold_start, side='right')-1
+        end_id = np.searchsorted(self._ends[scaffold_id], scaffold_start, side='right')
+        if start_id != end_id:
+            return None
+        contig_id = self._contig_ids[scaffold_id][start_id]
+        contig_start = scaffold_start - self._starts[scaffold_id][start_id]
+        return LocationEntry.single_entry(contig_id, contig_start)
 
 
 @bnpdataclass
