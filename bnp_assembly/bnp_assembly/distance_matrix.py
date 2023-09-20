@@ -69,14 +69,14 @@ class DirectedDistanceMatrix:
         for node_id in range(n_nodes):
             for node_id_2 in range(n_nodes):
                 if node_id == node_id_2:
-                    new_matrix[node_id, node_id_2] = 0
+                    new_matrix[node_id, node_id_2] = np.nan
                     continue
                 edge = Edge(NodeSide(node_id, 'r'), NodeSide(node_id_2, 'l'))
                 new_matrix[node_id, node_id_2] = self[edge]
                 edge_r = Edge(NodeSide(node_id, 'l'), NodeSide(node_id_2, 'r'))
                 new_matrix[node_id_2, node_id] = self[edge_r]
 
-        assert np.all(~np.isnan(new_matrix))
+        #assert np.all(~np.isnan(new_matrix))
         #self.px.array(new_matrix, title="distance_matrix")
         return self.px.imshow(new_matrix, zmax=0, title=name)
         # fig = px(level).imshow(new_matrix)

@@ -142,12 +142,12 @@ rule test_accuracy_with_missing_and_small_contigs:
             n_reads="40000",
             seed=123,
             source="not_assembled",
-            extra_splits=12,
+            extra_splits=8,
             split_on_n_ns=0,
             prob_low_mappability_region=0.2,
-            mean_low_mappability_size=4000,
-            missing_region_mappability=0.7,
-            ratio_small_contigs=0.4,
+            mean_low_mappability_size=2000,
+            missing_region_mappability=0,
+            ratio_small_contigs=0.5,
             scaffolder="bnp_scaffolding",
         ).file_path() + "/accuracy.txt"
     output:

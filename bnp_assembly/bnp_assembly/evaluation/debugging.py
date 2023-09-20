@@ -11,7 +11,7 @@ from ..graph_objects import NodeSide, Edge
 from ..io import PairedReadStream
 from ..location import LocationPair, Location
 from ..make_scaffold import get_numeric_contig_name_translation, get_forbes_counts
-from ..missing_data import find_regions_with_missing_data_from_bincounts, get_missing_region_counts
+from ..missing_data import find_regions_with_missing_data_from_bincounts, get_missing_region_counts, find_contig_clips
 from ..scaffolds import Scaffolds
 import logging
 
@@ -27,7 +27,8 @@ class ScaffoldingDebugger:
                  truth_scaffolds: Scaffolds,
                  contigs: bnp.Genome,
                  reads: PairedReadStream,
-                 plotting_folder: str = "./"):
+                 plotting_folder: str = "./",
+                 bin_size: int = 1000):
         self.estimated_scaffolds = estimated_scaffolds
         self.truth_scaffolds = truth_scaffolds
         print("True path")
@@ -46,6 +47,12 @@ class ScaffoldingDebugger:
         self.contig_name_translation = {val: key for key, val in numeric_to_name_translation.items()}
         logging.info("Contig sizes: %s" % contig_sizes)
         self.contig_sizes = contig_sizes
+        self._bin_size = bin_size
+        self._contig_clips = self._get_contig_clips()
+
+    def _get_contig_clips(self):
+        contig_clips = find_contig_clips(self._bin_size, self.contig_sizes, next(self._read_stream))
+        return contig_clips
 
     def get_reads_for_contig(self, contig_name):
         numeric_contig_name = self.contig_name_translation[contig_name]
@@ -84,6 +91,7 @@ class ScaffoldingDebugger:
         elif n_bins < 100:
             bin_size = total_contig_sizes // 100
 
+        logging.info("PLotting with bin size %d" % bin_size)
         heatmap = np.zeros((heatmap_size // bin_size + 1, heatmap_size // bin_size + 1))
         #logging.info("IN total %d reads between nodes" % (len(reads_between.location_a)))
         for read_a, read_b in zip(reads_between.location_a, reads_between.location_b):
@@ -112,6 +120,23 @@ class ScaffoldingDebugger:
             heatmap[pos_b // bin_size, pos_a // bin_size] += 1
         title = f"Heatmap for {node_a} and {node_b}" if edge is None else f"Heatmap for {edge}"
         fig = px.imshow(np.log2(heatmap + 1), title=title)
+
+        # contig clips
+        import plotly.graph_objects as go
+        for contig, clip in self._contig_clips.items():
+            if contig in (contig_a_id, contig_b_id):
+                for pos in clip:
+                    if contig == contig_a_id:
+                        if node_a.orientation == "-":
+                            pos = self.contig_sizes[contig_a_id] - pos - 1
+                    elif contig == contig_b_id:
+                        if node_b.orientation == "-":
+                            pos = self.contig_sizes[contig_b_id] - pos - 1
+
+                    if contig == contig_b_id:
+                        pos += self.contig_sizes[contig_a_id]
+
+                    fig.add_vline(pos // bin_size, line_dash="dash", line_color="orange" )
 
         # add contigs
         contig_offsets = [0, self.contig_sizes[contig_a_id] // bin_size]

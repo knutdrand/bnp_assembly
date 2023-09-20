@@ -73,6 +73,7 @@ class HifiasmResultsWithExtraSplits:
     mean_low_mappability_size: int = 0
     missing_region_mappability: float = 0.0
     ratio_small_contigs: float = 0.0
+    min_contig_size: int = 6000
 
 @parameters
 class ScaffoldingResults:

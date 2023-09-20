@@ -158,6 +158,8 @@ def find_start_clip(bins, window_size, mean_coverage):
     mask = diffs > threshold
     index = next((i for i, value in enumerate(mask) if value), 0)
     for i in range(index, index+window_size):
+        if i >= len(bins):
+            return i
         if bins[i] >= mean_coverage/2:
             logging.info(f'{i}: {bins}')
             return i
