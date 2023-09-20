@@ -37,5 +37,5 @@ jobs:
       run: |
         cd bnp_assembly/tests
         pytest
-        pytest tests/test_simulated.py
-        pytest tests/test_perfect_join.py
+        pytest test_simulated.py
+        pytest test_perfect_join.py
