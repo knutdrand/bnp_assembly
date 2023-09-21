@@ -48,8 +48,8 @@ class DynamicHeatmaps:
     def register_location_pairs(self, location_pairs: LocationPair):
         a = location_pairs.location_a
         b = location_pairs.location_b
-        reverse_a_pos = self._size_array[a.contig_id] - a.offset
-        reverse_b_pos = self._size_array[b.contig_id] - b.offset
+        reverse_a_pos = self._size_array[a.contig_id] - a.offset-1
+        reverse_b_pos = self._size_array[b.contig_id] - b.offset-1
         for a_dir, a_pos in enumerate([a.offset, reverse_a_pos]):
             for b_dir, b_pos in enumerate([b.offset, reverse_b_pos]):
                 a_idx = self._scale_func(a_pos)
@@ -59,6 +59,11 @@ class DynamicHeatmaps:
                     (a.contig_id[mask], b.contig_id[mask],
                      a_idx[mask], b_idx[mask]), self._array.shape[2:])
                 self._array[a_dir, b_dir] += np.bincount(idx, minlength=self._array[0, 0].size).reshape(self._array.shape[2:])
+
+
+    @property
+    def array(self):
+        return self._array
 
 
 def get_heatmaps_for_edges(input_data, max_distance, n_bins, n_precomputed):

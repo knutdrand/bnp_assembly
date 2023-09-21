@@ -21,8 +21,17 @@ location_a = Location([0, 1, 2], [3, 2, 1])
 location_b = Location([1, 2, 0], [0, 1, 2])
 location_pair = LocationPair(location_a, location_b)
 
-
 def test_create_from_locations():
     dh = DynamicHeatmaps(np.array([4, 5, 6]), n_bins=3, scale_func=lambda x: x)
     dh.register_location_pairs(location_pair)
+    start_to_start = dh.array[0, 0]
+    assert np.sum(start_to_start) == 2
+    assert start_to_start[1, 2, 2, 1] == 1
+    assert start_to_start[2, 0, 1, 2] == 1
+    end_to_start = dh.array[1, 0]
+    assert np.sum(end_to_start) == 2
+    assert end_to_start[0, 1, 0, 0] == 1
+    assert end_to_start[1, 2, 2, 1] == 1
+    # assert_array_equal(start_to_start, np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]]))
+
     # .create_from_locations(location_pair, n_bins=3, scale_func=lambda x: x)
