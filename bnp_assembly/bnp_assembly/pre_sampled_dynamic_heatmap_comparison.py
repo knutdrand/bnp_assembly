@@ -4,12 +4,12 @@ Run through all reads for inter to calculate F = dynamic bin size heatmap
 Compare edge F's to F's calulated from sampled intra reads.
 * Find wich distance matches each bin best and do median or something
 '''
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Iterable, Dict
 import numpy as np
 from dataclasses import dataclass
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.location import LocationPair
-
+import bionumpy as bnp
 
 @dataclass
 class DynamicHeatmapConfig:
@@ -20,6 +20,7 @@ class DynamicHeatmapConfig:
     @property
     def max_distance(self):
         return self.inverse_scale_func(self.n_bins)-1
+
 
 log_config = DynamicHeatmapConfig(n_bins=10)
 
@@ -87,11 +88,9 @@ class PreComputedDynamicHeatmapCreator:
     * Iterates possible gaps between contigs
     * Emulates two smaller contig on chosen contigs and uses these to estimate counts
     """
-    def __init__(self, input_data: FullInputData, heatmap_config: DynamicHeatmapConfig = log_config, n_precomputed: int = 10):
-        self._input_data = input_data
-        self._gap_distances = np.array([2 ** (d + 1) for d in range(n_precomputed)])
+    def __init__(self, genome: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config):
         self._config = heatmap_config
-        self._contig_sizes = input_data.genome.get_genome_context().chrom_sizes
+        self._contig_sizes = genome
         self._chosen_contigs = self._get_suitable_contigs_for_estimation()
 
     def _get_suitable_contigs_for_estimation(self):
@@ -101,25 +100,55 @@ class PreComputedDynamicHeatmapCreator:
 
     @staticmethod
     def add_contig_offset_pair_to_heatmap(heatmap: DynamicHeatmap, offset_a, offset_b, gap: int, contig_size: int):
+        """
+        offset_a and offset_b are local offsets on contigs, the first should be lowert than the other
+        """
         split_position = contig_size // 2
+        subcontig_a_end = split_position - gap
+        subcontig_b_start = split_position + gap
+
         assert offset_a < split_position
         assert offset_b >= split_position
-        heatmap_offset_a = (split_position - gap) - offset_a - 1
-        heatmap_offset_b = offset_b - (split_position + gap)
+        heatmap_offset_a = subcontig_a_end - offset_a - 1
+        heatmap_offset_b = offset_b - subcontig_b_start
         assert heatmap_offset_a >= 0
         assert heatmap_offset_b >= 0
         heatmap.add(heatmap_offset_a, heatmap_offset_b)
 
-    def create_for_gap_distance(self, gap_distance: int) -> DynamicHeatmap:
+    def get_dynamic_heatmap(self, read_pairs: Iterable[LocationPair], gap_distance: int) -> DynamicHeatmap:
         heatmap = DynamicHeatmap.empty(self._config)
-        read_pairs = next(self._input_data.paired_read_stream)
-        for pair in read_pairs:
-            if (pair.location_a.contig_id == pair.location_b.contig_id
-                    and pair.location_a.contig_id in self._chosen_contigs):
-                self.add_read_pair_to_heatmap(heatmap, pair, gap_distance)
+        for chunk in read_pairs:
+            for pair in chunk:
+                contig_id_a = int(pair.location_a.contig_id)
+                contig_id_b = int(pair.location_b.contig_id)
+                if contig_id_a == contig_id_b and pair.location_a.contig_id in self._chosen_contigs:
 
-    def create(self) -> DynamicHeatmaps:
-        for bin, gap in enumerate(self._gap_distances):
+                    offset_a = int(pair.location_a.offset)
+                    offset_b = int(pair.location_b.offset)
+
+                    if offset_b < offset_a:
+                        offset_a = int(pair.location_a.offset)
+                        offset_b = int(pair.location_b.offset)
+
+                    split_position = self._contig_sizes[contig_id_a] // 2
+                    if offset_a >= split_position - gap_distance or offset_b < split_position + gap_distance:
+                        # read pair not on seperate subcontigs
+                        continue
+
+                    if offset_a < split_position - gap_distance + 1 - self._config.max_distance:
+                        # too far away for heatmap
+                        continue
+
+                    if offset_b > split_position + gap_distance + self._config.max_distance:
+                        continue
+
+                    PreComputedDynamicHeatmapCreator.add_contig_offset_pair_to_heatmap(
+                        heatmap, offset_a, offset_b, gap_distance, self._contig_sizes[contig_id_a]
+                    )
+
+    def create(self, n_precomputed) -> DynamicHeatmaps:
+        gap_distances = np.array([2 ** (d + 1) for d in range(n_precomputed)])
+        for bin, gap in enumerate(gap_distances):
             heatmap = self.create_for_gap_distance(gap)
 
 
