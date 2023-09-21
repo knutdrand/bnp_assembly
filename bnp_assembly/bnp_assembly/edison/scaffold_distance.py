@@ -2,33 +2,9 @@ import argparse
 import pathlib
 
 # Local imports.
-import grouping
-import ordering
-import agp
-
-
-def setup():
-    parser = argparse.ArgumentParser(
-        description="Find the scaffolding accuracy based on two AGP files."
-    )
-
-    parser.add_argument(
-        "-r",
-        "--reference",
-        required=True,
-        type=pathlib.Path,
-        help="Reference AGP file.",
-    )
-
-    parser.add_argument(
-        "-a",
-        "--assembly",
-        required=True,
-        type=pathlib.Path,
-        help="Assembly AGP file.",
-    )
-
-    return parser.parse_args()
+from . import grouping
+from . import ordering
+from . import agp
 
 
 def get_orientation(orientation: str, left: bool) -> str:
@@ -52,7 +28,6 @@ def get_orientation(orientation: str, left: bool) -> str:
         return "head"
     elif (orientation == "-") & (not left):
         return "tail"
-
 
 
 def update_table(contig: str):
@@ -349,6 +324,7 @@ def perfect_weighted_distance(reference: dict) -> int:
 
     return length
 
+
 def distance(reference, assembly):
     """
     From the Bergeron 2006 paper, the edit distance using the Double Cut or Join
@@ -378,20 +354,20 @@ def distance(reference, assembly):
 
     # Grouping distance.
     group = grouping.count(first=reference, second=assembly)
-    print(f"            Grouping: {group*100:>5.2f}%")
+    print(f"            Grouping: {group * 100:>5.2f}%")
 
     order = ordering.count(first=reference, second=assembly)
-    print(f"            Ordering: {order*100:>5.2f}%")
+    print(f"            Ordering: {order * 100:>5.2f}%")
 
     orientation = ordering.count(first=reference, second=assembly, orientation=True)
-    print(f"         Orientation: {orientation*100:>5.2f}%")
+    print(f"         Orientation: {orientation * 100:>5.2f}%")
 
     # Count the number of paths and calculate edit distance.
     paths, total, correct_length = count_paths(reference, assembly)
     edit_distance = int(total - paths["cycle"] - paths["odd"] / 2)
     accuracy = correct_length / perfect_weighted_distance(reference)
 
-    print(f"            Accuracy: {accuracy*100:>5.2f}%")
+    print(f"            Accuracy: {accuracy * 100:>5.2f}%")
     print(f"       Edit Distance: {edit_distance:>6}")
     print()
 
@@ -413,8 +389,3 @@ def main(reference, assembly):
     distances = distance(reference_contigs, assembly_contigs)
 
     return distances
-
-
-if __name__ == "__main__":
-    arguments = setup()
-    main(reference=arguments.reference, assembly=arguments.assembly)
