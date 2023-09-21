@@ -2,6 +2,7 @@ from bionumpy import Genome
 
 from bnp_assembly.agp import ScaffoldAlignments, ScaffoldMap
 from bnp_assembly.datatypes import GenomicLocationPair
+from bnp_assembly.edison import get_scaffold_distance
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.heatmap import create_heatmap_figure
 from bnp_assembly.make_scaffold import make_scaffold
@@ -59,5 +60,6 @@ def test_generate_training_from_contig_sizes_big():
                                                                                      contig_positions.b)))
     create_heatmap_figure(agp, 1000, genome, scaffold_pair)[0].show()
     comparison = ScaffoldComparison(agp, big_scaffold_assembly)
+    get_scaffold_distance(big_scaffold_assembly, agp)
     print(f'edge_recall\t{comparison.edge_recall()}\n')
     print(f'edge_precision\t{comparison.edge_precision()}\n')

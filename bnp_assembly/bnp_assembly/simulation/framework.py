@@ -29,9 +29,9 @@ def generate_training_from_contig_sizes(scaffold_aligments, n_reads=1000):
     scaffold_map = ScaffoldMap(scaffold_aligments)
     scaffold_sizes = scaffold_map.scaffold_sizes
     contig_sizes = scaffold_map.contig_sizes
-    signal_distribution = MultiContigSignalPairDistribution(scaffold_sizes, p=0.00001)
+    signal_distribution = MultiContigSignalPairDistribution(scaffold_sizes, p=1/1000000)
     noise_distribution = MultiContigNoisePairDistribution(scaffold_sizes)
-    read_distribution = MultiContigPairDistribution(signal_distribution, noise_distribution, p_signal=0.1)
+    read_distribution = MultiContigPairDistribution(signal_distribution, noise_distribution, p_signal=0.5)
     scaffold_read_pairs = read_distribution.sample(n_reads)
     mapped = scaffold_map.mask_and_map_location_pairs(scaffold_read_pairs)
     genome = Genome.from_dict(contig_sizes)

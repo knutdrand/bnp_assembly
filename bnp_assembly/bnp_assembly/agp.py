@@ -86,6 +86,12 @@ class ScaffoldAlignments:
     contig_end: int
     orientation: str
 
+    def to_dict(self):
+        d = defaultdict(dict)
+        for entry in self:
+            d[str(entry.scaffold_id)][str(entry.contig_id)] = {'start': int(entry.contig_start), 'end': int(entry.contig_end), 'orientation': str(entry.orientation)}
+        return d
+
     def to_agp(self, file_name):
         with open(file_name, "w") as f:
             counters = defaultdict(lambda: 1)
