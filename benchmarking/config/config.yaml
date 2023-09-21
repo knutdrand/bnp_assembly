@@ -92,3 +92,12 @@ mason_variator_parameters:
    --sv-translocation-rate 0
    --sv-duplication-rate 0
    "
+
+
+
+yahs_parameters:
+  # The best parameters for a given species
+  sacCer3:
+    "-r 250,500,1000,5000,10000,20000,40000,50000"
+  athalia_rosea:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"

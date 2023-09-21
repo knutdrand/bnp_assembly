@@ -91,13 +91,13 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
             new_contig_id += 1
             continue
 
-        random_split_positions = np.sort(
-            #random_spaced_locations(min_contig_size, len(old_contig_sequence) - min_contig_size,
-            #                        n_random_splits, min_space=min_contig_size, rng=rng)
-            random_locations_with_some_short_intervals(0, len(old_contig_sequence), n_random_splits,
-                                                       ratio_small=ratio_small_contigs,
-                                                       small_size=min_contig_size)
-        )
+        random_split_positions = np.array([], dtype=int)
+        if n_random_splits > 0:
+            random_split_positions = np.sort(
+                random_locations_with_some_short_intervals(0, len(old_contig_sequence), n_random_splits,
+                                                           ratio_small=ratio_small_contigs,
+                                                           small_size=min_contig_size)
+            )
 
         logging.info("Introducing random split positions: %s" % random_split_positions)
 

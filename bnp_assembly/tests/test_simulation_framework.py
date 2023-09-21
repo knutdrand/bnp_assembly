@@ -44,7 +44,7 @@ def test_generate_training_from_contig_sizes():
 
 
 def test_generate_training_from_contig_sizes_big():
-    big_scaffold_assembly = ScaffoldAlignments.from_agp('../example_data/athalia_rosea_34.agp')
+    big_scaffold_assembly = ScaffoldAlignments.from_agp('../example_data/athalia_rosea.agp')
     input_data, sg, contig_positions = generate_training_from_contig_sizes(big_scaffold_assembly, n_reads=100000)
     scaffold = make_scaffold(input_data, window_size=2500,
                              distance_measure='forbes3',
@@ -58,7 +58,7 @@ def test_generate_training_from_contig_sizes_big():
     scaffold_pair = GenomicLocationPair(*(
        genome.get_locations(scaffold_map.map_to_scaffold_locations(pos)) for pos in (contig_positions.a,
                                                                                      contig_positions.b)))
-    create_heatmap_figure(agp, 1000, genome, scaffold_pair)[0].show()
+    create_heatmap_figure(agp, 1000, genome, scaffold_pair, big_scaffold_assembly)[0].show()
     comparison = ScaffoldComparison(agp, big_scaffold_assembly)
     get_scaffold_distance(big_scaffold_assembly, agp)
     print(f'edge_recall\t{comparison.edge_recall()}\n')
