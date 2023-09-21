@@ -10,9 +10,10 @@ rule run_yahs:
     conda:
         "../envs/yahs.yml"
     params:
-        out_prefix = lambda wildcards, input, output: output[0].replace("_scaffolds_final.fa", "")
+        out_prefix = lambda wildcards, input, output: output[0].replace("_scaffolds_final.fa", ""),
+        args = lambda wildcards: config["yahs_parameters"][wildcards.genome_build]
     shell:
-        "yahs -q 10 -r 250,500,1000,5000,10000,20000,40000,50000 "
+        "yahs -q 10 {params.args} "
         "-o {params.out_prefix} "
         "{input.contigs} "
         "{input.hic_to_contig_mappings} && "
