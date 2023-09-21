@@ -4,17 +4,18 @@ Run through all reads for inter to calculate F = dynamic bin size heatmap
 Compare edge F's to F's calulated from sampled intra reads.
 * Find wich distance matches each bin best and do median or something
 '''
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 
+from bnp_assembly.graph_objects import Edge
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.location import LocationPair
 
 
 class DynamicHeatmap:
-    def __init__(self, array, scale_func):
-        self._array = array
+    def __init__(self, array, scale_func=lambda x: np.log(x + 1)):
+        self._array = np.asanyarray(array)
         self._scale_func = scale_func
 
     @property
@@ -31,6 +32,15 @@ class DynamicHeatmap:
         indices = a * n_bins + b
         array = np.bincount(indices, minlength=n_bins ** 2).reshape(n_bins, n_bins)
         return cls(array, scale_func)
+
+class HeatmapComparison:
+    def __init__(self, heatmap_stack: List[DynamicHeatmap]):
+        self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
+
+    def locate_heatmap(self, heatmap: DynamicHeatmap):
+        idxs = [np.searchsorted(self._heatmap_stack[:, i, j], value)
+                for (i, j), value in np.ndenumerate(heatmap.array)]
+        return np.median(idxs)
 
 
 class DynamicHeatmaps:
@@ -60,6 +70,10 @@ class DynamicHeatmaps:
                      a_idx[mask], b_idx[mask]), self._array.shape[2:])
                 self._array[a_dir, b_dir] += np.bincount(idx, minlength=self._array[0, 0].size).reshape(self._array.shape[2:])
 
+    def get_heatmap(self, edge: Edge):
+        a_dir, b_dir = (0 if node_side.side == 'l' else 1 for node_side in (edge.from_node_side, edge.to_node_side))
+        a, b = (node_side.node_id for node_side in (edge.from_node_side, edge.to_node_side))
+        return DynamicHeatmap(self._array[a_dir, b_dir, a, b], self._scale_func)
 
     @property
     def array(self):

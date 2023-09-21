@@ -1,8 +1,9 @@
 import numpy as np
 from numpy.testing import assert_array_equal
 
+from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.location import Location, LocationPair
-from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, DynamicHeatmaps
+from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, DynamicHeatmaps, HeatmapComparison
 
 a = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 b = np.array([2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
@@ -21,6 +22,7 @@ location_a = Location([0, 1, 2], [3, 2, 1])
 location_b = Location([1, 2, 0], [0, 1, 2])
 location_pair = LocationPair(location_a, location_b)
 
+
 def test_create_from_locations():
     dh = DynamicHeatmaps(np.array([4, 5, 6]), n_bins=3, scale_func=lambda x: x)
     dh.register_location_pairs(location_pair)
@@ -32,6 +34,18 @@ def test_create_from_locations():
     assert np.sum(end_to_start) == 2
     assert end_to_start[0, 1, 0, 0] == 1
     assert end_to_start[1, 2, 2, 1] == 1
-    # assert_array_equal(start_to_start, np.array([[0, 0, 0], [0, 0, 0], [0, 0, 1]]))
+    assert dh.get_heatmap(Edge(NodeSide(0, 'r'),
+                               NodeSide(1, 'l'))).array[0, 0] == 1
 
-    # .create_from_locations(location_pair, n_bins=3, scale_func=lambda x: x)
+def test_heatmap_comparison():
+    heatmaps = [DynamicHeatmap(a) for a in (
+        [[1, 2], [3, 4]],
+        [[5, 6], [7, 8]],
+        [[9, 10], [11, 12]])]
+    hc = HeatmapComparison(heatmaps)
+    assert hc.locate_heatmap(DynamicHeatmap([[0, 0], [0, 0]])) == 0
+    assert hc.locate_heatmap(DynamicHeatmap([[2, 4], [5, 7]])) == 1
+    assert hc.locate_heatmap(DynamicHeatmap([[6, 7], [8, 9]])) == 2
+
+
+
