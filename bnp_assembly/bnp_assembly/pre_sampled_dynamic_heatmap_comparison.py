@@ -33,6 +33,7 @@ class DynamicHeatmap:
         array = np.bincount(indices, minlength=n_bins ** 2).reshape(n_bins, n_bins)
         return cls(array, scale_func)
 
+
 class HeatmapComparison:
     def __init__(self, heatmap_stack: List[DynamicHeatmap]):
         self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
@@ -44,7 +45,7 @@ class HeatmapComparison:
 
 
 class DynamicHeatmaps:
-    def __init__(self, size_array: np.ndarray, n_bins, scale_func=lambda x: np.log(x + 1)):
+    def __init__(self, size_array: np.ndarray, n_bins, scale_func=lambda x: np.log(x + 1).astype(int)):
         self._size_array = size_array
         self._n_nodes = self._size_array.size
         self._scale_func = scale_func
@@ -73,25 +74,34 @@ class DynamicHeatmaps:
     def get_heatmap(self, edge: Edge):
         a_dir, b_dir = (0 if node_side.side == 'l' else 1 for node_side in (edge.from_node_side, edge.to_node_side))
         a, b = (node_side.node_id for node_side in (edge.from_node_side, edge.to_node_side))
-        return DynamicHeatmap(self._array[a_dir, b_dir, a, b], self._scale_func)
+        a_bins = self._scale_func(self._size_array[a])
+        b_bins = self._scale_func(self._size_array[b])
+        return DynamicHeatmap(self._array[a_dir, b_dir, a, b, :a_bins,:b_bins], self._scale_func)
 
     @property
     def array(self):
         return self._array
 
 
-def get_heatmaps_for_edges(input_data, max_distance, n_bins, n_precomputed):
-    heatmaps_for_edges = {}
-    for edge in input_data.edges:
-        edge_reads = input_data.paired_read_stream.get_reads_for_edge(edge)
-        intra_reads = [read for read in edge_reads if read.is_intra]
-        inter_reads = [read for read in edge_reads if not read.is_intra]
-        intra_distance_distribution = get_samplable_distance_distribution(intra_reads)
-        inter_distance_distribution = get_samplable_distance_distribution(inter_reads)
-        intra_heatmap = get_dynamic_heatmap(intra_distance_distribution, max_distance, n_bins)
-        inter_heatmap = get_dynamic_heatmap(inter_distance_distribution, max_distance, n_bins)
-        heatmaps_for_edges[edge] = (intra_heatmap, inter_heatmap)
-    return heatmaps_for_edges
+def mean_heatmap(heatmaps_array):
+    shape = tuple(max(a.shape[i] for a in heatmaps_array) for i in range(2))
+    T = np.zeros(shape)
+    counts = np.zeros(shape)
+    for heatmap in heatmaps_array:
+        T[:heatmap.shape[0], :heatmap.shape[1]] += heatmap
+        counts[:heatmap.shape[0], :heatmap.shape[1]] += 1
+    return T / np.maximum(counts, 1)
+
+
+
+def make_scaffold(input_data: FullInputData):
+    size_array = np.array(list(input_data.contig_genome.get_genome_context().chrom_sizes.values()))
+    dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=100, scale_func=lambda x: np.sqrt(x).astype(int)//100)
+    for i, location_pair in enumerate(next(input_data.paired_read_stream)):
+        dynamic_heatmaps.register_location_pairs(location_pair)
+        if i>1000:
+            break
+    return dynamic_heatmaps
 
 
 def method(input_data: FullInputData, max_distance, n_bins, n_precomputed):

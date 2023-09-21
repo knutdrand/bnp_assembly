@@ -37,6 +37,7 @@ def test_create_from_locations():
     assert dh.get_heatmap(Edge(NodeSide(0, 'r'),
                                NodeSide(1, 'l'))).array[0, 0] == 1
 
+
 def test_heatmap_comparison():
     heatmaps = [DynamicHeatmap(a) for a in (
         [[1, 2], [3, 4]],
