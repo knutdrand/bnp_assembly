@@ -3,6 +3,7 @@ from typing import Dict
 import numpy as np
 
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
+from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter
 
@@ -24,8 +25,9 @@ class ForbesDistanceFinder(EdgeDistanceFinder):
         self._cumulative_distribution = cumulative_distribution
         self._max_distance = max_distance
 
-    def __call__(self, reads):
-        return get_forbes_counts(reads,
+    def __call__(self, reads: PairedReadStream):
+        assert isinstance(reads, PairedReadStream)
+        return get_forbes_counts(next(reads),
                                  self._contig_sizes,
                                  self._cumulative_distribution,
                                  self._max_distance)

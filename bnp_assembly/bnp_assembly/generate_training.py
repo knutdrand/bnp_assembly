@@ -5,6 +5,8 @@ import pandas as pd
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.cli import app
+from bnp_assembly.distance_distribution import distance_dist
+from bnp_assembly.forbes_distance_calculation import ForbesDistanceFinder
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.input_data import NumericInputData
 from bnp_assembly.interface import SplitterInterface
@@ -15,7 +17,10 @@ from bnp_assembly.scaffolds import Scaffolds
 
 def generate_training_data_set(truth, genome, reads) -> pd.DataFrame:
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
-    feature_matrix = create_distance_matrix_from_reads(NumericInputData(contig_sizes, reads))
+
+    cumulative_distribution = distance_dist(next(reads), contig_sizes)
+    forbes_distance_finder = ForbesDistanceFinder(contig_sizes, cumulative_distribution, max_distance=100000)
+    feature_matrix = create_distance_matrix_from_reads(NumericInputData(contig_sizes, reads), forbes_distance_finder)
     rows = []
     edge_names = {str(edge) for edge in truth.edges}
     print(edge_names)

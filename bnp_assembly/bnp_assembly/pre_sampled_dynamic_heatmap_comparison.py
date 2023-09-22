@@ -9,6 +9,7 @@ import numpy as np
 from dataclasses import dataclass
 
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
+from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
 from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair
@@ -170,6 +171,14 @@ def get_distance_counts_using_dynamic_heatmaps(input_data: NumericInputData) -> 
 
     return distances
 
+
+class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
+    def __init__(self, contig_sizes: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config):
+        self._heatmap_config = heatmap_config
+        self._contig_sizes = contig_sizes
+
+    def __call__(self, reads: PairedReadStream):
+        pass
 
 def make_scaffold(input_data: FullInputData, dynamic_heatmap_config: DynamicHeatmapConfig = log_config):
     dynamic_heatmaps = get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data)
