@@ -36,7 +36,7 @@ def test_add_sampled_read_pair_to_heatmap():
 
 @pytest.fixture
 def config():
-    return DynamicHeatmapConfig(scale_func=lambda x: x, inverse_scale_func=lambda x: x, n_bins=10)
+    return DynamicHeatmapConfig(scale_func=lambda x: x, inverse_scale_func=lambda x: x, n_bins=4)
 
 
 @pytest.fixture
@@ -55,9 +55,19 @@ def test_create_dynamic_heatmap(config, genome):
             Location([1, 1, 1, 1, 3], [2, 8, 1, 3, 9])
         )
     ]
+    print(config.max_distance)
     creator = PreComputedDynamicHeatmapCreator(genome, config)
+    assert creator._get_suitable_contigs_for_estimation() == [1, 3]
     heatmap = creator.get_dynamic_heatmap(read_pairs, gap_distance=0)
     print(heatmap)
+
+    correct = np.array([
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 1],
+        [0, 0, 0, 0]
+    ])
+    assert_array_equal(heatmap.array, correct)
 
 
 

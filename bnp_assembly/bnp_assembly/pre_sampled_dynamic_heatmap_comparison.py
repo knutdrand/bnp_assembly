@@ -202,16 +202,16 @@ class PreComputedDynamicHeatmapCreator:
                     offset_a = int(pair.location_a.offset)
                     offset_b = int(pair.location_b.offset)
 
-                    if offset_b < offset_a:
-                        offset_a = int(pair.location_a.offset)
-                        offset_b = int(pair.location_b.offset)
+                    if offset_b < offset_a:  # swap, lowest offset first
+                        offset_a = int(pair.location_b.offset)
+                        offset_b = int(pair.location_a.offset)
 
                     split_position = self._contig_sizes[contig_id_a] // 2
                     if offset_a >= split_position - gap_distance or offset_b < split_position + gap_distance:
                         # read pair not on seperate subcontigs
                         continue
 
-                    if offset_a < split_position - gap_distance + 1 - self._config.max_distance:
+                    if offset_a < split_position - gap_distance - self._config.max_distance:
                         # too far away for heatmap
                         continue
 
@@ -221,6 +221,8 @@ class PreComputedDynamicHeatmapCreator:
                     PreComputedDynamicHeatmapCreator.add_contig_offset_pair_to_heatmap(
                         heatmap, offset_a, offset_b, gap_distance, self._contig_sizes[contig_id_a]
                     )
+
+        return heatmap
 
     def create(self, n_precomputed) -> DynamicHeatmaps:
         gap_distances = np.array([2 ** (d + 1) for d in range(n_precomputed)])
