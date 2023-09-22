@@ -1,17 +1,15 @@
 from dataclasses import dataclass
-from typing import Iterable, Union
 
 import numpy as np
 import pandas as pd
-from bionumpy import Genome
 from numpy.testing import assert_array_equal
 from scipy.stats import poisson
 
 from bnp_assembly.clip_mapper import ClipMapper
 from bnp_assembly.contig_graph import ContigPath
-from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
+from bnp_assembly.forbes_distance_calculation import ForbesDistanceFinder
 from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
 from bnp_assembly.input_data import FullInputData, NumericInputData
@@ -22,7 +20,6 @@ from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.iterative_join import create_merged_graph
-from bnp_assembly.location import LocationPair
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
@@ -30,8 +27,6 @@ from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
 import logging
-
-from bnp_assembly.datatypes import StreamedGenomicLocationPair
 
 logger = logging.getLogger(__name__)
 
@@ -138,24 +133,12 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size=1000, max_distance=100000):
-    forbes_obj = OrientationWeightedCounter(contig_dict,
-                                            cumulative_length_distribution=cumulative_distribution,
-                                            max_distance=max_distance)
-    if isinstance(read_pairs, LocationPair):
-        read_pairs = [read_pairs]
-    for chunk in read_pairs:
-        forbes_obj.register_location_pairs(chunk)
-    return forbes_obj.counts
-
-
 def default_make_scaffold(numeric_input_data, threshold=0.2, max_distance=100000, bin_size=5000):
-    contig_dict = numeric_input_data.contig_dict
-    read_pairs = numeric_input_data.location_pairs
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data, max_distance=max_distance)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
-    s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=max_distance, bin_size=bin_size, threshold=threshold)
+    s = SplitterInterface(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs), path,
+                          max_distance=max_distance, bin_size=bin_size, threshold=threshold)
     return s.split()
 
 
@@ -171,9 +154,9 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, bin_
     clip_mapper = ClipMapper(contig_clips)
 
     mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
-    counts = get_forbes_counts(mapped_stream, new_contig_dict,
-                               cumulative_distribution, bin_size,
-                               max_distance=max_distance)
+    counts = ForbesDistanceFinder(new_contig_dict,
+                               cumulative_distribution,
+                               max_distance=max_distance)(mapped_stream)
     # adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp, max_distance)
     assert np.all(~np.isnan(list(counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)

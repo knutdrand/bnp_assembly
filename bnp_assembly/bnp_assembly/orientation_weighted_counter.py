@@ -1,6 +1,7 @@
 from collections import Counter, defaultdict
 from functools import singledispatchmethod
 from itertools import product
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -42,7 +43,7 @@ class OrientationDistributions:
         return self._orientation_distributions[node_ids].distribution_matrix(*offsets)
 
 
-def create_distance_matrix(n_nodes, pair_counts, contig_dict = None, pseudo_count=0.01) -> DirectedDistanceMatrix:
+def create_distance_matrix(n_nodes, pair_counts: Dict[Edge, float], contig_dict = None, pseudo_count=0.01) -> DirectedDistanceMatrix:
     distance_matrix = DirectedDistanceMatrix(n_nodes)
     for edge, value in pair_counts.items():
         assert (not np.isnan(value)) and (not np.isinf(value)), (edge, value)

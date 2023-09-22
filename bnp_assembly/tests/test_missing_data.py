@@ -2,7 +2,7 @@ import pytest
 
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.location import LocationPair, Location
-from bnp_assembly.make_scaffold import get_forbes_counts
+from bnp_assembly.forbes_distance_calculation import get_forbes_counts
 from bnp_assembly.missing_data import find_regions_with_missing_data, get_binned_read_counts, \
     find_regions_with_missing_data_from_bincounts, find_start_and_end_split_site_for_contig, \
     find_missing_regions_at_start_and_end_of_contigs, get_missing_region_counts, find_clips
@@ -100,7 +100,7 @@ def test_integration_from_read_pairs(read_pairs3):
     bin_size = 10
     contig_dict = {0: 30, 1: 30}
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
-    counts = get_forbes_counts(next(read_pairs), contig_dict, cumulative_distribution, bin_size)
+    counts = get_forbes_counts(next(read_pairs), contig_dict, cumulative_distribution)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
     regions, reads_per_bp = find_regions_with_missing_data_from_bincounts(bin_size, bin_sizes, bins)
     assert regions == {0: [(10, 20)], 1: [(10, 20)]}

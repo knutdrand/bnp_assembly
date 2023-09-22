@@ -7,7 +7,7 @@ from .location import LocationPair
 
 
 
-def distance_dist(location_pairs, contig_dict):
+def distance_dist(location_pairs, contig_dict) -> np.ndarray:
 
     if isinstance(location_pairs, LocationPair):
         distances = get_intra_distances(location_pairs)
@@ -22,7 +22,7 @@ def get_intra_distances(location_pairs):
     return np.abs(a.offset - b.offset)[a.contig_id == b.contig_id]
 
 
-def calculate_distance_distritbution(contig_sizes, distances):
+def calculate_distance_distritbution(contig_sizes, distances) -> np.ndarray:
     N = max(contig_sizes)
 
     if isinstance(distances, (np.ndarray, list)):
