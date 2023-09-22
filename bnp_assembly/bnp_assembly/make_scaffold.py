@@ -152,14 +152,16 @@ def get_forbes_counts(read_pairs, contig_dict, cumulative_distribution, bin_size
 def default_make_scaffold(numeric_input_data, threshold=0.2, max_distance=100000, bin_size=5000):
     contig_dict = numeric_input_data.contig_dict
     read_pairs = numeric_input_data.location_pairs
-    distance_matrix = create_distance_matrix_from_reads(contig_dict, read_pairs, max_distance=max_distance)
+    distance_matrix = create_distance_matrix_from_reads(numeric_input_data, max_distance=max_distance)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
     s = SplitterInterface(contig_dict, next(read_pairs), path, max_distance=max_distance, bin_size=bin_size, threshold=threshold)
     return s.split()
 
 
-def create_distance_matrix_from_reads(contig_dict, read_pairs: Iterable[LocationPair], bin_size=1000, max_distance=100000):
+def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, bin_size=1000, max_distance=100000) -> DirectedDistanceMatrix:
+    contig_dict = numeric_input_data.contig_dict
+    read_pairs = numeric_input_data.location_pairs
     cumulative_distribution = distance_dist(next(read_pairs), contig_dict)
     contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
     logger.info(f'contig_clis: {contig_clips}')

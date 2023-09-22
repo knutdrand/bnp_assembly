@@ -7,6 +7,8 @@ Compare edge F's to F's calulated from sampled intra reads.
 from typing import Tuple, Callable, Iterable, Dict, List, Union
 import numpy as np
 from dataclasses import dataclass
+
+from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair
@@ -79,8 +81,12 @@ def get_heatmaps_for_edges(input_data, max_distance, n_bins, n_precomputed):
         heatmaps_for_edges[edge] = (intra_heatmap, inter_heatmap)
     return heatmaps_for_edges
 
+
 class HeatmapComparison:
     def __init__(self, heatmap_stack: List[DynamicHeatmap]):
+        """
+        Heatmap stack is list of heatmaps, biggest gap first
+        """
         self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
 
     def locate_heatmap(self, heatmap: DynamicHeatmap):
@@ -138,13 +144,32 @@ def mean_heatmap(heatmaps_array):
     return T / np.maximum(counts, 1)
 
 
-def make_scaffold(input_data: FullInputData):
+def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data, size_array):
     size_array = np.array(list(input_data.contig_genome.get_genome_context().chrom_sizes.values()))
-    dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=100, scale_func=lambda x: np.sqrt(x).astype(int)//100)
+    dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=dynamic_heatmap_config.n_bins,
+                                       scale_func=dynamic_heatmap_config.scale_func)
     for i, location_pair in enumerate(next(input_data.paired_read_stream)):
         dynamic_heatmaps.register_location_pairs(location_pair)
-        if i>1000:
+        if i > 1000:
             break
+    return dynamic_heatmaps
+
+
+def create_distance_matrix_from_reads_using_dynamic_heatmaps(contig_dict: Dict, read_pairs: PairedReadStream) -> DirectedDistanceMatrix:
+    """
+    Returns a DirectedDistanceMatrix by scoring edges by comparing DynamicHeatmaps to presampled dynamic heatmaps
+    """
+    dynamic_heatmap_config = log_config
+    dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(contig_dict, dynamic_heatmap_config)
+    sampled_heatmaps = dynamic_heatmap_creator.create(read_pairs, n_precomputed=10)
+    gap_sizes = sampled_heatmaps.keys()
+
+
+
+def make_scaffold(input_data: FullInputData, dynamic_heatmap_config: DynamicHeatmapConfig = log_config):
+    dynamic_heatmaps = get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data)
+    
+     
     return dynamic_heatmaps
 
 
