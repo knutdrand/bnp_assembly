@@ -178,7 +178,9 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         self._contig_sizes = contig_sizes
 
     def __call__(self, reads: PairedReadStream):
-        pass
+        return get_distance_counts_using_dynamic_heatmaps(NumericInputData(self._contig_sizes, reads))
+
+
 
 def make_scaffold(input_data: FullInputData, dynamic_heatmap_config: DynamicHeatmapConfig = log_config):
     dynamic_heatmaps = get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data)

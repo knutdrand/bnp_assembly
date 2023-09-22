@@ -24,6 +24,7 @@ from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
+from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import log_config, DynamicHeatmapDistanceFinder
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
@@ -177,7 +178,9 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
             cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
             edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution, max_distance)
         elif distance_measure == 'dynamic_heatmap':
-            assert False
+            heatmap_config = log_config
+            edge_distance_finder = DynamicHeatmapDistanceFinder(numeric_input_data.contig_dict, heatmap_config)
+
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
 
     contig_dict, read_pairs = numeric_input_data.contig_dict, next(numeric_input_data.location_pairs)
