@@ -4,10 +4,11 @@ Run through all reads for inter to calculate F = dynamic bin size heatmap
 Compare edge F's to F's calulated from sampled intra reads.
 * Find wich distance matches each bin best and do median or something
 '''
-from typing import Tuple, Callable, Iterable, Dict, List
+from typing import Tuple, Callable, Iterable, Dict, List, Union
 import numpy as np
 from dataclasses import dataclass
 from bnp_assembly.input_data import FullInputData
+from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair
 import bionumpy as bnp
 
@@ -20,7 +21,7 @@ from bnp_assembly.location import LocationPair
 
 @dataclass
 class DynamicHeatmapConfig:
-    scale_func: Callable[[int], int] = lambda x: np.log(x+1)
+    scale_func: Callable[[int], int] = lambda x: np.log(x+1).astype(int)
     inverse_scale_func: Callable[[int], int] = lambda x: np.exp(x) - 1
     n_bins: int = 100
 
@@ -137,7 +138,6 @@ def mean_heatmap(heatmaps_array):
     return T / np.maximum(counts, 1)
 
 
-
 def make_scaffold(input_data: FullInputData):
     size_array = np.array(list(input_data.contig_genome.get_genome_context().chrom_sizes.values()))
     dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=100, scale_func=lambda x: np.sqrt(x).astype(int)//100)
@@ -154,7 +154,6 @@ def method(input_data: FullInputData, max_distance, n_bins, n_precomputed):
                             range(n_precomputed)}
     pre_sampled_heatmaps = np.array([pre_sampled_heatmaps[d] for d in range(n_precomputed)])
     heatmaps_for_edges = get_heatmaps_for_edges(input_data, max_distance, n_bins, n_precomputed)
-
 
 
 class PreComputedDynamicHeatmapCreator:
@@ -224,9 +223,14 @@ class PreComputedDynamicHeatmapCreator:
 
         return heatmap
 
-    def create(self, n_precomputed) -> DynamicHeatmaps:
+    def create(self, reads: Union[PairedReadStream, Iterable[LocationPair]], n_precomputed) -> DynamicHeatmaps:
         gap_distances = np.array([2 ** (d + 1) for d in range(n_precomputed)])
+        heatmaps = {}
         for bin, gap in enumerate(gap_distances):
-            heatmap = self.create_for_gap_distance(gap)
+            heatmap = self.get_dynamic_heatmap(next(reads), gap)
+            heatmaps[bin] = heatmap
+
+        return heatmaps
+
 
 

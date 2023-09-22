@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 from numpy.testing import assert_array_equal
 import pytest
@@ -47,15 +49,18 @@ def genome():
         3: 20
     }
 
-
-def test_create_dynamic_heatmap(config, genome):
+@pytest.fixture
+def read_pairs():
     read_pairs = [
         LocationPair(
             Location([1, 1, 2, 3, 3], [8, 8, 1, 1, 1]),
             Location([1, 1, 1, 1, 3], [2, 8, 1, 3, 9])
         )
     ]
-    print(config.max_distance)
+    return read_pairs
+
+
+def test_create_dynamic_heatmap(config, genome, read_pairs):
     creator = PreComputedDynamicHeatmapCreator(genome, config)
     assert creator._get_suitable_contigs_for_estimation() == [1, 3]
     heatmap = creator.get_dynamic_heatmap(read_pairs, gap_distance=0)
@@ -69,6 +74,13 @@ def test_create_dynamic_heatmap(config, genome):
     ])
     assert_array_equal(heatmap.array, correct)
 
+
+# multiple heatmaps for different gaps
+def test_create_dynamic_heatmaps(config, genome, read_pairs):
+    read_pairs_stream = (read_pairs for _ in itertools.count())
+    creator = PreComputedDynamicHeatmapCreator(genome, config)
+    heatmaps = creator.create(read_pairs_stream, 4)
+    assert len(heatmaps) == 4
 
 
 location_a = Location([0, 1, 2], [3, 2, 1])
