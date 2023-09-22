@@ -10,6 +10,7 @@ from bnp_assembly.simulation.hic import simulate_merged_contig_reads, simulate_m
 from bnp_assembly.location import LocationPair
 from .input_data import NumericInputData
 from .interface import SplitterInterface
+from .io import PairedReadStream
 from .make_scaffold import make_scaffold_numeric
 from dataclasses import dataclass
 import numpy as np
@@ -32,16 +33,17 @@ def get_distance_matrix(simulation_params, rng, distance_measure='window', **dis
         return forbes_matrix(contig_dict, read_pairs, **distance_kwargs)
 
 
-def run_simulated_experiment(simulation_params, rng, distance_measure='window'):
+def run_simulated_experiment(simulation_params, rng, distance_measure='window', splitting_method='poisson'):
     n_nodes, n_reads = (simulation_params.n_nodes, simulation_params.n_reads)
     split_and_pairs = simulate_merged_contig_reads(simulation_params.node_length, n_nodes, n_reads, rng=rng)
     assert len(split_and_pairs.split.starts) == n_nodes
     location_pair = LocationPair(split_and_pairs.location_a, split_and_pairs.location_b)
     input_data = NumericInputData(split_and_pairs.split.get_contig_dict(),
-                                  (location_pair for _ in itertools.count()))
+                                  PairedReadStream(([location_pair] for _ in itertools.count())))
     paths = make_scaffold_numeric(input_data,
                                   distance_measure=distance_measure,
                                   window_size=30,
+                                  splitting_method=splitting_method
                                   )
     true_paths = split_and_pairs.split.get_paths()
     return true_paths, paths

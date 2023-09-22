@@ -25,5 +25,5 @@ class FullInputAndTruth:
 @dataclasses.dataclass
 class NumericInputData:
     contig_dict: Dict[int, int]
-    location_pairs: Iterable[LocationPair]
+    location_pairs: Union[Iterable[LocationPair], PairedReadStream]
 

@@ -31,7 +31,8 @@ def estimate_max_distance(contig_sizes: Iterable[int]):
 
 @app.command()
 def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
-             logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None):
+             logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None,
+             distance_measure: str = "forbes3"):
     logging.info(f"Using threshold {threshold}")
 
     if logging_folder is not None:
@@ -51,7 +52,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     logging.info("Making scaffold")
     scaffold = make_scaffold(input_data,# genome, read_stream,
                              window_size=2500,
-                             distance_measure='forbes3',
+                             distance_measure=distance_measure,
                              threshold=threshold,
                              splitting_method='matrix',
                              bin_size=bin_size,

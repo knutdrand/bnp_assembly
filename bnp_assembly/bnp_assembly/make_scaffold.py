@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Iterable, List
 
 import numpy as np
 import pandas as pd
@@ -184,6 +185,9 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
 
     contig_dict, read_pairs = numeric_input_data.contig_dict, next(numeric_input_data.location_pairs)
+    if isinstance(read_pairs, List):
+        read_pairs = read_pairs[0]  # some tests have a stream of read pairs
+
     # assert False
     px = px_func(name='joining')
     logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")

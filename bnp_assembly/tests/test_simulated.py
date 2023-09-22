@@ -25,12 +25,19 @@ def is_correct_edge(edge):
 
 @pytest.mark.parametrize('n_reads', [1000, 500, 100, 50])# , 500, 100])
 @pytest.mark.parametrize('n_nodes', [4, 8, 10, 20, 25, 50])
-@pytest.mark.parametrize('method', ['forbes3'])
+# joining and splitting methods as tuples:
+@pytest.mark.parametrize('method', [
+    ('forbes3', 'poisson'),
+    #('forbes3', 'matrix'),
+    #('dynamic_heatmap', 'matrix')
+])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
 def test_simulated(n_reads, n_nodes, method):
     rng = np.random.default_rng(seed=100)
     true_paths, paths = run_simulated_experiment(SimulationParams(n_nodes, n_reads),
-                                                 rng, distance_measure=method)
+                                                 rng, distance_measure=method[0],
+                                                 splitting_method=method[1]
+                                                 )
     print([path.node_sides for path in paths])
     nodes_visited = [node for path in paths for node in path.nodes]
     assert len(nodes_visited) == n_nodes

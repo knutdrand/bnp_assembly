@@ -141,11 +141,12 @@ def mean_heatmap(heatmaps_array):
     return T / np.maximum(counts, 1)
 
 
-def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data):
-    size_array = np.array(list(input_data.contig_genome.get_genome_context().chrom_sizes.values()))
+def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data: NumericInputData):
+    contig_sizes = input_data.contig_dict
+    size_array = np.array(list(contig_sizes))
     dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=dynamic_heatmap_config.n_bins,
                                        scale_func=dynamic_heatmap_config.scale_func)
-    for i, location_pair in enumerate(next(input_data.paired_read_stream)):
+    for i, location_pair in enumerate(next(input_data.location_pairs)):
         dynamic_heatmaps.register_location_pairs(location_pair)
         if i > 1000:
             break
@@ -156,6 +157,7 @@ def get_distance_counts_using_dynamic_heatmaps(input_data: NumericInputData) -> 
     """
     Finds a "distance" for each edge. Returns a by scoring edges by comparing DynamicHeatmaps to presampled dynamic heatmaps
     """
+    assert isinstance(input_data.location_pairs, PairedReadStream), type(input_data.location_pairs)
     dynamic_heatmap_config = log_config
     dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, dynamic_heatmap_config)
     sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_precomputed=10)
@@ -179,22 +181,6 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
 
     def __call__(self, reads: PairedReadStream):
         return get_distance_counts_using_dynamic_heatmaps(NumericInputData(self._contig_sizes, reads))
-
-
-
-def make_scaffold(input_data: FullInputData, dynamic_heatmap_config: DynamicHeatmapConfig = log_config):
-    dynamic_heatmaps = get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data)
-    
-     
-    return dynamic_heatmaps
-
-
-def method(input_data: FullInputData, max_distance, n_bins, n_precomputed):
-    samplable_distance_distribution = get_samplable_distance_distribution(next(input_data.paired_read_stream))
-    pre_sampled_heatmaps = {d: get_dynamic_heatmap(sampled_distance_distribution, 2 ** (d + 1), n_bins) for d in
-                            range(n_precomputed)}
-    pre_sampled_heatmaps = np.array([pre_sampled_heatmaps[d] for d in range(n_precomputed)])
-    heatmaps_for_edges = get_heatmaps_for_edges(input_data, max_distance, n_bins, n_precomputed)
 
 
 class PreComputedDynamicHeatmapCreator:
