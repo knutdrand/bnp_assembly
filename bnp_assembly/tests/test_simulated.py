@@ -23,13 +23,13 @@ def is_correct_edge(edge):
     return False
 
 
-@pytest.mark.parametrize('n_reads', [1000, 500, 100, 50])# , 500, 100])
-@pytest.mark.parametrize('n_nodes', [4, 8, 10, 20, 25, 50])
+@pytest.mark.parametrize('n_reads', [1000, 100, 50])# , 500, 100])
+@pytest.mark.parametrize('n_nodes', [4, 10, 25, 50])
 # joining and splitting methods as tuples:
 @pytest.mark.parametrize('method', [
     ('forbes3', 'poisson'),
-    #('forbes3', 'matrix'),
-    #('dynamic_heatmap', 'matrix')
+    ('forbes3', 'matrix'),
+    ('dynamic_heatmap', 'matrix')
 ])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
 def test_simulated(n_reads, n_nodes, method):

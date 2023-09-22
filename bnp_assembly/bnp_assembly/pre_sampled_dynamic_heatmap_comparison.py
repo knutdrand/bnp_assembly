@@ -109,6 +109,9 @@ class DynamicHeatmaps:
         b = location_pairs.location_b
         reverse_a_pos = self._size_array[a.contig_id] - a.offset-1
         reverse_b_pos = self._size_array[b.contig_id] - b.offset-1
+        assert np.all(b.offset < self._size_array[b.contig_id])
+        assert np.all(a.offset < self._size_array[a.contig_id])
+
         for a_dir, a_pos in enumerate([a.offset, reverse_a_pos]):
             for b_dir, b_pos in enumerate([b.offset, reverse_b_pos]):
                 a_idx = self._scale_func(a_pos)
@@ -143,7 +146,7 @@ def mean_heatmap(heatmaps_array):
 
 def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data: NumericInputData):
     contig_sizes = input_data.contig_dict
-    size_array = np.array(list(contig_sizes))
+    size_array = np.array(list(contig_sizes.values()))
     dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=dynamic_heatmap_config.n_bins,
                                        scale_func=dynamic_heatmap_config.scale_func)
     for i, location_pair in enumerate(next(input_data.location_pairs)):
@@ -161,14 +164,14 @@ def get_distance_counts_using_dynamic_heatmaps(input_data: NumericInputData) -> 
     dynamic_heatmap_config = log_config
     dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, dynamic_heatmap_config)
     sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_precomputed=10)
-    gap_sizes = sampled_heatmaps.keys()
+    gap_sizes = list(sampled_heatmaps.keys())
     heatmap_comparison = HeatmapComparison(list(sampled_heatmaps.values())[::-1])
     heatmaps = get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data)
 
     distances = {}
     for edge in get_all_possible_edges(len(input_data.contig_dict)):
         heatmap = heatmaps.get_heatmap(edge)
-        distance = gap_sizes[len(gap_sizes) - heatmap_comparison.locate_heatmap(heatmap) - 1]
+        distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap)) - 1]
         distances[edge] = distance
 
     return distances

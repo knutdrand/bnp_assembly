@@ -103,6 +103,11 @@ def test_create_from_locations():
                                NodeSide(1, 'l'))).array[0, 0] == 1
 
 
+def teste_create_from_locations2():
+    dh = DynamicHeatmaps(np.array([4, 5, 6]), n_bins=3, scale_func=lambda x: np.log(x+1).astype(int))
+
+
+
 def test_heatmap_comparison():
     heatmaps = [DynamicHeatmap(a) for a in (
         [[1, 2], [3, 4]],
