@@ -23,6 +23,9 @@ def get_intra_distances(location_pairs):
 
 
 def calculate_distance_distritbution(contig_sizes, distances) -> np.ndarray:
+    """
+    Returns the cumulative distribution of distances between reads within contigs (intra-reads)
+    """
     N = max(contig_sizes)
 
     if isinstance(distances, (np.ndarray, list)):

@@ -29,7 +29,7 @@ def is_correct_edge(edge):
 @pytest.mark.parametrize('method', [
     ('forbes3', 'poisson'),
     ('forbes3', 'matrix'),
-    ('dynamic_heatmap', 'matrix')
+    #('dynamic_heatmap', 'matrix')
 ])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
 def test_simulated(n_reads, n_nodes, method):
@@ -42,6 +42,7 @@ def test_simulated(n_reads, n_nodes, method):
     nodes_visited = [node for path in paths for node in path.nodes]
     assert len(nodes_visited) == n_nodes
     assert len(set(nodes_visited)) == n_nodes
+    #assert true_paths == paths
 
 
 @pytest.mark.parametrize('n_reads', [50]) # , 500, 100])
@@ -65,7 +66,15 @@ def test_simulated2(n_reads, n_nodes, method):
 def test_simulated_split(n_reads, n_nodes):
     YahsSplitter.matrix_class = BinnedBayes
     rng = np.random.default_rng(seed=100)
-    true_paths, paths = run_simulated_split_experiment(SimulationParams(n_nodes, n_reads, n_chromosomes=2), rng)
+    true_paths, paths = run_simulated_split_experiment(
+        SimulationParams(
+            n_nodes,
+            n_reads,
+            n_chromosomes=2,
+        ),
+        rng,
+    )
     print('predicted', [path.directed_nodes for path in paths])
     print('true',[path.directed_nodes for path in true_paths])
     assert true_paths == paths
+

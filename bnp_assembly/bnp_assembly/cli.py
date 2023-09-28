@@ -38,6 +38,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     if logging_folder is not None:
         plotting.register(splitting=plotting.ResultFolder(logging_folder+'/splitting'))
         plotting.register(joining=plotting.ResultFolder(logging_folder+'/joining'))
+        plotting.register(dynamic_heatmaps=plotting.ResultFolder(logging_folder + '/dynamic_heatmaps'))
+
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     if max_distance is None:

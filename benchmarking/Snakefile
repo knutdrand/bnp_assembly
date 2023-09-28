@@ -78,7 +78,7 @@ class HifiasmResultsWithExtraSplits:
 @parameters
 class ScaffoldingResults:
     assembly_graph: HifiasmResultsWithExtraSplits
-    scaffolder: Literal["yahs", "salsa2", "custom", "bnp_scaffolding_nosplit", "bnp_scaffolding", "true_scaffolder"] = "bnp_scaffolding"
+    scaffolder: Literal["yahs", "salsa2", "custom", "bnp_scaffolding_nosplit", "bnp_scaffolding", "bnp_scaffolding_dynamic_heatmaps", "true_scaffolder"] = "bnp_scaffolding"
 
 
 @result

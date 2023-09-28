@@ -8,9 +8,9 @@ import pandas as pd
 
 from bnp_assembly.contig_sizes import ContigSizes
 from bnp_assembly.distance_distribution import distance_dist, DistanceDistribution
-from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_counts import EdgeCounts
 from bnp_assembly.edge_scorer import EdgeScorer
+from bnp_assembly.forbes_distance_calculation import create_distance_matrix_forbes_counts
 from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.location import LocationPair
 from bnp_assembly.missing_data import find_missing_data_and_adjust
@@ -43,19 +43,6 @@ class OrientationDistributions:
         return self._orientation_distributions[node_ids].distribution_matrix(*offsets)
 
 
-def create_distance_matrix(n_nodes, pair_counts: Dict[Edge, float], contig_dict = None, pseudo_count=0.01) -> DirectedDistanceMatrix:
-    distance_matrix = DirectedDistanceMatrix(n_nodes)
-    for edge, value in pair_counts.items():
-        assert (not np.isnan(value)) and (not np.isinf(value)), (edge, value)
-        if contig_dict is not None:
-            size_factor = np.sqrt(contig_dict[edge.from_node_side.node_id] * contig_dict[edge.to_node_side.node_id])
-        else:
-            size_factor = 1
-        score = -np.log((pseudo_count+value) / size_factor)
-        assert (not np.isnan(score)) and (not np.isinf(score)), (edge, value, size_factor)
-        distance_matrix[edge] = score
-        distance_matrix[edge.reverse()] = score
-    return distance_matrix
 
 
 class OrientationWeightedCounter(EdgeScorer):
@@ -89,7 +76,7 @@ class OrientationWeightedCounter(EdgeScorer):
     def finalize(self):
         pair_counts = self._counts
         n_nodes = len(self._contig_dict)
-        return create_distance_matrix(n_nodes, pair_counts)
+        return create_distance_matrix_forbes_counts(n_nodes, pair_counts)
 
     def _calculate_log_prob_weighted_counts(self):
         if isinstance(self._read_pairs, LocationPair):

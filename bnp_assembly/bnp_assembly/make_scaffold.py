@@ -17,8 +17,7 @@ from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get
 from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.missing_data import find_contig_clips
-from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing, \
-    create_distance_matrix
+from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.iterative_join import create_merged_graph
@@ -159,15 +158,14 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     #mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
     # wrap clipped reads in PairedReadStream (need to have stream for some of the distance methods)
     new_read_stream = PairedReadStream((clip_mapper.map_maybe_stream(s) for s in read_pairs))
-    counts = edge_distance_finder(new_read_stream)
+    distance_matrix = edge_distance_finder(new_read_stream, effective_contig_sizes=new_contig_dict)
 
     # adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp, max_distance)
-    assert np.all(~np.isnan(list(counts.values())))
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     # distance_matrix = forbes_obj.get_distance_matrix()
-    distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
-    distance_matrix.plot(name='forbes3')
+    #distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
+    #distance_matrix.plot(name='forbes3')
     return distance_matrix
 
 

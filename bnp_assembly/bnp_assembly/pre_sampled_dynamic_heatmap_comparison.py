@@ -4,7 +4,9 @@ Run through all reads for inter to calculate F = dynamic bin size heatmap
 Compare edge F's to F's calulated from sampled intra reads.
 * Find wich distance matches each bin best and do median or something
 '''
-from typing import Tuple, Callable, Iterable, Dict, List, Union
+from .distance_distribution import distance_dist
+from .plotting import px
+from typing import Tuple, Callable, Iterable, Dict, List, Union, Optional
 import numpy as np
 from dataclasses import dataclass
 
@@ -20,17 +22,30 @@ import numpy as np
 from bnp_assembly.graph_objects import Edge
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.location import LocationPair
+import logging
+logger = logging.getLogger(__name__)
+
+
+def get_gap_distances(max_distances, n):
+    #return np.arange(0, max_distances, max_distances // n)
+    divisor = min(max_distances / n, 500)
+    nth_root = np.power(max_distances // divisor, 1/n)
+    gaps = np.array([int(divisor * np.power(nth_root, i)) for i in range(n)])
+    #gaps = np.concatenate([[0], gaps])
+    assert np.all(gaps[1:] > 0), gaps
+    return gaps
 
 
 @dataclass
 class DynamicHeatmapConfig:
     scale_func: Callable[[int], int] = lambda x: np.log(x+1).astype(int)
-    inverse_scale_func: Callable[[int], int] = lambda x: np.exp(x) - 1
+    #inverse_scale_func: Optional[Callable[[int], int]] = lambda x: np.exp(x) - 1
     n_bins: int = 100
+    max_distance: int = 100000
 
-    @property
-    def max_distance(self):
-        return self.inverse_scale_func(self.n_bins)-1
+    #@property
+    #def max_distance(self):
+    #    return self.inverse_scale_func(self.n_bins)-1
 
 
 log_config = DynamicHeatmapConfig(n_bins=10)
@@ -44,6 +59,9 @@ class DynamicHeatmap:
     @property
     def array(self):
         return self._array
+
+    def set_array(self, a):
+        self._array = a
 
     @classmethod
     def empty(cls, config: DynamicHeatmapConfig):
@@ -64,21 +82,6 @@ class DynamicHeatmap:
         return cls(array, scale_func)
 
 
-
-def get_heatmaps_for_edges(input_data, max_distance, n_bins, n_precomputed):
-    heatmaps_for_edges = {}
-    for edge in input_data.edges:
-        edge_reads = input_data.paired_read_stream.get_reads_for_edge(edge)
-        intra_reads = [read for read in edge_reads if read.is_intra]
-        inter_reads = [read for read in edge_reads if not read.is_intra]
-        intra_distance_distribution = get_samplable_distance_distribution(intra_reads)
-        inter_distance_distribution = get_samplable_distance_distribution(inter_reads)
-        intra_heatmap = get_dynamic_heatmap(intra_distance_distribution, max_distance, n_bins)
-        inter_heatmap = get_dynamic_heatmap(inter_distance_distribution, max_distance, n_bins)
-        heatmaps_for_edges[edge] = (intra_heatmap, inter_heatmap)
-    return heatmaps_for_edges
-
-
 class HeatmapComparison:
     def __init__(self, heatmap_stack: List[DynamicHeatmap]):
         """
@@ -93,11 +96,12 @@ class HeatmapComparison:
 
 
 class DynamicHeatmaps:
-    def __init__(self, size_array: np.ndarray, n_bins, scale_func=lambda x: np.log(x + 1).astype(int)):
+    def __init__(self, size_array: np.ndarray, heatmap_config: DynamicHeatmapConfig = log_config):
         self._size_array = size_array
         self._n_nodes = self._size_array.size
-        self._scale_func = scale_func
-        self._n_bins = n_bins
+        self._scale_func = heatmap_config.scale_func
+        self._n_bins = heatmap_config.n_bins
+        self._max_distance = heatmap_config.max_distance
         self._array = np.zeros(
             (2, 2, self._n_nodes, self._n_nodes, self._n_bins, self._n_bins))
 
@@ -114,12 +118,13 @@ class DynamicHeatmaps:
 
         for a_dir, a_pos in enumerate([a.offset, reverse_a_pos]):
             for b_dir, b_pos in enumerate([b.offset, reverse_b_pos]):
-                a_idx = self._scale_func(a_pos)
-                b_idx = self._scale_func(b_pos)
-                mask = (a_idx < self._n_bins) & (b_idx < self._n_bins)
+                mask = (a_pos < self._max_distance) & (b_pos < self._max_distance)
+                a_idx = self._scale_func(a_pos[mask])
+                b_idx = self._scale_func(b_pos[mask])
+                #mask = (a_idx < self._n_bins) & (b_idx < self._n_bins)
                 idx = np.ravel_multi_index(
                     (a.contig_id[mask], b.contig_id[mask],
-                     a_idx[mask], b_idx[mask]), self._array.shape[2:])
+                     a_idx, b_idx), self._array.shape[2:])
                 self._array[a_dir, b_dir] += np.bincount(idx, minlength=self._array[0, 0].size).reshape(self._array.shape[2:])
 
     def get_heatmap(self, edge: Edge):
@@ -127,7 +132,8 @@ class DynamicHeatmaps:
         a, b = (node_side.node_id for node_side in (edge.from_node_side, edge.to_node_side))
         a_bins = self._scale_func(self._size_array[a])
         b_bins = self._scale_func(self._size_array[b])
-        return DynamicHeatmap(self._array[a_dir, b_dir, a, b, :a_bins,:b_bins], self._scale_func)
+        heatmap = DynamicHeatmap(self._array[a_dir, b_dir, a, b, :a_bins,:b_bins], self._scale_func)
+        return heatmap
 
     @property
     def array(self):
@@ -147,12 +153,9 @@ def mean_heatmap(heatmaps_array):
 def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data: NumericInputData):
     contig_sizes = input_data.contig_dict
     size_array = np.array(list(contig_sizes.values()))
-    dynamic_heatmaps = DynamicHeatmaps(size_array, n_bins=dynamic_heatmap_config.n_bins,
-                                       scale_func=dynamic_heatmap_config.scale_func)
+    dynamic_heatmaps = DynamicHeatmaps(size_array, dynamic_heatmap_config)
     for i, location_pair in enumerate(next(input_data.location_pairs)):
         dynamic_heatmaps.register_location_pairs(location_pair)
-        if i > 1000:
-            break
     return dynamic_heatmaps
 
 
@@ -161,9 +164,17 @@ def get_distance_counts_using_dynamic_heatmaps(input_data: NumericInputData) -> 
     Finds a "distance" for each edge. Returns a by scoring edges by comparing DynamicHeatmaps to presampled dynamic heatmaps
     """
     assert isinstance(input_data.location_pairs, PairedReadStream), type(input_data.location_pairs)
-    dynamic_heatmap_config = log_config
+    distances = distance_dist(next(input_data.location_pairs), input_data.contig_dict)
+    median_contig_size = np.median(list(input_data.contig_dict.values()))
+    max_distance = int(median_contig_size / 2)
+    print("Max distance set to ", max_distance)
+    print("Median contig size is ", median_contig_size)
+    dynamic_heatmap_config = get_dynamic_heatmap_config_with_even_bins(distances, n_bins=10, max_distance=max_distance)
     dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, dynamic_heatmap_config)
-    sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_precomputed=10)
+    sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs)
+    for gap, heatmap in sampled_heatmaps.items():
+        px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Sampled dynamic heatmap {gap}")
+
     gap_sizes = list(sampled_heatmaps.keys())
     heatmap_comparison = HeatmapComparison(list(sampled_heatmaps.values())[::-1])
     heatmaps = get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data)
@@ -174,6 +185,13 @@ def get_distance_counts_using_dynamic_heatmaps(input_data: NumericInputData) -> 
         distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap)) - 1]
         distances[edge] = distance
 
+        print(edge, distance)
+
+        if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
+            px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Edge heatmap {edge}")
+
+    DirectedDistanceMatrix.from_edge_dict(len(input_data.contig_dict), distances).plot(name="dynamic_heatmap_scores").show()
+
     return distances
 
 
@@ -182,8 +200,9 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         self._heatmap_config = heatmap_config
         self._contig_sizes = contig_sizes
 
-    def __call__(self, reads: PairedReadStream):
-        return get_distance_counts_using_dynamic_heatmaps(NumericInputData(self._contig_sizes, reads))
+    def __call__(self, reads: PairedReadStream, effective_contig_sizes=None):
+        edge_distances = get_distance_counts_using_dynamic_heatmaps(NumericInputData(effective_contig_sizes, reads))
+        return DirectedDistanceMatrix.from_edge_dict(len(self._contig_sizes), edge_distances)
 
 
 class PreComputedDynamicHeatmapCreator:
@@ -193,14 +212,17 @@ class PreComputedDynamicHeatmapCreator:
     * Iterates possible gaps between contigs
     * Emulates two smaller contig on chosen contigs and uses these to estimate counts
     """
-    def __init__(self, genome: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config):
+    def __init__(self, genome: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config, n_precomputed_heatmaps=10):
         self._config = heatmap_config
         self._contig_sizes = genome
+        self._gap_distances = get_gap_distances(self._config.max_distance, n_precomputed_heatmaps)
         self._chosen_contigs = self._get_suitable_contigs_for_estimation()
+        print("Found %d contigs to estimate heatmaps from" % len(self._chosen_contigs))
+        assert len(self._chosen_contigs) > 0, "Did not find any contigs to estimate background dynamic heatmaps. Try setting max distance lower"
 
     def _get_suitable_contigs_for_estimation(self):
         # find contigs that are at least 2 x max distance
-        contigs = [contig for contig, size in self._contig_sizes.items() if size >= 2 * self._config.max_distance]
+        contigs = [contig for contig, size in self._contig_sizes.items() if size >= 2 * self._config.max_distance + self._gap_distances[-1]]
         return contigs
 
     @staticmethod
@@ -240,23 +262,26 @@ class PreComputedDynamicHeatmapCreator:
                         # read pair not on seperate subcontigs
                         continue
 
-                    if offset_a < split_position - gap_distance - self._config.max_distance:
+                    if offset_a <= split_position - gap_distance - self._config.max_distance:
                         # too far away for heatmap
                         continue
 
-                    if offset_b > split_position + gap_distance + self._config.max_distance:
+                    if offset_b >= split_position + gap_distance + self._config.max_distance:
                         continue
 
                     PreComputedDynamicHeatmapCreator.add_contig_offset_pair_to_heatmap(
                         heatmap, offset_a, offset_b, gap_distance, self._contig_sizes[contig_id_a]
                     )
 
+        heatmap.set_array(heatmap.array / len(self._chosen_contigs))
         return heatmap
 
-    def create(self, reads: Union[PairedReadStream, Iterable[LocationPair]], n_precomputed) -> DynamicHeatmaps:
-        gap_distances = np.array([2 ** (d + 1) for d in range(n_precomputed)])
+    def create(self, reads: Union[PairedReadStream, Iterable[LocationPair]]) -> DynamicHeatmaps:
+        #gap_distances = np.concatenate([[0], 100 * np.array([2 ** d for d in range(n_precomputed)])])
+        #gap_distances = np.arange(0, self._config.max_distance*2, 2*self._config.max_distance // n_precomputed)
+        print("Using gap sizes %s" % self._gap_distances)
         heatmaps = {}
-        for bin, gap in enumerate(gap_distances):
+        for bin, gap in enumerate(self._gap_distances):
             heatmap = self.get_dynamic_heatmap(next(reads), gap)
             heatmaps[bin] = heatmap
 
@@ -264,6 +289,45 @@ class PreComputedDynamicHeatmapCreator:
 
 
 def get_all_possible_edges(n_contigs):
-    all_edges = (Edge.from_numeric_index((i, j)) for i in range(n_contigs) for j in range(n_contigs))
+    all_edges = (Edge.from_numeric_index((i, j)) for i in range(n_contigs*2) for j in range(n_contigs*2))
     return (edge for edge in all_edges if edge.from_node_side.node_id != edge.to_node_side.node_id)
+
+
+def find_bins_with_even_number_of_reads(cumulative_distance_distribution, n_bins=10, max_distance=1000000) -> DynamicHeatmapConfig:
+    """
+    Finds n_bins bins that give approx even number of reads in them up to max_distance
+    """
+    if max_distance >= len(cumulative_distance_distribution):
+        max_distance = len(cumulative_distance_distribution)-1
+
+    n_per_bin = cumulative_distance_distribution[max_distance] / n_bins
+    cumulative_per_bin = np.cumsum(np.zeros(n_bins) + n_per_bin)
+    split_positions = np.searchsorted(cumulative_distance_distribution, cumulative_per_bin[:-1])
+    #assert split_positions[-1] == max_distance, f"Last split position {split_positions[-1]} should be {max_distance}"
+    bin_borders = np.concatenate([[0], split_positions, [max_distance]])
+    return bin_borders
+
+
+def get_dynamic_heatmap_config_with_even_bins(cumulative_distance_distribution, n_bins=None, max_distance=1000000):
+    """
+    Creates a dynamic heatmap config.
+    """
+    if max_distance >= len(cumulative_distance_distribution):
+        max_distance = len(cumulative_distance_distribution)-1
+    bin_borders = find_bins_with_even_number_of_reads(cumulative_distance_distribution, n_bins, max_distance)
+    print("Bin borders: ", bin_borders)
+
+    def scale_func(x):
+        if isinstance(x, int) and x >= max_distance:
+            # allow ints outside, these should be the last bin
+            return n_bins - 1
+
+        return np.searchsorted(bin_borders, x, side='right') - 1
+
+    return DynamicHeatmapConfig(
+        scale_func=scale_func,
+        n_bins=n_bins,
+        max_distance=max_distance
+    )
+
 
