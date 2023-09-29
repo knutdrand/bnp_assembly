@@ -24,7 +24,8 @@ from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
-from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import log_config, DynamicHeatmapDistanceFinder
+from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import log_config, DynamicHeatmapDistanceFinder, \
+    get_dynamic_heatmap_config_with_even_bins
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
@@ -173,11 +174,13 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs):
 
     if distance_measure in ('forbes3', 'dynamic_heatmap') and splitting_method != 'poisson':
+        cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
         if distance_measure == 'forbes3':
-            cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
             edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution, max_distance)
         elif distance_measure == 'dynamic_heatmap':
-            heatmap_config = log_config
+            median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
+            max_distance_heatmaps = int(median_contig_size / 2)
+            heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=distance_kwargs["n_bins_heatmap_scoring"], max_distance=max_distance_heatmaps)
             edge_distance_finder = DynamicHeatmapDistanceFinder(numeric_input_data.contig_dict, heatmap_config)
 
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)

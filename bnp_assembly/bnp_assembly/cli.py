@@ -58,7 +58,8 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                              threshold=threshold,
                              splitting_method='matrix',
                              bin_size=bin_size,
-                             max_distance=max_distance)
+                             max_distance=max_distance,
+                             n_bins_heatmap_scoring=5)
     alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_directory + "/scaffolds.agp")
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
