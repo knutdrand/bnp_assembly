@@ -83,18 +83,21 @@ class HeatmapComparison:
         Heatmap stack is list of heatmaps, biggest gap first
         """
         self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
+        assert ~np.any(np.isnan(self._heatmap_stack)), self._heatmap_stack
         for i, stack in enumerate(self._heatmap_stack):
             px(name="dynamic_heatmaps").imshow(stack, title=f"Heatmap stack {i}")
 
     def locate_heatmap(self, heatmap: DynamicHeatmap, plot_name=None):
         idxs = [np.searchsorted(self._heatmap_stack[:, i, j], value)
                 for (i, j), value in np.ndenumerate(heatmap.array)]
+
         if plot_name is not None:
             px(name="dynamic_heatmaps").imshow(np.array(idxs).reshape(heatmap.array.shape), title=plot_name)
 
         best = np.median(idxs)
         if best >= len(self._heatmap_stack):
             best = len(self._heatmap_stack) - 1
+        assert ~np.any(np.isnan(best)), (best, idxs)
         return best
 
 
@@ -312,6 +315,26 @@ def find_bins_with_even_number_of_reads(cumulative_distance_distribution, n_bins
     bin_borders = np.concatenate([[0], split_positions, [max_distance]])
     return bin_borders
 
+
+def find_bins_with_even_number_of_reads2(cumulative_distance_distribution, n_bins=10, max_distance=1000000) -> DynamicHeatmapConfig:
+    """
+    Finds n_bins bins that give approx even number of reads in them up to max_distance
+    """
+    if max_distance >= len(cumulative_distance_distribution):
+        max_distance = len(cumulative_distance_distribution)-1
+
+    bin_offsets = [0]
+    total = max_distance*cumulative_distance_distribution[max_distance]
+    desired = total/(n_bins**2)
+    for i in range(1, max_distance):
+        last_offset = bin_offsets[-1]
+        bin_size = i - last_offset
+        p_distance = cumulative_distance_distribution[2*last_offset+bin_size]-cumulative_distance_distribution[2*last_offset]
+        number = bin_size*p_distance
+        if number>desired:
+            bin_offsets.append(i)
+    bin_borders = np.array(bin_offsets)[:n_bins]
+    return np.append(bin_borders, max_distance)
 
 def get_dynamic_heatmap_config_with_even_bins(cumulative_distance_distribution, n_bins=10, max_distance=1000000):
     """
