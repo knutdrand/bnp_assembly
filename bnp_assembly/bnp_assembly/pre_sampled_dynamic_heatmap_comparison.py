@@ -81,11 +81,19 @@ class HeatmapComparison:
         Heatmap stack is list of heatmaps, biggest gap first
         """
         self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
+        for i, stack in enumerate(self._heatmap_stack):
+            px(name="dynamic_heatmaps").imshow(stack, title=f"Heatmap stack {i}")
 
-    def locate_heatmap(self, heatmap: DynamicHeatmap):
+    def locate_heatmap(self, heatmap: DynamicHeatmap, plot_name=None):
         idxs = [np.searchsorted(self._heatmap_stack[:, i, j], value)
                 for (i, j), value in np.ndenumerate(heatmap.array)]
-        return np.median(idxs)
+        if plot_name is not None:
+            px(name="dynamic_heatmaps").imshow(np.array(idxs).reshape(heatmap.array.shape), title=plot_name)
+
+        best = np.median(idxs)
+        if best >= len(self._heatmap_stack):
+            best = len(self._heatmap_stack) - 1
+        return best
 
 
 class DynamicHeatmaps:
@@ -126,7 +134,8 @@ class DynamicHeatmaps:
         a_bins = self._scale_func(self._size_array[a])
         b_bins = self._scale_func(self._size_array[b])
         heatmap = DynamicHeatmap(self._array[a_dir, b_dir, a, b, :a_bins,:b_bins], self._scale_func)
-        return heatmap
+        heatmap2 = DynamicHeatmap(self._array[b_dir, a_dir, b, a, :b_bins,:a_bins], self._scale_func)
+        return DynamicHeatmap(heatmap.array + heatmap2.array.T, self._scale_func)
 
     @property
     def array(self):
@@ -184,11 +193,15 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         distances = {}
         for edge in get_all_possible_edges(len(input_data.contig_dict)):
             heatmap = heatmaps.get_heatmap(edge)
-            distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap)) - 1]
+            plot_name = None
+            if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
+                plot_name = f"Searcshorted indexes {edge}"
+            distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap, plot_name=plot_name)) - 1]
             distances[edge] = distance
 
             if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
                 px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Edge heatmap {edge}")
+                print(edge, distance)
 
         DirectedDistanceMatrix.from_edge_dict(len(input_data.contig_dict), distances).plot(
             name="dynamic_heatmap_scores").show()

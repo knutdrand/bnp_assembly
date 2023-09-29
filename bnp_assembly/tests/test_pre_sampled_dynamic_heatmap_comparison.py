@@ -118,10 +118,13 @@ def test_create_dynamic_heatmaps_with_binned_scale_func():
     config = get_dynamic_heatmap_config_with_even_bins(distance_dist, n_bins=50, max_distance=10000)
 
     dh = DynamicHeatmaps(np.array([5000, 5000, 5000]), config)
-    for _ in range(10000):
+    for _ in range(100):
         dh.register_location_pairs(LocationPair(Location([0], [4900]), Location([1], [500])))
+        dh.register_location_pairs(LocationPair(Location([1], [500]), Location([0], [4900])))
 
-    print(dh.get_heatmap(Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))).array)
+    heatmap = dh.get_heatmap(Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))).array
+    print(heatmap)
+    assert np.sum(heatmap) == 200
 
 
 def test_heatmap_comparison():
@@ -161,3 +164,40 @@ def test_get_all_possible_edges():
 def test_gap_distances():
     gaps = get_gap_distances(10000, 4)
     print(gaps)
+
+
+
+def test_heatmap_comparison():
+    stack = [
+        DynamicHeatmap(
+            np.array([
+                [0, 0],
+                [0, 0]
+            ])
+        ),
+        DynamicHeatmap(
+            np.array([
+                [2, 2],
+                [2, 2]
+            ])
+        ),
+        DynamicHeatmap(
+            np.array([
+                [5, 5],
+                [5, 5]
+            ])
+        )
+    ]
+    sample = DynamicHeatmap([
+        [2, 0],
+        [10, 10]
+    ])
+
+    comparison = HeatmapComparison(stack)
+    assert comparison.locate_heatmap(sample) == 2
+
+
+    sample = DynamicHeatmap([
+        [100, 100],
+        [100, 100]
+    ])

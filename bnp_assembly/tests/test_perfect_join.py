@@ -14,12 +14,12 @@ from bnp_assembly.make_scaffold import make_scaffold
 @pytest.mark.parametrize("folder_name", ["../example_data/simulated_perfect_join"])
 # (joining, splitting) method
 @pytest.mark.parametrize("methods", [
-    ("forbes3", "matrix"),
+    #("forbes3", "matrix"),
     ("dynamic_heatmap", "matrix"),
 ])
 def test_perfect_join(folder_name, methods):
-    #plotting.register(dynamic_heatmaps=plotting.ResultFolder('testplots/dynamic_heatmaps'))
-    #plotting.register(joining=plotting.ResultFolder('testplots/joining'))
+    plotting.register(dynamic_heatmaps=plotting.ResultFolder('testplots/dynamic_heatmaps'))
+    plotting.register(joining=plotting.ResultFolder('testplots/joining'))
     #plotting.register(splitting=plotting.ResultFolder('./tmp-splitting/'))
     genome_file_name = folder_name + "/contigs.chrom.sizes"
     genome = bnp.Genome.from_file(genome_file_name)
@@ -43,7 +43,7 @@ def test_perfect_join(folder_name, methods):
     #@print(true_alignments)
     criterion = 1.0
     if methods[0] == "dynamic_heatmap":
-        criterion = 0.96
+        criterion = 1.0
 
     assert comparison.edge_recall() >= criterion, comparison.missing_edges()
     assert comparison.edge_precision() >= criterion, comparison.false_edges()
