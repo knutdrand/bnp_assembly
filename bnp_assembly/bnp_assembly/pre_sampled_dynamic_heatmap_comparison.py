@@ -286,6 +286,7 @@ class PreComputedDynamicHeatmapCreator:
         print("Using gap sizes %s" % self._gap_distances)
         heatmaps = {}
         for bin, gap in enumerate(self._gap_distances):
+            print("Creating heatmap for gap %d" % gap)
             heatmap = self.get_dynamic_heatmap(next(reads), gap)
             heatmaps[bin] = heatmap
 
