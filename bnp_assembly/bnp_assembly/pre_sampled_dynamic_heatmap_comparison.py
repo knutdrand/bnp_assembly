@@ -350,16 +350,20 @@ def find_bins_with_even_number_of_reads3(cumulative_distance_distribution, n_bin
 #    total = cumulative_distance_distribution[max_distance]*max_distance
     # total = max_distance*cumulative_distance_distribution[max_distance]
     desired = total/n_bins
+    number = 0
     for i in range(1, max_distance):
         last_offset = bin_offsets[-1]
         bin_size = i - last_offset
-        xs = np.arange(last_offset, last_offset+bin_size)
-        number = np.sum(c[xs+max_distance]-c[xs])
+        # xs = np.arange(last_offset, last_offset+bin_size)
+        # number = np.sum(c[xs+max_distance]-c[xs])
+        end = last_offset+bin_size
+        number+=c[max_distance+end-1]-c[end-1]
         # number = (cumulative_distance_distribution[last_offset+max_distance]-cumulative_distance_distribution[last_offset])*bin_size
         # p_distance = cumulative_distance_distribution[2*last_offset+bin_size]-cumulative_distance_distribution[2*last_offset]
         # number = bin_size*p_distance
         if number >= desired:
             bin_offsets.append(i)
+            number = 0
     bin_borders = np.array(bin_offsets)[:n_bins]
     return np.append(bin_borders, max_distance)
 
