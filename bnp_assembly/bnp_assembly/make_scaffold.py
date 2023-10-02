@@ -181,7 +181,7 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
             median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
             max_distance_heatmaps = int(median_contig_size / 4)
             heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=distance_kwargs["n_bins_heatmap_scoring"], max_distance=max_distance_heatmaps)
-            edge_distance_finder = DynamicHeatmapDistanceFinder(numeric_input_data.contig_dict, heatmap_config)
+            edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config)
 
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
 

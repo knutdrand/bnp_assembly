@@ -170,17 +170,16 @@ def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data: NumericI
 
 
 class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
-    def __init__(self, contig_sizes: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config):
+    def __init__(self, heatmap_config: DynamicHeatmapConfig = log_config):
         self._heatmap_config = heatmap_config
-        self._contig_sizes = contig_sizes
 
-    def __call__(self, reads: PairedReadStream, effective_contig_sizes=None):
+    def __call__(self, reads: PairedReadStream, effective_contig_sizes):
         """
         Returns a DirectedDistanceMatrix with "distances" using the dynamic heatmap method
         (comparing heatmaps for contigs against background heatmaps)
         """
         #edge_distances = get_distance_counts_using_dynamic_heatmaps(NumericInputData(effective_contig_sizes, reads))
-        input_data = NumericInputData(self._contig_sizes, reads)
+        input_data = NumericInputData(effective_contig_sizes, reads)
         assert isinstance(input_data.location_pairs, PairedReadStream), type(input_data.location_pairs)
         #                                                                   max_distance=max_distance)
         dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config)
@@ -208,7 +207,7 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         DirectedDistanceMatrix.from_edge_dict(len(input_data.contig_dict), distances).plot(
             name="dynamic_heatmap_scores").show()
 
-        return DirectedDistanceMatrix.from_edge_dict(len(self._contig_sizes), distances)
+        return DirectedDistanceMatrix.from_edge_dict(len(effective_contig_sizes), distances)
 
 
 class PreComputedDynamicHeatmapCreator:
