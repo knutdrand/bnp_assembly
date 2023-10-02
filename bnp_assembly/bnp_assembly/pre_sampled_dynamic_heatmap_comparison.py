@@ -331,7 +331,34 @@ def find_bins_with_even_number_of_reads2(cumulative_distance_distribution, n_bin
         bin_size = i - last_offset
         p_distance = cumulative_distance_distribution[2*last_offset+bin_size]-cumulative_distance_distribution[2*last_offset]
         number = bin_size*p_distance
-        if number>desired:
+        if number > desired:
+            bin_offsets.append(i)
+    bin_borders = np.array(bin_offsets)[:n_bins]
+    return np.append(bin_borders, max_distance)
+
+
+def find_bins_with_even_number_of_reads3(cumulative_distance_distribution, n_bins=10, max_distance=1000000) -> DynamicHeatmapConfig:
+    """
+    Finds n_bins bins that give approx even number of reads in them up to max_distance
+    """
+    if max_distance > len(cumulative_distance_distribution)//2:
+        max_distance = len(cumulative_distance_distribution)//2
+    c = cumulative_distance_distribution
+    bin_offsets = [0]
+    total = np.sum(c[np.arange(max_distance)+max_distance]-c[np.arange(max_distance)])
+
+#    total = cumulative_distance_distribution[max_distance]*max_distance
+    # total = max_distance*cumulative_distance_distribution[max_distance]
+    desired = total/n_bins
+    for i in range(1, max_distance):
+        last_offset = bin_offsets[-1]
+        bin_size = i - last_offset
+        xs = np.arange(last_offset, last_offset+bin_size)
+        number = np.sum(c[xs+max_distance]-c[xs])
+        # number = (cumulative_distance_distribution[last_offset+max_distance]-cumulative_distance_distribution[last_offset])*bin_size
+        # p_distance = cumulative_distance_distribution[2*last_offset+bin_size]-cumulative_distance_distribution[2*last_offset]
+        # number = bin_size*p_distance
+        if number >= desired:
             bin_offsets.append(i)
     bin_borders = np.array(bin_offsets)[:n_bins]
     return np.append(bin_borders, max_distance)
@@ -343,7 +370,7 @@ def get_dynamic_heatmap_config_with_even_bins(cumulative_distance_distribution, 
     """
     if max_distance >= len(cumulative_distance_distribution):
         max_distance = len(cumulative_distance_distribution)-1
-    bin_borders = find_bins_with_even_number_of_reads(cumulative_distance_distribution, n_bins, max_distance)
+    bin_borders = find_bins_with_even_number_of_reads3(cumulative_distance_distribution, n_bins, max_distance)
     print("Bin borders: ", bin_borders)
 
     def scale_func(x):

@@ -6,9 +6,8 @@ import pytest
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, PreComputedDynamicHeatmapCreator, \
     DynamicHeatmapConfig, find_bins_with_even_number_of_reads, get_dynamic_heatmap_config_with_even_bins, \
-    get_all_possible_edges, get_gap_distances
+    get_all_possible_edges, get_gap_distances, find_bins_with_even_number_of_reads3
 import bionumpy as bnp
-
 
 from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.location import Location, LocationPair
@@ -23,7 +22,8 @@ def test_create_from_positions():
     assert np.sum(dh.array) == 1
     assert_array_equal(dh.array, np.array([[0, 0, 0], [0, 0, 1], [0, 0, 0]]))
     dh = DynamicHeatmap.create_from_positions((a, b), n_bins=5, scale_func=lambda x: x)
-    assert_array_equal(dh.array, np.array([[0, 0, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0 ,0, 1], [0, 0, 0, 0, 0], [0, 0, 0, 0 ,0]]))
+    assert_array_equal(dh.array,
+                       np.array([[0, 0, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 0, 1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]))
 
 
 def test_add_sampled_read_pair_to_heatmap():
@@ -49,6 +49,7 @@ def genome():
         2: 2,
         3: 20
     }
+
 
 @pytest.fixture
 def read_pairs():
@@ -148,6 +149,12 @@ def test_find_bins_with_even_number_of_reads(distance_dist):
     assert np.all(splits == [0, 4, 5, 7])
 
 
+def test_find_bins_with_even_number_of_reads3():
+    distance_dist = np.arange(20)
+    splits = find_bins_with_even_number_of_reads3(distance_dist, n_bins=2, max_distance=10)
+    assert_array_equal(splits, [0, 5, 10])
+
+
 def test_get_hetmap_config_with_even_bins(distance_dist):
     config = get_dynamic_heatmap_config_with_even_bins(distance_dist, n_bins=3, max_distance=7)
     assert config.scale_func(0) == 0
@@ -157,14 +164,13 @@ def test_get_hetmap_config_with_even_bins(distance_dist):
 
 
 def test_get_all_possible_edges():
-   edges = list(get_all_possible_edges(5))
-   assert max([edge.to_node_side.node_id for edge in edges]) == 4
+    edges = list(get_all_possible_edges(5))
+    assert max([edge.to_node_side.node_id for edge in edges]) == 4
 
 
 def test_gap_distances():
     gaps = get_gap_distances(10000, 4)
     print(gaps)
-
 
 
 def test_heatmap_comparison():
@@ -195,7 +201,6 @@ def test_heatmap_comparison():
 
     comparison = HeatmapComparison(stack)
     assert comparison.locate_heatmap(sample) == 2
-
 
     sample = DynamicHeatmap([
         [100, 100],
