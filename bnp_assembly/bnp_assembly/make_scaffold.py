@@ -25,7 +25,7 @@ from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import log_config, DynamicHeatmapDistanceFinder, \
-    get_dynamic_heatmap_config_with_even_bins
+    get_dynamic_heatmap_config_with_even_bins, get_dynamic_heatmap_config_with_uniform_bin_sizes
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
@@ -181,6 +181,8 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
             median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
             max_distance_heatmaps = int(median_contig_size / 4)
             heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=distance_kwargs["n_bins_heatmap_scoring"], max_distance=max_distance_heatmaps)
+            #heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=2, max_distance=2000)
+            #heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=2, bin_size=1000)
             edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config)
 
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)

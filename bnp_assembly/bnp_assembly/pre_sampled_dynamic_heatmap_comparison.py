@@ -87,8 +87,13 @@ class HeatmapComparison:
         """
         self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
         assert ~np.any(np.isnan(self._heatmap_stack)), self._heatmap_stack
+        assert False
         for i, stack in enumerate(self._heatmap_stack):
             px(name="dynamic_heatmaps").imshow(stack, title=f"Heatmap stack {i}")
+
+    @classmethod
+    def from_hetamap_stack(cls, h):
+        return cls(h)
 
     def locate_heatmap(self, heatmap: DynamicHeatmap, plot_name=None):
         idxs = [np.searchsorted(self._heatmap_stack[:, i, j], value)
@@ -101,6 +106,47 @@ class HeatmapComparison:
         if best >= len(self._heatmap_stack):
             best = len(self._heatmap_stack) - 1
         assert ~np.any(np.isnan(best)), (best, idxs)
+        return best
+
+
+class HeatmapComparisonRowColumns:
+    """
+    Compares heatmaps by looking at row/column sums of values
+    """
+    def __init__(self, row_sums, col_sums):
+        self._row_sums = row_sums
+        self._col_sums = col_sums
+
+        for i, (row, col) in enumerate(zip(self._row_sums, self._col_sums)):
+            px(name="dynamic_heatmaps").bar(row[:, -1], title=f"Heatmap rows {i}")
+            px(name="dynamic_heatmaps").bar(col[-1, :], title=f"Heatmap columns {i}")
+
+    @classmethod
+    def from_heatmap_stack(cls, heatmap_stack):
+        row_sums = [np.cumsum(heatmap.array, axis=-1) for heatmap in heatmap_stack]
+        col_sums = [np.cumsum(heatmap.array, axis=-2) for heatmap in heatmap_stack]
+
+        row_sums = np.maximum.accumulate(row_sums, axis=0)
+        col_sums = np.maximum.accumulate(col_sums, axis=0)
+
+        return cls(row_sums, col_sums)
+
+    def locate_heatmap(self, heatmap: DynamicHeatmap, plot_name=None):
+        row_sums = np.sum(heatmap.array, axis=-1)
+        col_sums = np.sum(heatmap.array, axis=-2)
+
+        n_rows, n_cols = heatmap.array.shape
+
+        row_idx = [np.searchsorted(self._row_sums[:, i, n_cols-1], row_sums[i]) for i in range(n_rows)]
+        col_idx = [np.searchsorted(self._col_sums[:, n_rows-1, j], col_sums[j]) for j in range(n_cols)]
+
+        scores = np.concatenate([row_idx, col_idx])
+        if plot_name is not None:
+            px(name="dynamic_heatmaps").bar(scores, title=plot_name)
+
+        best = np.median(scores)
+        if best >= len(self._row_sums):
+            best = len(self._row_sums) - 1
         return best
 
 
@@ -139,8 +185,9 @@ class DynamicHeatmaps:
     def get_heatmap(self, edge: Edge):
         a_dir, b_dir = (0 if node_side.side == 'l' else 1 for node_side in (edge.from_node_side, edge.to_node_side))
         a, b = (node_side.node_id for node_side in (edge.from_node_side, edge.to_node_side))
-        a_bins = self._scale_func(self._size_array[a])
-        b_bins = self._scale_func(self._size_array[b])
+        a_bins = max(1, self._scale_func(self._size_array[a]))
+        b_bins = max(1, self._scale_func(self._size_array[b]))
+        assert a_bins >= 1 and b_bins >= 1
         heatmap = DynamicHeatmap(self._array[a_dir, b_dir, a, b, :a_bins,:b_bins], self._scale_func)
         heatmap2 = DynamicHeatmap(self._array[b_dir, a_dir, b, a, :b_bins,:a_bins], self._scale_func)
         return DynamicHeatmap(heatmap.array + heatmap2.array.T, self._scale_func)
@@ -188,7 +235,7 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
             px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Sampled dynamic heatmap {gap}")
 
         gap_sizes = list(sampled_heatmaps.keys())
-        heatmap_comparison = HeatmapComparison(list(sampled_heatmaps.values())[::-1])
+        heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(list(sampled_heatmaps.values())[::-1])
         heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
 
         distances = {}
@@ -400,6 +447,8 @@ def get_dynamic_heatmap_config_with_even_bins(cumulative_distance_distribution, 
     if max_distance >= len(cumulative_distance_distribution):
         max_distance = len(cumulative_distance_distribution)-1
     bin_borders = find_bins_with_even_number_of_reads3(cumulative_distance_distribution, n_bins, max_distance)
+    #bin_size = 1000
+    #bin_borders = np.arange(n_bins+1) * bin_size
     print("Bin borders: ", bin_borders)
 
     def scale_func(x):
@@ -408,6 +457,23 @@ def get_dynamic_heatmap_config_with_even_bins(cumulative_distance_distribution, 
             return n_bins - 1
 
         return np.searchsorted(bin_borders, x, side='right') - 1
+
+    return DynamicHeatmapConfig(
+        scale_func=scale_func,
+        n_bins=n_bins,
+        max_distance=max_distance
+    )
+
+
+def get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=5, bin_size=1000):
+    max_distance = n_bins * bin_size
+
+    def scale_func(x):
+        if isinstance(x, int) and x >= max_distance:
+            # allow ints outside, these should be the last bin
+            return n_bins - 1
+
+        return x // bin_size
 
     return DynamicHeatmapConfig(
         scale_func=scale_func,

@@ -67,7 +67,6 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         f.write(sequence_entries)
 
 
-
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)

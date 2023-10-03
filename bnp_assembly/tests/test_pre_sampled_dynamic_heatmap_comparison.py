@@ -11,7 +11,7 @@ import bionumpy as bnp
 
 from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.location import Location, LocationPair
-from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, DynamicHeatmaps, HeatmapComparison
+from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, DynamicHeatmaps, HeatmapComparison, HeatmapComparisonRowColumns
 
 a = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 b = np.array([2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
@@ -139,6 +139,36 @@ def test_heatmap_comparison():
     assert hc.locate_heatmap(DynamicHeatmap([[6, 7], [8, 9]])) == 2
 
 
+def test_heatmap_comparison_row_cols():
+
+    heatmap_stack = [
+        DynamicHeatmap(
+            np.zeros((3, 3))
+        ),
+        DynamicHeatmap(
+            np.ones((3, 3)) * 2
+        ),
+        DynamicHeatmap(
+            np.ones((3, 3)) * 10
+        )
+    ]
+
+    heatmap = DynamicHeatmap([
+        [1, 1, 1],  # 3
+        [1, 2, 1],  # 4
+        [2, 2, 1]   # 5
+    ])
+
+    comparison = HeatmapComparisonRowColumns.from_heatmap_stack(heatmap_stack)
+    score = comparison.locate_heatmap(heatmap)
+    assert score == 1
+
+    heatmap = DynamicHeatmap([
+        [1, 1],
+    ])
+    assert comparison.locate_heatmap(heatmap) == 1
+
+
 @pytest.fixture
 def distance_dist():
     return np.array([0, 1, 2, 3, 8, 10, 12, 13, 14, 100])
@@ -206,3 +236,5 @@ def test_heatmap_comparison():
         [100, 100],
         [100, 100]
     ])
+
+

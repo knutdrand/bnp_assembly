@@ -176,7 +176,7 @@ def find_clips(bins, mean_coverage, window_size):
 def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
     mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values())*bin_size
-    logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
+    #logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
     clip_ids= {contig_id: find_clips(counts, mean_coverage/2, window_size) for contig_id, counts in bins.items()}
     logger.info(f"Found clips: {clip_ids}")
     clips = {contig_id: (start_id * bin_size, contig_dict[contig_id] - end_id * bin_size) for
