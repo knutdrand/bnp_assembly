@@ -1,3 +1,5 @@
+from npstructures import RaggedArray, RaggedShape
+
 from .graph_objects import NodeSide, Edge
 from .location import LocationPair
 from typing import Dict, Tuple, List, Iterable
@@ -11,8 +13,6 @@ from .plotting import px
 from .change_point import find_change_point
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def find_regions_with_missing_data(contig_dict: Dict[int, int], read_pairs: LocationPair, bin_size=100) -> Dict[
@@ -64,7 +64,8 @@ def find_start_and_end_split_site_for_contig(contig_size, contig_missing_regions
     return start_split, end_split
 
 
-def find_missing_regions_at_start_and_end_of_contigs(contig_dict: Dict[str, int], missing_regions: Dict[str, List[Tuple]]) -> Dict[str, Tuple]:
+def find_missing_regions_at_start_and_end_of_contigs(contig_dict: Dict[str, int],
+                                                     missing_regions: Dict[str, List[Tuple]]) -> Dict[str, Tuple]:
     """
     Returns a dict of contig ids to new start and end positions (where missing regions at end and start are removed)
     """
@@ -82,17 +83,28 @@ def find_missing_regions_at_start_and_end_of_contigs(contig_dict: Dict[str, int]
 
 
 def get_binned_read_counts(bin_size, contig_dict, read_pairs):
-    counts = {contig: np.zeros((length + bin_size - 1) // bin_size) for contig, length in contig_dict.items()}
+    row_lens = [(length + bin_size - 1) // bin_size for length in contig_dict.values()]
+    shape = RaggedShape(row_lens)
+    assert max(contig_dict.keys()) == len(contig_dict)-1, contig_dict.keys()
+    total_bins = sum(row_lens)
+    # counts = RaggedArray(np.zeros(total_bins), row_lens)
+    # counts = {contig: np.zeros((length + bin_size - 1) // bin_size) for contig, length in contig_dict.items()}
     actual_bin_sizes = {
         contig_id: np.array(
-            [min(contig_size, (i + 1) * bin_size) - i * bin_size for i in range(len(counts[contig_id]))])
+            [min(contig_size, (i + 1) * bin_size) - i * bin_size for i in range(row_lens[contig_id])])
         for contig_id, contig_size in contig_dict.items()
     }
     assert all(np.all(bin_sizes > 0) for bin_sizes in actual_bin_sizes.values())
 
     # todo vectorize
-    for read in itertools.chain(read_pairs.location_a, read_pairs.location_b):
-        counts[int(read.contig_id)][read.offset // bin_size] += 1
+    # for locations in :
+    counts = sum(
+        np.bincount(shape.ravel_multi_index((locations.contig_id, locations.offset // bin_size)), minlength=total_bins)
+        for locations in (read_pairs.location_a, read_pairs.location_b))
+    counts = RaggedArray(counts, row_lens)
+    counts = {contig_id: counts[contig_id] for contig_id in range(len(contig_dict))}
+    # for read in itertools.chain(read_pairs.location_a, read_pairs.location_b):
+    #     counts[int(read.contig_id)][read.offset // bin_size] += 1
     return counts, actual_bin_sizes
 
 
@@ -152,18 +164,18 @@ def find_end_clip(bins, window_size, mean_coverage):
 
 
 def find_start_clip(bins, window_size, mean_coverage):
-    return find_change_point(bins[0:len(bins)//2])
+    return find_change_point(bins[0:len(bins) // 2])
     running_sum = np.insert(np.cumsum(bins), 0, 0)
     diffs = running_sum[window_size:] - running_sum[:-window_size]
 
     threshold = mean_coverage * window_size
     mask = diffs > threshold
     index = next((i for i, value in enumerate(mask) if value), 0)
-    for i in range(index, index+window_size):
+    for i in range(index, index + window_size):
         if i >= len(bins):
             return i
-        if bins[i] >= mean_coverage/2:
-            #logging.info(f'{i}: {bins}')
+        if bins[i] >= mean_coverage / 2:
+            # logging.info(f'{i}: {bins}')
             return i
     return index
 
@@ -171,8 +183,8 @@ def find_start_clip(bins, window_size, mean_coverage):
 def find_clips(bins, mean_coverage, window_size):
     start, end = (find_start_clip(bins, window_size, mean_coverage),
                   find_end_clip(bins, window_size, mean_coverage))
-    if start+end>= len(bins):
-        return (0, 0) # Whole node disappears, just use the whole node
+    if start + end >= len(bins):
+        return (0, 0)  # Whole node disappears, just use the whole node
     return (start, end)
 
 
@@ -187,13 +199,13 @@ def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: It
     for key, array in bins.items():
         array[-1] *= bin_size / bin_sizes[key][-1]
 
-    mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values())*bin_size
-    #logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
-    clip_ids= {contig_id: find_clips(counts, mean_coverage/2, window_size) for contig_id, counts in bins.items()}
+    mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values()) * bin_size
+    # logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
+    clip_ids = {contig_id: find_clips(counts, mean_coverage / 2, window_size) for contig_id, counts in bins.items()}
     logger.info(f"Bin size when finding clips: {bin_size}")
     logger.info(f"Found clips: {clip_ids}")
     clips = {contig_id: (start_id * bin_size, contig_dict[contig_id] - end_id * bin_size) for
-              contig_id, (start_id, end_id) in clip_ids.items()}
+             contig_id, (start_id, end_id) in clip_ids.items()}
     return clips
 
 
