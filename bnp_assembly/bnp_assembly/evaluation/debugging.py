@@ -52,7 +52,7 @@ class ScaffoldingDebugger:
         self._contig_clips = self._get_contig_clips()
 
     def _get_contig_clips(self):
-        contig_clips = find_contig_clips(self._bin_size, self.contig_sizes, next(self._read_stream))
+        contig_clips = find_contig_clips(self._bin_size, self.contig_sizes, self._read_stream)
         return contig_clips
 
     def get_reads_for_contig(self, contig_name):

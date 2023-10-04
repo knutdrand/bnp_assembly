@@ -1,4 +1,5 @@
 from .graph_objects import NodeSide, Edge
+from .io import PairedReadStream
 from .location import LocationPair
 from typing import Dict, Tuple, List, Iterable
 from collections import Counter
@@ -176,7 +177,8 @@ def find_clips(bins, mean_coverage, window_size):
     return (start, end)
 
 
-def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
+def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: PairedReadStream, window_size=10):
+    assert isinstance(read_pairs, PairedReadStream)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
 
     for contig_id, contig_bins in bins.items():
