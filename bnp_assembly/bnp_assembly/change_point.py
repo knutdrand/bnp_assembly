@@ -7,16 +7,24 @@ def find_change_point(data):
     sum_b = np.sum(data)
     max_likelihood = scipy.stats.poisson(np.mean(data)).logpmf(data).sum()
     change_point = 0
-    for i, value in enumerate(data):
-        sum_a += value
-        sum_b -= value
-        mean_a = sum_a/(i+1)
-        mean_b = sum_b/(len(data)-i-1)
-        likelihood = scipy.stats.poisson(mean_a).logpmf(data[:i+1]).sum() + scipy.stats.poisson(mean_b).logpmf(data[i+1:]).sum()
-        if likelihood > max_likelihood:
-            if mean_a < mean_b//2:
-                max_likelihood = likelihood
-                change_point = i+1
+    cumsum = np.cumsum(data)
+    total = np.sum(data)
+    means_a = cumsum / np.arange(1, len(data) + 1)
+    means_b = (total - cumsum) / np.arange(len(data), 0, -1)
+    likelihoods = [scipy.stats.poisson(mean_a).logpmf(data[:i+1]).sum() + scipy.stats.poisson(mean_b).logpmf(data[i+1:]).sum()
+                   for i, (mean_a, mean_b) in enumerate(zip(means_a, means_b)) if mean_a<mean_b//2]
+
+    if len(likelihoods) == 0:
+        return 0
+    change_point = np.argmax(likelihoods) + 1
+    # for i, value in enumerate(data):
+    #     mean_a = means_a[i]
+    #     mean_b = means_b[i]
+    #     likelihood = scipy.stats.poisson(mean_a).logpmf(data[:i+1]).sum() + scipy.stats.poisson(mean_b).logpmf(data[i+1:]).sum()
+    #     if likelihood > max_likelihood:
+    #         if mean_a < mean_b//2:
+    #             max_likelihood = likelihood
+    #             change_point = i+1
 
     return change_point
 
