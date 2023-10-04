@@ -132,14 +132,16 @@ class HeatmapComparisonRowColumns(HeatmapComparison):
 
     @classmethod
     def from_heatmap_stack(cls, heatmap_stack, add_n_extra=0):
+        for i, heatmap in enumerate(heatmap_stack):
+            px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Backgorund heatmap {i}")
+            px(name="dynamic_heatmaps").array(heatmap.array, title=f"Backgorund heatmap {i}")
+
         row_sums = np.array([np.cumsum(heatmap.array, axis=-1) for heatmap in heatmap_stack])
         col_sums = np.array([np.cumsum(heatmap.array, axis=-2) for heatmap in heatmap_stack])
 
         d_rows = row_sums[0] / add_n_extra  # (row_sums[-1] - row_sums[0]) / (len(row_sums)-1)
         d_cols = col_sums[0] / add_n_extra  # (col_sums[-1] - col_sums[0]) / (len(col_sums)-1)
 
-        print("D rows", d_rows)
-        print("D cols", d_cols)
 
         cur_row_sums = row_sums[0]
         cur_col_sums = col_sums[0]
