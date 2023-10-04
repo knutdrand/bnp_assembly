@@ -222,7 +222,6 @@ class DynamicHeatmaps:
                 mask = (a_pos < self._max_distance) & (b_pos < self._max_distance)
                 a_idx = self._scale_func(a_pos[mask])
                 b_idx = self._scale_func(b_pos[mask])
-                #mask = (a_idx < self._n_bins) & (b_idx < self._n_bins)
                 idx = np.ravel_multi_index(
                     (a.contig_id[mask], b.contig_id[mask],
                      a_idx, b_idx), self._array.shape[2:])
@@ -352,6 +351,7 @@ class PreComputedDynamicHeatmapCreator:
         heatmap.add(heatmap_offset_a, heatmap_offset_b)
 
     def get_dynamic_heatmap(self, read_pairs: Iterable[LocationPair], gap_distance: int) -> DynamicHeatmap:
+        return self.get_dynamic_heatmaps(read_pairs, [gap_distance])[0]
         heatmap = DynamicHeatmap.empty(self._config)
         for chunk in read_pairs:
             self.update_heatmap(chunk, gap_distance, heatmap)
@@ -359,9 +359,18 @@ class PreComputedDynamicHeatmapCreator:
         heatmap.set_array(heatmap.array / len(self._chosen_contigs))
         return heatmap
 
+    def get_dynamic_heatmaps(self, read_pairs: Iterable[LocationPair], gap_distances: List[int]) -> List[DynamicHeatmap]:
+        heatmaps = [DynamicHeatmap.empty(self._config) for gap in gap_distances]
+        for chunk in read_pairs:
+            for heatmap, gap_distance in zip(heatmaps, gap_distances):
+                self.update_heatmap(chunk, gap_distance, heatmap)
+        for heatmap in heatmaps:
+            heatmap.set_array(heatmap.array / len(self._chosen_contigs))
+        return heatmaps
+
     def update_heatmap(self, chunk, gap_distance, heatmap):
-        pair= chunk
-        mask= (self._chosen_contig_mask[pair.location_a.contig_id]) & (self._chosen_contig_mask[pair.location_b.contig_id])
+        pair = chunk
+        mask = (self._chosen_contig_mask[pair.location_a.contig_id]) & (self._chosen_contig_mask[pair.location_b.contig_id])
         mask &= pair.location_a.contig_id == pair.location_b.contig_id
         pair = pair.__class__(pair.location_a[mask], pair.location_b[mask])
         min_location, max_location = (np.minimum(pair.location_a.offset, pair.location_b.offset),
@@ -386,17 +395,16 @@ class PreComputedDynamicHeatmapCreator:
         Creates dynamic heatmaps with gaps. If n_extra_heatmaps > 0, also adds n extra heatmaps by "fading" the last one to zero
         """
         print("Using gap sizes %s" % self._gap_distances)
-        heatmaps = {}
-        last_heatmap = None
-        last_bin = 0
-        for bin, gap in enumerate(self._gap_distances):
-            print("Creating heatmap for gap %d" % gap)
-            # todo: vectorize by adding chunk directly to the correct heatmap
-            heatmap = self.get_dynamic_heatmap(next(reads), gap)
-            heatmaps[bin] = heatmap
-            last_heatmap = heatmap
-            last_bin = bin
-
+        heatmaps = self.get_dynamic_heatmaps(next(reads), self._gap_distances)
+        last_bin, last_heatmap = len(heatmaps)-1, heatmaps[-1]
+        # for bin, gap in enumerate(self._gap_distances):
+        #     print("Creating heatmap for gap %d" % gap)
+        #     # todo: vectorize by adding chunk directly to the correct heatmap
+        #     heatmap = self.get_dynamic_heatmap(next(reads), gap)
+        #     heatmaps[bin] = heatmap
+        #     last_heatmap = heatmap
+        #     last_bin = bin
+        heatmaps = dict(enumerate(heatmaps))
         if n_extra_heatmaps > 0:
             for i in range(n_extra_heatmaps):
                 if np.all(heatmaps[last_bin].array == 0):

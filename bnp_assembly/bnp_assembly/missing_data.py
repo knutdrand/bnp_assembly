@@ -97,8 +97,6 @@ def get_binned_read_counts(bin_size, contig_dict, read_pairs):
     }
     assert all(np.all(bin_sizes > 0) for bin_sizes in actual_bin_sizes.values())
 
-    # todo vectorize
-    # for locations in :
     counts = sum(
         np.bincount(shape.ravel_multi_index((locations.contig_id, locations.offset // bin_size)), minlength=total_bins)
         for locations in (read_pairs.location_a, read_pairs.location_b))
