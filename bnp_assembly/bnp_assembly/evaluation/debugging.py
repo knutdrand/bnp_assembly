@@ -120,6 +120,7 @@ class ScaffoldingDebugger:
             heatmap[pos_a // bin_size, pos_b // bin_size] += 1
             heatmap[pos_b // bin_size, pos_a // bin_size] += 1
         title = f"Heatmap for {node_a} and {node_b}" if edge is None else f"Heatmap for {edge}"
+        np.save(f"heatmap_{edge}.npy", heatmap)
         fig = px.imshow(np.log2(heatmap + 1), title=title)
 
         # contig clips

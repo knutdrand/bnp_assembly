@@ -29,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 def get_gap_distances(max_distances, n):
-    divisor = min(max_distances / n, 500)
-    nth_root = np.power(max_distances // divisor, 1/n)
-    gaps = np.array([int(divisor * np.power(nth_root, i)) for i in range(n)])
+    divisor = min(max_distances / (n-1), 500)
+    nth_root = np.power(max_distances // divisor, 1/(n-1))
+    gaps = np.array([int(divisor * np.power(nth_root, i)) for i in range(n-1)])
     # ignore gaps larger than max distance / 2
     gaps = np.array([g for g in gaps if g < max_distances] + [max_distances])
     assert np.all(gaps[1:] > 0), gaps
@@ -87,7 +87,6 @@ class HeatmapComparison:
         """
         self._heatmap_stack = np.maximum.accumulate([h.array for h in heatmap_stack], axis=0)
         assert ~np.any(np.isnan(self._heatmap_stack)), self._heatmap_stack
-        assert False
         for i, stack in enumerate(self._heatmap_stack):
             px(name="dynamic_heatmaps").imshow(stack, title=f"Heatmap stack {i}")
 
@@ -108,8 +107,18 @@ class HeatmapComparison:
         assert ~np.any(np.isnan(best)), (best, idxs)
         return best
 
+    def get_heatmap_score(self, heatmap: DynamicHeatmap, plot_name=None):
+        """
+        Returns the score after matching heatmap against stack. Low score is good.
+        """
+        best_match = self.locate_heatmap(heatmap, plot_name=plot_name)
+        score = len(self._row_sums) - best_match
+        assert score >= 0
+        assert score <= len(self._row_sums)
+        return score
 
-class HeatmapComparisonRowColumns:
+
+class HeatmapComparisonRowColumns(HeatmapComparison):
     """
     Compares heatmaps by looking at row/column sums of values
     """
@@ -122,9 +131,43 @@ class HeatmapComparisonRowColumns:
             px(name="dynamic_heatmaps").bar(col[-1, :], title=f"Heatmap columns {i}")
 
     @classmethod
-    def from_heatmap_stack(cls, heatmap_stack):
-        row_sums = [np.cumsum(heatmap.array, axis=-1) for heatmap in heatmap_stack]
-        col_sums = [np.cumsum(heatmap.array, axis=-2) for heatmap in heatmap_stack]
+    def from_heatmap_stack(cls, heatmap_stack, add_n_extra=0):
+        row_sums = np.array([np.cumsum(heatmap.array, axis=-1) for heatmap in heatmap_stack])
+        col_sums = np.array([np.cumsum(heatmap.array, axis=-2) for heatmap in heatmap_stack])
+
+        d_rows = row_sums[0] / add_n_extra  # (row_sums[-1] - row_sums[0]) / (len(row_sums)-1)
+        d_cols = col_sums[0] / add_n_extra  # (col_sums[-1] - col_sums[0]) / (len(col_sums)-1)
+
+        print("D rows", d_rows)
+        print("D cols", d_cols)
+
+        cur_row_sums = row_sums[0]
+        cur_col_sums = col_sums[0]
+        remaining_extra = add_n_extra
+        new_cols = []
+        new_rows = []
+        while (np.any(cur_row_sums[:, -1] >= 1) or np.any(cur_col_sums[-1, :] >= 1)) and remaining_extra>0:
+            #cur_row_sums = np.maximum(cur_row_sums-1, 0)
+            #cur_col_sums = np.maximum(cur_col_sums-1, 0)
+            cur_row_sums = np.maximum(cur_row_sums-d_rows, 0)
+            cur_col_sums = np.maximum(cur_col_sums-d_cols, 0)
+
+            new_rows.append(cur_row_sums)
+            new_cols.append(cur_col_sums)
+            remaining_extra -= 1
+            print(remaining_extra)
+            print(cur_row_sums)
+            print(cur_col_sums)
+
+        if len(new_rows):
+            row_sums = np.concatenate([new_rows[::-1], row_sums])
+            col_sums = np.concatenate([new_cols[::-1], col_sums])
+
+        print(row_sums)
+        print(col_sums)
+
+
+        print("Row/col sums")
 
         row_sums = np.maximum.accumulate(row_sums, axis=0)
         col_sums = np.maximum.accumulate(col_sums, axis=0)
@@ -138,13 +181,16 @@ class HeatmapComparisonRowColumns:
         n_rows, n_cols = heatmap.array.shape
 
         row_idx = [np.searchsorted(self._row_sums[:, i, n_cols-1], row_sums[i]) for i in range(n_rows)]
+        #ds  = [self._row_sums[row_idx+1, i, n_cols-1]-self._row_sums[row_idx, i, n_cols-1] for i in range(n_rows)]
+        #row_idx+=[(row_sums[i]-self._row_sums[row_id, i, n_cols-1])/d for i, (row_id, d) in enumerate(zip(row_idx, ds))]
         col_idx = [np.searchsorted(self._col_sums[:, n_rows-1, j], col_sums[j]) for j in range(n_cols)]
 
         scores = np.concatenate([row_idx, col_idx])
+        best = np.median(scores)
         if plot_name is not None:
             px(name="dynamic_heatmaps").bar(scores, title=plot_name)
+            print(plot_name, scores, "Median:", best)
 
-        best = np.median(scores)
         if best >= len(self._row_sums):
             best = len(self._row_sums) - 1
         return best
@@ -230,12 +276,12 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         assert isinstance(input_data.location_pairs, PairedReadStream), type(input_data.location_pairs)
         #                                                                   max_distance=max_distance)
         dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config)
-        sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=10)
-        for gap, heatmap in sampled_heatmaps.items():
-            px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Sampled dynamic heatmap {gap}")
+        sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
+        #for gap, heatmap in sampled_heatmaps.items():
+        #    px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Sampled dynamic heatmap {gap}")
 
         gap_sizes = list(sampled_heatmaps.keys())
-        heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(list(sampled_heatmaps.values())[::-1])
+        heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(list(sampled_heatmaps.values())[::-1], add_n_extra=3)
         heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
 
         distances = {}
@@ -244,7 +290,8 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
             plot_name = None
             if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
                 plot_name = f"Searcshorted indexes {edge}"
-            distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap, plot_name=plot_name)) - 1]
+            #distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap, plot_name=plot_name)) - 1]
+            distance = heatmap_comparison.get_heatmap_score(heatmap, plot_name=plot_name)
             distances[edge] = distance
 
             if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
@@ -259,7 +306,7 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
 
 class PreComputedDynamicHeatmapCreator:
     """
-    Precomputes dynamic heatmaps by using reads from suitable contigs
+    Precomputes dynamic heatmaps by using reads fand rom suitable contigs
     * Finds contigs that are large enough to use for estimation
     * Iterates possible gaps between contigs
     * Emulates two smaller contig on chosen contigs and uses these to estimate counts
@@ -350,19 +397,12 @@ class PreComputedDynamicHeatmapCreator:
             last_bin = bin
 
         if n_extra_heatmaps > 0:
-            """
-            ratios = np.linspace(1, 0, n_extra_heatmaps+1)[1:]
-            for i, ratio in enumerate(ratios):
-                heatmaps[last_bin+i] = DynamicHeatmap(last_heatmap.array * ratio)
-                print("Creating extra dynamic heatmap", i)
-                print(heatmaps[last_bin+i].array)
-            """
             for i in range(n_extra_heatmaps):
-                heatmaps[last_bin+i] = DynamicHeatmap(np.maximum(0, last_heatmap.array - 1))
-                if np.all(heatmaps[last_bin+i] == 0):
+                if np.all(heatmaps[last_bin].array == 0):
                     break
+                heatmaps[last_bin+i] = DynamicHeatmap(np.maximum(0, last_heatmap.array - 1))
                 print("Creating extra dynamic heatmap", i)
-                print(heatmaps[last_bin+i].array)
+                print(heatmaps[last_bin+i].array, np.all(heatmaps[last_bin+i].array == 0))
                 last_heatmap = heatmaps[last_bin+i]
 
         return heatmaps
@@ -480,5 +520,4 @@ def get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=5, bin_size=1000):
         n_bins=n_bins,
         max_distance=max_distance
     )
-
 

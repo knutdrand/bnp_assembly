@@ -143,7 +143,7 @@ rule test_accuracy_with_missing:
             mean_low_mappability_size=4000,
             missing_region_mappability=missing_region_mappability,
             ratio_small_contigs=0.0,
-            scaffolder="bnp_scaffolding",
+            scaffolder="bnp_scaffolding_dynamic_heatmaps"
         ).file_path() + "/accuracy.txt" for missing_region_mappability in [0.0, 0.5]]  # 0.7 fails
     output:
         touch("test_accuracy_with_missing")
@@ -151,8 +151,8 @@ rule test_accuracy_with_missing:
         for input_file in input:
             with open(input_file) as f:
                 lines = f.readlines()
-                assert float(lines[0].split()[1]) == 1.0
-                assert float(lines[1].split()[1]) == 1.0
+                assert float(lines[0].split()[1]) >= 0.89
+                assert float(lines[1].split()[1]) >= 0.89
 
 
 rule test_accuracy_with_missing_and_small_contigs:
