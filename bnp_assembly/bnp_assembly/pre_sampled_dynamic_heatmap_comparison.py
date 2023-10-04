@@ -391,6 +391,7 @@ class PreComputedDynamicHeatmapCreator:
         last_bin = 0
         for bin, gap in enumerate(self._gap_distances):
             print("Creating heatmap for gap %d" % gap)
+            # todo: vectorize by adding chunk directly to the correct heatmap
             heatmap = self.get_dynamic_heatmap(next(reads), gap)
             heatmaps[bin] = heatmap
             last_heatmap = heatmap

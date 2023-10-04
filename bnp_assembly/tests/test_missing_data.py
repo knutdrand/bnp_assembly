@@ -1,14 +1,20 @@
+import logging
+logging.basicConfig(level=logging.INFO)
+import itertools
+
 import pytest
 
 from bnp_assembly.distance_distribution import distance_dist
+from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.forbes_distance_calculation import get_forbes_counts
+from bnp_assembly.make_scaffold import make_scaffold, get_numeric_contig_name_translation
 from bnp_assembly.missing_data import find_regions_with_missing_data, get_binned_read_counts, \
     find_regions_with_missing_data_from_bincounts, find_start_and_end_split_site_for_contig, \
-    find_missing_regions_at_start_and_end_of_contigs, get_missing_region_counts, find_clips
+    find_missing_regions_at_start_and_end_of_contigs, get_missing_region_counts, find_clips, find_contig_clips
 import numpy as np
 from bnp_assembly.io import PairedReadStream
-
+import bionumpy as bnp
 
 @pytest.fixture
 def contig_dict():
@@ -146,3 +152,38 @@ def bin_counts():
 
 def test_find_clips(bin_counts):
     find_clips(bin_counts, 50, 2) == (2, 3)
+
+
+# for debugging only
+@pytest.mark.skip
+def test_clip_single_real_contig_integration():
+    contig_dict = {"contig1": 15130898}
+    #genome = bnp.Genome.from_dict(contig_dict)
+    genome = bnp.Genome.from_file("testgenome2.fa.fai")
+
+    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(genome)
+    print(contig_name_translation)
+    read_filename = "test2.bam"
+    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
+    #read_stream = PairedReadStream((chunk.filter_on_contig(1)) for chunk in next(read_stream) for _ in itertools.count())
+
+    bin_size = 1000
+
+    numeric_input_data = NumericInputData(contig_sizes, read_stream)
+    contig_clips = find_contig_clips(bin_size, numeric_input_data.contig_dict, numeric_input_data.location_pairs)
+
+    print(contig_clips)
+
+    """
+    scaffold = make_scaffold(input_data,
+                             window_size=2500,
+                             distance_measure="dynamic_heatmap",
+                             threshold=-1000000000,
+                             splitting_method='matrix',
+                             bin_size=5000,
+                             max_distance=1000000,
+                             n_bins_heatmap_scoring=10)
+    """
+
+if __name__ == "__main__":
+    test_clip_single_real_contig_integration()

@@ -90,6 +90,7 @@ def get_binned_read_counts(bin_size, contig_dict, read_pairs):
     }
     assert all(np.all(bin_sizes > 0) for bin_sizes in actual_bin_sizes.values())
 
+    # todo vectorize
     for read in itertools.chain(read_pairs.location_a, read_pairs.location_b):
         counts[int(read.contig_id)][read.offset // bin_size] += 1
     return counts, actual_bin_sizes
@@ -178,6 +179,10 @@ def find_clips(bins, mean_coverage, window_size):
 def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
 
+    for contig_id, contig_bins in bins.items():
+        print("Saving debug contig %d" % contig_id)
+        np.save(f"debug_bins_contig{contig_id}.npy", contig_bins)
+
     # normalize last bin (which might be smaller)
     for key, array in bins.items():
         array[-1] *= bin_size / bin_sizes[key][-1]
@@ -185,6 +190,7 @@ def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: It
     mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values())*bin_size
     #logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
     clip_ids= {contig_id: find_clips(counts, mean_coverage/2, window_size) for contig_id, counts in bins.items()}
+    logger.info(f"Bin size when finding clips: {bin_size}")
     logger.info(f"Found clips: {clip_ids}")
     clips = {contig_id: (start_id * bin_size, contig_dict[contig_id] - end_id * bin_size) for
               contig_id, (start_id, end_id) in clip_ids.items()}

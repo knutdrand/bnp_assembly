@@ -52,7 +52,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
     input_data = FullInputData(genome, read_stream)
     logging.info("Making scaffold")
-    scaffold = make_scaffold(input_data,# genome, read_stream,
+    scaffold = make_scaffold(input_data,
                              window_size=2500,
                              distance_measure=distance_measure,
                              threshold=threshold,
@@ -93,7 +93,7 @@ def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, ma
     truth = Scaffolds.from_scaffold_alignments(truth_alignments)
     scaffolds = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(estimated_agp))
 
-    genome = bnp.Genome.from_file(contigs_fasta, filter_function=None)
+    genome = bnp.Genome.from_file(contigs_fasta)
     reads = PairedReadStream.from_bam(genome, mapped_reads_bam, mapq_threshold=20)
 
     debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder=out_path)
