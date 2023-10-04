@@ -26,7 +26,7 @@ rule run_bnp_scaffolding_dynamic_heatmaps:
         agp = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/scaffolds.agp"
     shell:
         "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold -100000000000000000000 "
-        "--bin-size 5000 --max-distance 100000 --logging-folder {params.log_folder} --distance-measure dynamic_heatmap "
+        "--bin-size 5000  --logging-folder {params.log_folder} --distance-measure dynamic_heatmap "
 
 
 

@@ -178,8 +178,9 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
         if distance_measure == 'forbes3':
             edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution, max_distance)
         elif distance_measure == 'dynamic_heatmap':
-            median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
-            max_distance_heatmaps = int(median_contig_size / 4)
+            #median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
+            #max_distance_heatmaps = int(median_contig_size / 4)
+            max_distance_heatmaps = estimate_max_distance2(numeric_input_data.contig_dict.values())
             heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=distance_kwargs["n_bins_heatmap_scoring"], max_distance=max_distance_heatmaps)
             #heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=2, max_distance=2000)
             #heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=2, bin_size=1000)
@@ -247,3 +248,17 @@ def join_all_contigs(distance_matrix):
         if len(mapping) == 1:
             return ContigPath.from_node_sides(mapping.popitem()[1])
     assert False
+
+
+def estimate_max_distance2(contig_sizes: Iterable[int]):
+    """
+    Finds a distance so contigs > 4x this distance cover at least 50%
+    """
+    sorted = np.sort(list(contig_sizes))[::-1]
+    print("Contig sizes: ", contig_sizes)
+    cumsum = np.cumsum(sorted)
+    print("CUmsum", cumsum)
+    total_size = cumsum[-1]
+    print("Total contig sizes: ", total_size)
+    cutoff = np.searchsorted(cumsum, total_size // 4, side="right")
+    return sorted[cutoff] // 4

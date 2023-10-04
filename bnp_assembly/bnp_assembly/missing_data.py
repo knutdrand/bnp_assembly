@@ -193,10 +193,6 @@ def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Pa
     assert isinstance(read_pairs, PairedReadStream)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
 
-    for contig_id, contig_bins in bins.items():
-        print("Saving debug contig %d" % contig_id)
-        np.save(f"debug_bins_contig{contig_id}.npy", contig_bins)
-
     # normalize last bin (which might be smaller)
     for key, array in bins.items():
         array[-1] *= bin_size / bin_sizes[key][-1]

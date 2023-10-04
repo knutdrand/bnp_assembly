@@ -4,7 +4,7 @@ import numpy as np
 from numpy.testing import assert_array_equal
 import pytest
 
-from bnp_assembly.cli import estimate_max_distance2
+from bnp_assembly.make_scaffold import estimate_max_distance2
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, PreComputedDynamicHeatmapCreator, \
     DynamicHeatmapConfig, find_bins_with_even_number_of_reads, get_dynamic_heatmap_config_with_even_bins, \

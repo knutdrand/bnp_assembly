@@ -16,7 +16,7 @@ from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold
+from bnp_assembly.make_scaffold import make_scaffold, estimate_max_distance2
 from .simulation import hic_read_simulation
 import logging
 from . import plotting
@@ -27,17 +27,6 @@ app = typer.Typer()
 
 def estimate_max_distance(contig_sizes: Iterable[int]):
     return int(np.median(list(contig_sizes)) / 4)
-
-
-def estimate_max_distance2(contig_sizes: Iterable[int]):
-    """
-    Finds a distance so contigs > 4x this distance cover at least 50%
-    """
-    sorted = np.sort(list(contig_sizes))[::-1]
-    cumsum = np.cumsum(sorted)
-    total_size = cumsum[-1]
-    cutoff = np.searchsorted(cumsum, total_size // 2, side="right")
-    return sorted[cutoff] // 4
 
 
 @app.command()

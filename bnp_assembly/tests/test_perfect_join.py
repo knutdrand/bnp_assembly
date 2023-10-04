@@ -28,7 +28,7 @@ def test_perfect_join(folder_name, methods):
 
     input_data = FullInputData(genome, PairedReadStream(([reads.get_numeric_locations()] for _ in count())))
     scaffold = make_scaffold(input_data, distance_measure=methods[0], threshold=0.2,
-                             window_size=2500, splitting_method=methods[1], n_bins_heatmap_scoring=4)
+                             window_size=2500, splitting_method=methods[1], n_bins_heatmap_scoring=3)
     alignments = scaffold.to_scaffold_alignments(genome, 200)
     true_alignments = ScaffoldAlignments.from_agp(folder_name + "/truth.agp")
     for key, group in bnp.groupby(alignments, 'scaffold_id'):
