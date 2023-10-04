@@ -3,6 +3,8 @@ import itertools
 import numpy as np
 from numpy.testing import assert_array_equal
 import pytest
+
+from bnp_assembly.cli import estimate_max_distance2
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, PreComputedDynamicHeatmapCreator, \
     DynamicHeatmapConfig, find_bins_with_even_number_of_reads, get_dynamic_heatmap_config_with_even_bins, \
@@ -239,4 +241,12 @@ def test_heatmap_comparison():
         [100, 100]
     ])
 
+
+def test_max_distance2():
+    contig_sizes = [2, 50, 3, 5, 3]
+    correct = 50 // 4
+    #assert estimate_max_distance2(contig_sizes) == correct
+
+    contig_sizes = [2, 1, 3, 100, 60, 1, 1]
+    assert estimate_max_distance2(contig_sizes) == 100 // 4
 

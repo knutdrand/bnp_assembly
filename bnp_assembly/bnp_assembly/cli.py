@@ -29,6 +29,17 @@ def estimate_max_distance(contig_sizes: Iterable[int]):
     return int(np.median(list(contig_sizes)) / 4)
 
 
+def estimate_max_distance2(contig_sizes: Iterable[int]):
+    """
+    Finds a distance so contigs > 4x this distance cover at least 50%
+    """
+    sorted = np.sort(list(contig_sizes))[::-1]
+    cumsum = np.cumsum(sorted)
+    total_size = cumsum[-1]
+    cutoff = np.searchsorted(cumsum, total_size // 2, side="right")
+    return sorted[cutoff] // 4
+
+
 @app.command()
 def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
              logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None,
@@ -43,7 +54,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
     if max_distance is None:
-        max_distance = estimate_max_distance(genome.get_genome_context().chrom_sizes.values())
+        max_distance = estimate_max_distance2(genome.get_genome_context().chrom_sizes.values())
         max_distance = max(bin_size*2, max_distance)
         max_distance -= max_distance % bin_size  # max distance must be divisible by bin size
         logging.info("Chose max distance from contig ends to be %d" % max_distance)
