@@ -62,6 +62,7 @@ def read_pairs():
     return read_pairs
 
 
+#@pytest.mark.xfail
 def test_create_dynamic_heatmap(config, genome, read_pairs):
     creator = PreComputedDynamicHeatmapCreator(genome, config, n_precomputed_heatmaps=2)
     assert creator._get_suitable_contigs_for_estimation() == [1, 3]

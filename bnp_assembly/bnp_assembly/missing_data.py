@@ -8,6 +8,7 @@ import logging
 
 from .util import add_dict_counts
 from .plotting import px
+from .change_point import find_change_point
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,7 @@ def find_end_clip(bins, window_size, mean_coverage):
 
 
 def find_start_clip(bins, window_size, mean_coverage):
+    return find_change_point(bins[0:len(bins)//2])
     running_sum = np.insert(np.cumsum(bins), 0, 0)
     diffs = running_sum[window_size:] - running_sum[:-window_size]
 
@@ -175,6 +177,11 @@ def find_clips(bins, mean_coverage, window_size):
 
 def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Iterable[LocationPair], window_size=10):
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
+
+    # normalize last bin (which might be smaller)
+    for key, array in bins.items():
+        array[-1] *= bin_size / bin_sizes[key][-1]
+
     mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values())*bin_size
     #logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
     clip_ids= {contig_id: find_clips(counts, mean_coverage/2, window_size) for contig_id, counts in bins.items()}

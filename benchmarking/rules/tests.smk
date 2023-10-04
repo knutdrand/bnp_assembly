@@ -144,7 +144,7 @@ rule test_accuracy_with_missing:
             missing_region_mappability=missing_region_mappability,
             ratio_small_contigs=0.0,
             scaffolder="bnp_scaffolding_dynamic_heatmaps"
-        ).file_path() + "/accuracy.txt" for missing_region_mappability in [0.0, 0.5]]  # 0.7 fails
+        ).file_path() + "/accuracy.txt" for missing_region_mappability in [0.0, 0.5, 0.7]]
     output:
         touch("test_accuracy_with_missing")
     run:
