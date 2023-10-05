@@ -14,6 +14,9 @@ class FullInputData:
     contig_genome: Genome
     paired_read_stream: Union[PairedReadStream, Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]]
 
+@dataclasses.dataclass
+class FullSplittingData(FullInputData):
+    joined_path: ScaffoldAlignments
 
 
 @dataclasses.dataclass

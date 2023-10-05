@@ -106,16 +106,20 @@ def split_contig(contig_path, contig_dict, threshold, bin_size, locations_pair):
 def make_scaffold(input_data: FullInputData,
                   *args: object,
                   **kwargs: object) -> Scaffolds:
-    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(input_data.contig_genome)
-    reads = input_data.paired_read_stream
-    if not isinstance(reads, PairedReadStream):
-        # old format, convert to numeric
-        reads = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
-                 reads)
-    numeric_input_data = NumericInputData(contig_sizes, reads)
+    contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
     contig_paths = make_scaffold_numeric(numeric_input_data, *args, **kwargs)
     scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
     return scaffold
+
+
+def get_numeric_input_data(input_data):
+    contig_sizes, contig_name_translation = get_numeric_contig_name_translation(input_data.contig_genome)
+    reads = input_data.paired_read_stream
+    if not isinstance(reads, PairedReadStream):
+        reads = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
+                 reads)
+    numeric_input_data = NumericInputData(contig_sizes, reads)
+    return contig_name_translation, numeric_input_data
 
 
 def get_numeric_contig_name_translation(genome):
@@ -140,6 +144,10 @@ def default_make_scaffold(numeric_input_data, edge_distance_finder: EdgeDistance
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data, edge_distance_finder)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
+    return numeric_split(bin_size, max_distance, numeric_input_data, path, threshold)
+
+
+def numeric_split(bin_size, max_distance, numeric_input_data, path, threshold):
     s = SplitterInterface(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs), path,
                           max_distance=max_distance, bin_size=bin_size, threshold=threshold)
     return s.split()
@@ -169,24 +177,36 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     #distance_matrix.plot(name='forbes3')
     return distance_matrix
 
+def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20):
+    cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+
+    edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bins_heatmap_scoring)
+    distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
+                                                        edge_distance_finder)
+    path = join_all_contigs(distance_matrix)
+    return path
+
+def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bins):
+    max_distance_heatmaps = min(1000000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
+    max_gap_distance = min(5000000, (
+        estimate_max_distance2(numeric_input_data.contig_dict.values()) * 2 - max_distance_heatmaps))
+    heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution,
+                                                               n_bins=n_bins,
+                                                               max_distance=max_distance_heatmaps)
+    edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config, max_gap_distance=max_gap_distance)
+    return edge_distance_finder
+
 
 def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measure='window', threshold=0.2,
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[ContigPath]:
+    if distance_measure == 'dynamic_heatmap':
+        n_bins_heatmap_scoring = n_bins = distance_kwargs["n_bins_heatmap_scoring"]
+        joined = numeric_join(numeric_input_data, n_bins_heatmap_scoring)
+        return numeric_split(bin_size, max_distance, numeric_input_data, joined, threshold)
 
-    if distance_measure in ('forbes3', 'dynamic_heatmap') and splitting_method != 'poisson':
+    if distance_measure =='forbes3' and splitting_method != 'poisson':
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
-        if distance_measure == 'forbes3':
-            edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution, max_distance)
-        elif distance_measure == 'dynamic_heatmap':
-            #median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
-            #max_distance_heatmaps = int(median_contig_size / 4)
-            max_distance_heatmaps = min(1000000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
-            max_gap_distance = min(5000000, (estimate_max_distance2(numeric_input_data.contig_dict.values())*2 - max_distance_heatmaps))
-            heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=distance_kwargs["n_bins_heatmap_scoring"], max_distance=max_distance_heatmaps)
-            #heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=2, max_distance=2000)
-            #heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=2, bin_size=1000)
-            edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config, max_gap_distance=max_gap_distance)
-
+        edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution, max_distance)
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
 
     contig_dict, read_pairs = numeric_input_data.contig_dict, next(numeric_input_data.location_pairs)

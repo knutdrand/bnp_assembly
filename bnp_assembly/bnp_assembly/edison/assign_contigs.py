@@ -42,9 +42,9 @@ def setup():
     )
 
     parser.add_argument(
-        "-t", 
-        "--threads", 
-        default="1", 
+        "-t",
+        "--threads",
+        default="1",
         help="Number of threads to use."
     )
 
@@ -67,14 +67,14 @@ def setup():
 
 def run_mummer(reference: pathlib.Path, assembly: pathlib.Path, threads: int):
     """
-    MUMmer produces a coordinates file which describes the alignment of 
-    sequences. We parse this file and produce a pandas dataframe. 
+    MUMmer produces a coordinates file which describes the alignment of
+    sequences. We parse this file and produce a pandas dataframe.
 
     Args:
-        filename: The file path to the MUMmer show-coords coordinate file. 
+        filename: The file path to the MUMmer show-coords coordinate file.
 
-    Returns: 
-        A pandas dataframe containing all the columns of the MUMmer output. 
+    Returns:
+        A pandas dataframe containing all the columns of the MUMmer output.
     """
 
     # Run nucmer.
@@ -92,7 +92,7 @@ def run_mummer(reference: pathlib.Path, assembly: pathlib.Path, threads: int):
             stdout=outfile,
         )
 
-    # Read the MUMmer output. 
+    # Read the MUMmer output.
     alignment = read_mummer("coordinates.txt")
 
     # Clean up.
@@ -105,14 +105,14 @@ def run_mummer(reference: pathlib.Path, assembly: pathlib.Path, threads: int):
 
 def read_mummer(filename: pathlib.Path) -> pd.DataFrame:
     """
-    MUMmer produces a coordinates file which describes the alignment of 
-    sequences. We parse this file and produce a pandas dataframe. 
+    MUMmer produces a coordinates file which describes the alignment of
+    sequences. We parse this file and produce a pandas dataframe.
 
     Args:
-        filename: The file path to the MUMmer show-coords coordinate file. 
+        filename: The file path to the MUMmer show-coords coordinate file.
 
-    Returns: 
-        A pandas dataframe containing all the columns of the MUMmer output. 
+    Returns:
+        A pandas dataframe containing all the columns of the MUMmer output.
     """
 
     with open(filename) as infile:
@@ -167,19 +167,19 @@ def read_mummer(filename: pathlib.Path) -> pd.DataFrame:
 def remove_alignments(group, min_length: int=1000, min_coverage: float=0.2):
     """
     Since MUMmer aligns sections of a sequence, it can produce multiple regions
-    of alignment for a given sequence. We filter out low alignments using this 
-    function. 
+    of alignment for a given sequence. We filter out low alignments using this
+    function.
 
     Args:
-        group: A pandas group_by group. 
+        group: A pandas group_by group.
         min_length: The minimum length a sequence needs to align to a reference,
-            by summing all of its constituent alignments. 
+            by summing all of its constituent alignments.
         min_coverage: The minimum percent of the query sequence that needs to
-            have aligned to the reference sequence. This is to prevent long 
-            sequences which meet the min_length requirement from passing. 
+            have aligned to the reference sequence. This is to prevent long
+            sequences which meet the min_length requirement from passing.
 
-    Returns: 
-         True or false, which helps with the filtering function used by pandas. 
+    Returns:
+         True or false, which helps with the filtering function used by pandas.
     """
     alignment_length = group["query_alignment_length"].sum()
     alignment_coverage = alignment_length / group["query_length"].iloc[0]
@@ -193,21 +193,21 @@ def remove_alignments(group, min_length: int=1000, min_coverage: float=0.2):
 def get_assignments(df: pd.DataFrame, reference_lengths: dict, assembly_lengths: dict) -> tuple:
     """
     Creates an AGP compatible dictionary for how contigs ought to be scaffolded
-    based on their alignments to a reference genome. 
+    based on their alignments to a reference genome.
 
     Args:
-        df: The pandas dataframe with the alignments between the assembly and 
-            reference genome. 
-        reference_lengths: A dictionary containing sequence lengths for the 
-            reference genome. 
-        assembly_lengths: A dictionary containing sequence lengths for the 
-            assembly. 
+        df: The pandas dataframe with the alignments between the assembly and
+            reference genome.
+        reference_lengths: A dictionary containing sequence lengths for the
+            reference genome.
+        assembly_lengths: A dictionary containing sequence lengths for the
+            assembly.
 
-    Returns: 
+    Returns:
          A dictionary which describes the optimal scaffolding of contigs based
          on their alignments. It is used to create an AGP file. Also returned is
-         the number of reference chromosomes which were skipped due to low 
-         alignments. 
+         the number of reference chromosomes which were skipped due to low
+         alignments.
     """
 
     # Keep a list of contigs in the assembly.
@@ -259,34 +259,34 @@ def get_assignments(df: pd.DataFrame, reference_lengths: dict, assembly_lengths:
 
 def plot(df: pd.DataFrame, reference: dict, assembly: dict, filename: pathlib.Path):
     """
-    Plot how contigs are scaffolded on the reference genome compared to how they 
-    are scaffolded in the assembly. 
+    Plot how contigs are scaffolded on the reference genome compared to how they
+    are scaffolded in the assembly.
 
     Args:
-        df: The pandas dataframe with the alignments between the assembly and 
-            reference genome. 
-        reference: An AGP compatible dictionary showing ideal scaffolding. 
+        df: The pandas dataframe with the alignments between the assembly and
+            reference genome.
+        reference: An AGP compatible dictionary showing ideal scaffolding.
         assembly: An AGP compatible dictionary showing actual scaffolding.
     """
 
-    # Assign scaffold names to the dataframe since they get lost during the 
-    # MUMmer alignment. 
+    # Assign scaffold names to the dataframe since they get lost during the
+    # MUMmer alignment.
     for scaffold_name in assembly:
         for query_name in assembly[scaffold_name]:
             if query_name in df.index.get_level_values("query_name").unique():
                 df.loc[query_name, "scaffold_name"] = scaffold_name
 
-    # Compute the center of each scaffold so that they can be ordered by how 
-    # they appear on a chromosome.  
+    # Compute the center of each scaffold so that they can be ordered by how
+    # they appear on a chromosome.
     df["scaffold_weighted_center"] = df.groupby(by=["reference_name", "scaffold_name"])[
         "mean_weighted_center"
     ].transform(np.mean)
     df.sort_values(["reference_name", "scaffold_weighted_center"], inplace=True)
 
-    # Create a pdf. 
+    # Create a pdf.
     with PdfPages(filename) as pdf:
 
-        # For each reference chromosome - 
+        # For each reference chromosome -
         for reference_name in reference:
 
             i = 0
@@ -295,7 +295,7 @@ def plot(df: pd.DataFrame, reference: dict, assembly: dict, filename: pathlib.Pa
             reference_maximum = reference[reference_name]
             maximum = reference_maximum
 
-            # Rotate five colors. 
+            # Rotate five colors.
             light_colors = [
                 "#64b0e4",
                 "#ff9e49",
@@ -487,13 +487,13 @@ def main(
 
     alignment = run_mummer(reference=reference, assembly=assembly, threads=threads)
 
-    # If something goes wrong in the MUMmer process, stop the program. 
+    # If something goes wrong in the MUMmer process, stop the program.
     if alignment is None:
         return
 
     contig_lengths = fasta.lengths(assembly)
 
-    # Count the number of aligned contigs. 
+    # Count the number of aligned contigs.
     aligned_contigs = len(alignment.index.get_level_values("query_name").unique())
 
     # Filter out contigs with low alignment coverage or low alignment lengths.

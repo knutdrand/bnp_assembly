@@ -30,12 +30,12 @@ def break_scaffold(sequence: str, n: int = 10) -> list:
 
     Args:
         sequence: A sequence of nucleotides.
-        n: The number of N's in a row we need to observe before breaking a 
-            scaffold. 
+        n: The number of N's in a row we need to observe before breaking a
+            scaffold.
 
-    Returns: 
-        A list of strings, where each string is set of nucleotides found before 
-        or after a series of N's. 
+    Returns:
+        A list of strings, where each string is set of nucleotides found before
+        or after a series of N's.
     """
 
     contigs = []
@@ -66,34 +66,34 @@ def break_scaffold(sequence: str, n: int = 10) -> list:
 
 def get_contigs(sequences: dict, n: int = 10) -> tuple:
     """
-    Given a set of scaffolded sequences, break the sequences at runs of Ns and 
-    then return a list of subsequences and the scaffolds they belonged to. 
+    Given a set of scaffolded sequences, break the sequences at runs of Ns and
+    then return a list of subsequences and the scaffolds they belonged to.
 
     Args:
         sequences: A sequence of nucleotides.
-        n: The number of N's in a row we need to observe before breaking a 
-            scaffold. 
+        n: The number of N's in a row we need to observe before breaking a
+            scaffold.
 
-    Returns: 
-        Two dictionaries. First, a dictionary representation of the scaffolded 
-        assembly which can be later read by agp.write() to create an AGP file. 
+    Returns:
+        Two dictionaries. First, a dictionary representation of the scaffolded
+        assembly which can be later read by agp.write() to create an AGP file.
         Second, a dictionary with contig names and sequences so that we can use
-        them later to align against the reference genome. 
+        them later to align against the reference genome.
     """
     contigs = {}
     assembly = {}
 
     for scaffold in sequences:
 
-        # If there are spaces in the seqeunce header, drop everything after the 
-        # first one. 
+        # If there are spaces in the seqeunce header, drop everything after the
+        # first one.
         scaffold_name = scaffold.split(" ")[0]
         assembly[scaffold_name] = {}
 
         # Split the scaffold sequence at Ns.
         contig_sequences = break_scaffold(sequences[scaffold])
 
-        # Record each contig found in the scaffold. 
+        # Record each contig found in the scaffold.
         contig_index = 1
         for sequence in contig_sequences:
             contig_name = f"{scaffold_name}.{contig_index}"

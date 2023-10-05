@@ -258,7 +258,7 @@ def analyse_missing_data(contigs: bnp.Genome, reads: PairedReadStream, plotting_
             regions_relative_to_border.append(pos)
 
     print(regions_relative_to_border)
-    plotting.register(missing_data=plotting.ResultFolder(plotting_folder))
+    #plotting.register(missing_data=plotting.ResultFolder(plotting_folder))
     px = plotting.px(name="missing_data")
     fig = px.histogram(regions_relative_to_border, title="Missing data", nbins=100)
     px.write_report()

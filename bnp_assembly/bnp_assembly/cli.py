@@ -36,18 +36,11 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     logging.info(f"Using threshold {threshold}")
 
     if logging_folder is not None:
-        plotting.register(splitting=plotting.ResultFolder(logging_folder+'/splitting'))
-        plotting.register(joining=plotting.ResultFolder(logging_folder+'/joining'))
-        plotting.register(dynamic_heatmaps=plotting.ResultFolder(logging_folder + '/dynamic_heatmaps'))
-        plotting.register(missing_data=plotting.ResultFolder(logging_folder + '/missing_data'))
+        register_logging(logging_folder)
 
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
-    if max_distance is None:
-        max_distance = estimate_max_distance2(genome.get_genome_context().chrom_sizes.values())
-        max_distance = max(bin_size*2, max_distance)
-        max_distance -= max_distance % bin_size  # max distance must be divisible by bin size
-        logging.info("Chose max distance from contig ends to be %d" % max_distance)
+    max_distance = set_max_distance(bin_size, genome, max_distance)
 
     logging.info("Getting genomic reads")
     read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
@@ -66,6 +59,31 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
     with bnp.open(out_file_name, "w") as f:
         f.write(sequence_entries)
+
+@app.command()
+def join(contig_file_name: str, read_filename: str, out_file_name: str):
+    genome = bnp.Genome.from_file(contig_file_name)
+    max_distance = set_max_distance(bin_size, genome, max_distance)
+    logging.info("Getting genomic reads")
+    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
+    input_data = FullInputData(genome, read_stream)
+    logging.info("Joining Path")
+
+
+def set_max_distance(bin_size, genome, max_distance):
+    if max_distance is None:
+        max_distance = estimate_max_distance2(genome.get_genome_context().chrom_sizes.values())
+        max_distance = max(bin_size * 2, max_distance)
+        max_distance -= max_distance % bin_size  # max distance must be divisible by bin size
+        logging.info("Chose max distance from contig ends to be %d" % max_distance)
+    return max_distance
+
+
+def register_logging(logging_folder):
+    plotting.register(splitting=plotting.ResultFolder(logging_folder + '/splitting'))
+    plotting.register(joining=plotting.ResultFolder(logging_folder + '/joining'))
+    plotting.register(dynamic_heatmaps=plotting.ResultFolder(logging_folder + '/dynamic_heatmaps'))
+    plotting.register(missing_data=plotting.ResultFolder(logging_folder + '/missing_data'))
 
 
 @app.command()
