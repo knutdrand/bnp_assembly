@@ -54,8 +54,8 @@ def px(level=logging.INFO, name=None):
         return _registered_names[name]
     if isinstance(level, str):
         level = level_dict[level]
-    if level >= logging.getLogger().level:
-        return _px
+    #if level >= logging.getLogger().level:
+    #    return _px
     return Dummy()
 
 

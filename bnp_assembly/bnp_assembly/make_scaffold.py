@@ -177,6 +177,13 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     #distance_matrix.plot(name='forbes3')
     return distance_matrix
 
+
+def join(input_data, n_bins):
+    contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
+    contig_paths = [numeric_join(numeric_input_data, n_bins)]
+    scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
+    return scaffold
+
 def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20):
     cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
 

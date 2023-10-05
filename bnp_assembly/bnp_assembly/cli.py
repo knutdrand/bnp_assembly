@@ -16,7 +16,7 @@ from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold, estimate_max_distance2
+from bnp_assembly.make_scaffold import make_scaffold, estimate_max_distance2, join as _join
 from .simulation import hic_read_simulation
 import logging
 from . import plotting
@@ -63,11 +63,12 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
 @app.command()
 def join(contig_file_name: str, read_filename: str, out_file_name: str):
     genome = bnp.Genome.from_file(contig_file_name)
-    max_distance = set_max_distance(bin_size, genome, max_distance)
-    logging.info("Getting genomic reads")
     read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
     input_data = FullInputData(genome, read_stream)
     logging.info("Joining Path")
+    scaffold = _join(input_data, 20)
+    alignments = scaffold.to_scaffold_alignments(genome, 1)
+    alignments.to_agp(out_file_name)
 
 
 def set_max_distance(bin_size, genome, max_distance):
