@@ -43,7 +43,8 @@ def _split_contig(distance_matrix, path, T=-0.1):
     return path.split_on_edges(split_edges)
 
 
-def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs, max_distance=100000):
+def split_contig_poisson(contig_path, contig_dict, cumulative_distribution, threshold, distance_matrix, n_read_pairs,
+                         max_distance=100000):
     logging.info(f"Splitting with threshold {threshold}")
     expected_edge_counts = ExpectedEdgeCounts(contig_dict, cumulative_distribution, max_distance=max_distance)
     p_value_func = lambda observed, expected: poisson.cdf(observed, expected)
@@ -140,14 +141,23 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def default_make_scaffold(numeric_input_data, edge_distance_finder: EdgeDistanceFinder, threshold=0.2, bin_size=5000, max_distance=100000) -> List[ContigPath]:
+def default_make_scaffold(numeric_input_data, edge_distance_finder: EdgeDistanceFinder, threshold=0.2, bin_size=5000,
+                          max_distance=100000) -> List[ContigPath]:
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data, edge_distance_finder)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
-    return numeric_split(bin_size, max_distance, numeric_input_data, path, threshold)
+    return numeric_split(numeric_input_data, path, bin_size, max_distance, threshold)
 
 
-def numeric_split(bin_size, max_distance, numeric_input_data, path, threshold):
+def split(input_data, scaffold: Scaffolds):
+    contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
+    contig_paths = scaffold.to_contig_paths(contig_name_translation)
+
+    split_paths =  numeric_split(numeric_input_data, contig_paths[0])
+    return Scaffolds.from_contig_paths(split_paths, contig_name_translation)
+
+
+def numeric_split(numeric_input_data: NumericInputData, path, bin_size=5000, max_distance=100000, threshold=0.2):
     s = SplitterInterface(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs), path,
                           max_distance=max_distance, bin_size=bin_size, threshold=threshold)
     return s.split()
@@ -159,12 +169,12 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     read_pairs = numeric_input_data.location_pairs
     contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
     logger.info(f'contig_clis: {contig_clips}')
-    new_contig_dict = {contig_id: end-start for contig_id, (start, end) in contig_clips.items()}
+    new_contig_dict = {contig_id: end - start for contig_id, (start, end) in contig_clips.items()}
     assert all(v > 0 for v in new_contig_dict.values()), new_contig_dict
     del contig_dict
     clip_mapper = ClipMapper(contig_clips)
 
-    #mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
+    # mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
     # wrap clipped reads in PairedReadStream (need to have stream for some of the distance methods)
     new_read_stream = PairedReadStream((clip_mapper.map_maybe_stream(s) for s in read_pairs))
     distance_matrix = edge_distance_finder(new_read_stream, effective_contig_sizes=new_contig_dict)
@@ -173,8 +183,8 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
     # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
     # distance_matrix = forbes_obj.get_distance_matrix()
-    #distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
-    #distance_matrix.plot(name='forbes3')
+    # distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
+    # distance_matrix.plot(name='forbes3')
     return distance_matrix
 
 
@@ -184,14 +194,17 @@ def join(input_data, n_bins):
     scaffold = Scaffolds.from_contig_paths(contig_paths, contig_name_translation)
     return scaffold
 
+
 def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20):
     cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
 
-    edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bins_heatmap_scoring)
+    edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
+                                                      n_bins_heatmap_scoring)
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
                                                         edge_distance_finder)
     path = join_all_contigs(distance_matrix)
     return path
+
 
 def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bins):
     max_distance_heatmaps = min(1000000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
@@ -204,17 +217,20 @@ def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bi
     return edge_distance_finder
 
 
-def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measure='window', threshold=0.2,
-                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[ContigPath]:
+def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure='window', threshold=0.2,
+                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[
+    ContigPath]:
     if distance_measure == 'dynamic_heatmap':
         n_bins_heatmap_scoring = n_bins = distance_kwargs["n_bins_heatmap_scoring"]
         joined = numeric_join(numeric_input_data, n_bins_heatmap_scoring)
-        return numeric_split(bin_size, max_distance, numeric_input_data, joined, threshold)
+        return numeric_split(numeric_input_data, joined, bin_size, max_distance, threshold)
 
-    if distance_measure =='forbes3' and splitting_method != 'poisson':
+    if distance_measure == 'forbes3' and splitting_method != 'poisson':
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
-        edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution, max_distance)
-        return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
+        edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution,
+                                                    max_distance)
+        return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold,
+                                     max_distance=max_distance, bin_size=bin_size)
 
     contig_dict, read_pairs = numeric_input_data.contig_dict, next(numeric_input_data.location_pairs)
     if isinstance(read_pairs, List):

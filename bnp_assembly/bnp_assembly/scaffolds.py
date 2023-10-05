@@ -128,7 +128,6 @@ class Scaffolds:
                         return NodeSide(dn_a.node_id, neighbour_side)
         return None
 
-
     def to_scaffold_alignments(self, genome, padding=200):
         return np.concatenate([scaffold.to_scaffold_alignments(genome, padding) for scaffold in self._scaffolds])
 
@@ -152,5 +151,9 @@ class Scaffolds:
                      i, contig_path in enumerate(contig_paths)]
         return cls(scaffolds)
 
+    def to_contig_paths(self, translation_dict: tp.Dict[str, int]) -> tp.List[ContigPath]:
+        return [scaffold.to_contig_path(translation_dict) for scaffold in self._scaffolds]
+
     def to_sequence_entries(self, sequence_dict: str, padding: int = 200):
-        return SequenceEntry.from_entry_tuples([(scaffold.name, scaffold.to_sequence(sequence_dict, padding)) for scaffold in self._scaffolds])
+        return SequenceEntry.from_entry_tuples(
+            [(scaffold.name, scaffold.to_sequence(sequence_dict, padding)) for scaffold in self._scaffolds])

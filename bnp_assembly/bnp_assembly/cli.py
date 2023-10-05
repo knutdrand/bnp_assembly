@@ -16,7 +16,7 @@ from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold, estimate_max_distance2, join as _join
+from bnp_assembly.make_scaffold import make_scaffold, estimate_max_distance2, join as _join, split as _split
 from .simulation import hic_read_simulation
 import logging
 from . import plotting
@@ -60,6 +60,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     with bnp.open(out_file_name, "w") as f:
         f.write(sequence_entries)
 
+
 @app.command()
 def join(contig_file_name: str, read_filename: str, out_file_name: str):
     genome = bnp.Genome.from_file(contig_file_name)
@@ -69,6 +70,19 @@ def join(contig_file_name: str, read_filename: str, out_file_name: str):
     scaffold = _join(input_data, 20)
     alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_file_name)
+
+
+@app.command()
+def split(contig_file_name: str, read_filename: str, joined_scaffold_filename: str, out_file_name: str):
+    genome = bnp.Genome.from_file(contig_file_name)
+    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
+    input_data = FullInputData(genome, read_stream)
+    alignments = ScaffoldAlignments.from_agp(joined_scaffold_filename)
+    scaffold = Scaffolds.from_scaffold_alignments(alignments)
+    logging.info("Splitting Path")
+    split_scaffolds = _split(input_data, scaffold)
+    split_scaffolds.to_scaffold_alignments(genome, 1).to_agp(out_file_name)
+
 
 
 def set_max_distance(bin_size, genome, max_distance):
@@ -118,16 +132,17 @@ def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, ma
     reads = PairedReadStream.from_bam(genome, mapped_reads_bam, mapq_threshold=20)
 
     debugger = ScaffoldingDebugger(scaffolds, truth, genome, reads, plotting_folder=out_path)
-    #debugger.debug_edge(
+    # debugger.debug_edge(
     #    NodeSide("contig0", "+"),
     #    NodeSide("contig1", "-")
-    #)
+    # )
     debugger.debug_wrong_edges()
     debugger.finish()
 
 
 @app.command()
-def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float, out_base_name: str, read_name_prefix: str, mask_missing: bool = False, seed: int = 1):
+def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mean: int, signal: float,
+                 out_base_name: str, read_name_prefix: str, mask_missing: bool = False, seed: int = 1):
     np.random.seed(seed)
     hic_read_simulation.simulate_hic_from_file(contigs, n_reads, read_length, fragment_size_mean, signal, out_base_name,
                                                read_name_prefix, do_mask_missing=mask_missing)
@@ -142,7 +157,7 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str
     with open(out_file_name, "w") as f:
         f.write(f'edge_recall\t{comparison.edge_recall()}\n')
         f.write(f'edge_precision\t{comparison.edge_precision()}\n')
-    with open(out_file_name+".missing_edges", "w") as f:
+    with open(out_file_name + ".missing_edges", "w") as f:
         f.write('\n'.join([str(e) for e in missing_edges]))
 
 
