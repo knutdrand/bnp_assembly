@@ -271,10 +271,6 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         #                                                                   max_distance=max_distance)
         dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config, max_gap_distance=self._max_gap_distance)
         sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
-        #for gap, heatmap in sampled_heatmaps.items():
-        #    px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Sampled dynamic heatmap {gap}")
-
-        gap_sizes = list(sampled_heatmaps.keys())
         heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(list(sampled_heatmaps.values())[::-1], add_n_extra=3)
         heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
 
@@ -284,7 +280,6 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
             plot_name = None
             if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
                 plot_name = f"Searcshorted indexes {edge}"
-            #distance = gap_sizes[len(gap_sizes) - int(heatmap_comparison.locate_heatmap(heatmap, plot_name=plot_name)) - 1]
             distance = heatmap_comparison.get_heatmap_score(heatmap, plot_name=plot_name)
             distances[edge] = distance
 
@@ -395,13 +390,7 @@ class PreComputedDynamicHeatmapCreator:
         print("Using gap sizes %s" % self._gap_distances)
         heatmaps = self.get_dynamic_heatmaps(next(reads), self._gap_distances)
         last_bin, last_heatmap = len(heatmaps)-1, heatmaps[-1]
-        # for bin, gap in enumerate(self._gap_distances):
-        #     print("Creating heatmap for gap %d" % gap)
-        #     # todo: vectorize by adding chunk directly to the correct heatmap
-        #     heatmap = self.get_dynamic_heatmap(next(reads), gap)
-        #     heatmaps[bin] = heatmap
-        #     last_heatmap = heatmap
-        #     last_bin = bin
+
         heatmaps = dict(enumerate(heatmaps))
         if n_extra_heatmaps > 0:
             for i in range(n_extra_heatmaps):

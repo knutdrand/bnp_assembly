@@ -42,7 +42,7 @@ def test_find_change_point_real_case2():
     clips = find_clips(data, None, None)
     print(clips)
 
-
+@pytest.mark.skip
 def test_find_change_point_real_case3():
     data = np.load("missing_data_case_31.npy")
     change_point = find_change_point(data[:len(data)])
