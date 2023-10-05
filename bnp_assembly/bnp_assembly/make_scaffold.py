@@ -136,7 +136,7 @@ class Scaffolder:
         return self.splitter(path, contig_dict, next(read_pairs_iter))
 
 
-def default_make_scaffold(numeric_input_data, edge_distance_finder: EdgeDistanceFinder, threshold=0.2, bin_size=5000, max_distance=100000):
+def default_make_scaffold(numeric_input_data, edge_distance_finder: EdgeDistanceFinder, threshold=0.2, bin_size=5000, max_distance=100000) -> List[ContigPath]:
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data, edge_distance_finder)
     path = join_all_contigs(distance_matrix)
     logger.info(f"Joined contigs: {path}")
@@ -171,7 +171,7 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
 
 
 def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measure='window', threshold=0.2,
-                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) ->:
+                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[ContigPath]:
 
     if distance_measure in ('forbes3', 'dynamic_heatmap') and splitting_method != 'poisson':
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)

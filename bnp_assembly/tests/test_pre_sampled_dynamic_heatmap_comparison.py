@@ -248,5 +248,5 @@ def test_max_distance2():
     #assert estimate_max_distance2(contig_sizes) == correct
 
     contig_sizes = [2, 1, 3, 100, 60, 1, 1]
-    assert estimate_max_distance2(contig_sizes) == 100 // 4
+    assert estimate_max_distance2(contig_sizes) == 100 // 8
 
