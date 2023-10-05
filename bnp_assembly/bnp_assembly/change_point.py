@@ -12,9 +12,10 @@ def find_change_point(data):
     means_a = cumsum / np.arange(1, len(data) + 1)
     means_b = (total - cumsum) / np.arange(len(data), 0, -1)
     likelihoods = [scipy.stats.poisson(mean_a).logpmf(data[:i+1]).sum() + scipy.stats.poisson(mean_b).logpmf(data[i+1:]).sum()
-                   for i, (mean_a, mean_b) in enumerate(zip(means_a, means_b)) if mean_a<mean_b//2]
+                   if mean_a < mean_b // 2 else -np.inf
+                   for i, (mean_a, mean_b) in enumerate(zip(means_a, means_b)) ]
 
-    if len(likelihoods) == 0:
+    if len(likelihoods) == 0 or np.all(np.isinf(likelihoods)):
         return 0
     change_point = np.argmax(likelihoods) + 1
     # for i, value in enumerate(data):

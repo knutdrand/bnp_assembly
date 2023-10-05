@@ -171,7 +171,7 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
 
 
 def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measure='window', threshold=0.2,
-                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs):
+                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) ->:
 
     if distance_measure in ('forbes3', 'dynamic_heatmap') and splitting_method != 'poisson':
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
@@ -181,10 +181,11 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
             #median_contig_size = np.median(list(numeric_input_data.contig_dict.values()))
             #max_distance_heatmaps = int(median_contig_size / 4)
             max_distance_heatmaps = min(1000000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
+            max_gap_distance = min(5000000, (estimate_max_distance2(numeric_input_data.contig_dict.values())*2 - max_distance_heatmaps))
             heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=distance_kwargs["n_bins_heatmap_scoring"], max_distance=max_distance_heatmaps)
             #heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution, n_bins=2, max_distance=2000)
             #heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=2, bin_size=1000)
-            edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config)
+            edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config, max_gap_distance=max_gap_distance)
 
         return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold, max_distance=max_distance, bin_size=bin_size)
 
@@ -239,7 +240,7 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData,  distance_measur
     return paths
 
 
-def join_all_contigs(distance_matrix):
+def join_all_contigs(distance_matrix) -> ContigPath:
     mapping = None
     for _ in range(len(distance_matrix) // 2):
         paths = PathFinder(distance_matrix).run()
@@ -252,13 +253,10 @@ def join_all_contigs(distance_matrix):
 
 def estimate_max_distance2(contig_sizes: Iterable[int]):
     """
-    Finds a distance so contigs > 4x this distance cover at least 50%
+    Finds a distance so contigs >  this distance cover at least 10% of total genome
     """
     sorted = np.sort(list(contig_sizes))[::-1]
-    print("Contig sizes: ", contig_sizes)
     cumsum = np.cumsum(sorted)
-    print("CUmsum", cumsum)
     total_size = cumsum[-1]
-    print("Total contig sizes: ", total_size)
-    cutoff = np.searchsorted(cumsum, total_size // 4, side="right")
-    return sorted[cutoff] // 4
+    cutoff = np.searchsorted(cumsum, total_size // 10, side="right")
+    return sorted[cutoff] // 8

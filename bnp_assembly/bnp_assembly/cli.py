@@ -39,6 +39,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
         plotting.register(splitting=plotting.ResultFolder(logging_folder+'/splitting'))
         plotting.register(joining=plotting.ResultFolder(logging_folder+'/joining'))
         plotting.register(dynamic_heatmaps=plotting.ResultFolder(logging_folder + '/dynamic_heatmaps'))
+        plotting.register(missing_data=plotting.ResultFolder(logging_folder + '/missing_data'))
 
     out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
@@ -59,7 +60,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                              splitting_method='matrix',
                              bin_size=bin_size,
                              max_distance=max_distance,
-                             n_bins_heatmap_scoring=10)
+                             n_bins_heatmap_scoring=20)
     alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_directory + "/scaffolds.agp")
     sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
@@ -88,6 +89,7 @@ def missing_data(contig_fasta: str, reads: str, out_folder: str, bin_size: int =
 
 @app.command()
 def debug_scaffolding(contigs_fasta: str, estimated_agp: str, truth_agp: str, mapped_reads_bam: str, out_path: str):
+    plotting.register(missing_data=plotting.ResultFolder(out_path + '/missing_data'))
 
     truth_alignments = ScaffoldAlignments.from_agp(truth_agp)
     truth = Scaffolds.from_scaffold_alignments(truth_alignments)

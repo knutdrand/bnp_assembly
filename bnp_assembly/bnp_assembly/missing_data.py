@@ -1,3 +1,5 @@
+import logging
+logging.basicConfig(level=logging.INFO)
 from npstructures import RaggedArray, RaggedShape
 
 from .graph_objects import NodeSide, Edge
@@ -163,7 +165,7 @@ def find_end_clip(bins, window_size, mean_coverage):
 
 
 def find_start_clip(bins, window_size, mean_coverage):
-    return find_change_point(bins[0:len(bins) // 2])
+    return find_change_point(bins[0:len(bins)])
     running_sum = np.insert(np.cumsum(bins), 0, 0)
     diffs = running_sum[window_size:] - running_sum[:-window_size]
 
@@ -194,6 +196,10 @@ def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Pa
     # normalize last bin (which might be smaller)
     for key, array in bins.items():
         array[-1] *= bin_size / bin_sizes[key][-1]
+
+    for node, b in bins.items():
+        px(name="missing_data").array(b, title=f"bin counts contig {node}")
+        px(name="missing_data").line(b, title=f"bin counts contig {node}")
 
     mean_coverage = sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values()) * bin_size
     # logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")

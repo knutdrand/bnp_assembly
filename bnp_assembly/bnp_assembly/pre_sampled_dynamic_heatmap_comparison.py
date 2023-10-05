@@ -28,12 +28,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_gap_distances(max_distances, n):
-    divisor = min(max_distances / (n-1), 500)
-    nth_root = np.power(max_distances // divisor, 1/(n-1))
+def get_gap_distances(max_gap_distance, n):
+    divisor = min(max_gap_distance / (n - 1), 500)
+    nth_root = np.power(max_gap_distance // divisor, 1 / (n - 1))
     gaps = np.array([int(divisor * np.power(nth_root, i)) for i in range(n-1)])
     # ignore gaps larger than max distance / 2
-    gaps = np.array([g for g in gaps if g < max_distances] + [max_distances])
+    gaps = np.array([g for g in gaps if g < max_gap_distance] + [max_gap_distance])
     assert np.all(gaps[1:] > 0), gaps
     print("Gaps found", gaps)
     return gaps
@@ -157,19 +157,10 @@ class HeatmapComparisonRowColumns(HeatmapComparison):
             new_rows.append(cur_row_sums)
             new_cols.append(cur_col_sums)
             remaining_extra -= 1
-            print(remaining_extra)
-            print(cur_row_sums)
-            print(cur_col_sums)
 
         if len(new_rows):
             row_sums = np.concatenate([new_rows[::-1], row_sums])
             col_sums = np.concatenate([new_cols[::-1], col_sums])
-
-        print(row_sums)
-        print(col_sums)
-
-
-        print("Row/col sums")
 
         row_sums = np.maximum.accumulate(row_sums, axis=0)
         col_sums = np.maximum.accumulate(col_sums, axis=0)
@@ -188,7 +179,7 @@ class HeatmapComparisonRowColumns(HeatmapComparison):
         col_idx = [np.searchsorted(self._col_sums[:, n_rows-1, j], col_sums[j]) for j in range(n_cols)]
 
         scores = np.concatenate([row_idx, col_idx])
-        best = np.median(scores)
+        best = np.mean(scores)
         if plot_name is not None:
             px(name="dynamic_heatmaps").bar(scores, title=plot_name)
             print(plot_name, scores, "Median:", best)
@@ -264,19 +255,21 @@ def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data: NumericI
 
 
 class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
-    def __init__(self, heatmap_config: DynamicHeatmapConfig = log_config):
+    def __init__(self, heatmap_config: DynamicHeatmapConfig = log_config, max_gap_distance=None):
         self._heatmap_config = heatmap_config
+        self._max_gap_distance = max_gap_distance
 
     def __call__(self, reads: PairedReadStream, effective_contig_sizes):
         """
         Returns a DirectedDistanceMatrix with "distances" using the dynamic heatmap method
         (comparing heatmaps for contigs against background heatmaps)
         """
+
         #edge_distances = get_distance_counts_using_dynamic_heatmaps(NumericInputData(effective_contig_sizes, reads))
         input_data = NumericInputData(effective_contig_sizes, reads)
         assert isinstance(input_data.location_pairs, PairedReadStream), type(input_data.location_pairs)
         #                                                                   max_distance=max_distance)
-        dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config)
+        dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config, max_gap_distance=self._max_gap_distance)
         sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
         #for gap, heatmap in sampled_heatmaps.items():
         #    px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Sampled dynamic heatmap {gap}")
@@ -312,12 +305,15 @@ class PreComputedDynamicHeatmapCreator:
     * Iterates possible gaps between contigs
     * Emulates two smaller contig on chosen contigs and uses these to estimate counts
     """
-    def __init__(self, genome: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config, n_precomputed_heatmaps=10):
+    def __init__(self, genome: Dict[int, int], heatmap_config: DynamicHeatmapConfig = log_config, n_precomputed_heatmaps=10, max_gap_distance=None):
         self._config = heatmap_config
         self._contig_sizes = genome
         self._size_array = np.zeros(max(self._contig_sizes.keys())+1, dtype=int)
         self._size_array[list(self._contig_sizes.keys())] = list(self._contig_sizes.values())
-        self._gap_distances = get_gap_distances(self._config.max_distance, n_precomputed_heatmaps)
+        if max_gap_distance is None:
+            max_gap_distance = self._config.max_distance
+
+        self._gap_distances = get_gap_distances(max_gap_distance, n_precomputed_heatmaps)
         self._chosen_contigs = self._get_suitable_contigs_for_estimation()
         self._chosen_contig_mask = np.zeros(max(self._contig_sizes.keys())+1, dtype=bool)
         self._chosen_contig_mask[self._chosen_contigs] = True
@@ -412,8 +408,8 @@ class PreComputedDynamicHeatmapCreator:
                 if np.all(heatmaps[last_bin].array == 0):
                     break
                 heatmaps[last_bin+i] = DynamicHeatmap(np.maximum(0, last_heatmap.array - 1))
-                print("Creating extra dynamic heatmap", i)
-                print(heatmaps[last_bin+i].array, np.all(heatmaps[last_bin+i].array == 0))
+                #print("Creating extra dynamic heatmap", i)
+                #print(heatmaps[last_bin+i].array, np.all(heatmaps[last_bin+i].array == 0))
                 last_heatmap = heatmaps[last_bin+i]
 
         return heatmaps

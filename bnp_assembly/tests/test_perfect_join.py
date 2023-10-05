@@ -20,6 +20,7 @@ from bnp_assembly.make_scaffold import make_scaffold
 def test_perfect_join(folder_name, methods):
     plotting.register(dynamic_heatmaps=plotting.ResultFolder('testplots/dynamic_heatmaps'))
     plotting.register(joining=plotting.ResultFolder('testplots/joining'))
+    plotting.register(missing_data=plotting.ResultFolder('testplots/missing_data'))
     #plotting.register(splitting=plotting.ResultFolder('./tmp-splitting/'))
     genome_file_name = folder_name + "/contigs.chrom.sizes"
     genome = bnp.Genome.from_file(genome_file_name)
@@ -50,3 +51,7 @@ def test_perfect_join(folder_name, methods):
 
     assert comparison.edge_recall() >= criterion, comparison.missing_edges()
     assert comparison.edge_precision() >= criterion, comparison.false_edges()
+
+
+if __name__ == "__main__":
+    test_perfect_join("../example_data/simulated_perfect_join", ("dynamic_heatmap", "matrix"))
