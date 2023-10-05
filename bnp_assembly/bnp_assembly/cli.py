@@ -83,8 +83,6 @@ def split(contig_file_name: str, read_filename: str, joined_scaffold_filename: s
     split_scaffolds = _split(input_data, scaffold)
     split_scaffolds.to_scaffold_alignments(genome, 1).to_agp(out_file_name)
 
-
-
 def set_max_distance(bin_size, genome, max_distance):
     if max_distance is None:
         max_distance = estimate_max_distance2(genome.get_genome_context().chrom_sizes.values())

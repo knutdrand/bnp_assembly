@@ -7,6 +7,7 @@ from numpy.testing import assert_array_equal
 from scipy.stats import poisson
 
 from bnp_assembly.clip_mapper import ClipMapper
+from bnp_assembly.clustering import cluster_split
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
@@ -16,6 +17,7 @@ from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDist
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
 from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
+from bnp_assembly.location import LocationPair
 from bnp_assembly.missing_data import find_contig_clips
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
@@ -117,8 +119,7 @@ def get_numeric_input_data(input_data):
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(input_data.contig_genome)
     reads = input_data.paired_read_stream
     if not isinstance(reads, PairedReadStream):
-        reads = (genomic_location_pair.get_numeric_locations() for genomic_location_pair in
-                 reads)
+        reads = PairedReadStream(genomic_location_pair.get_numeric_locations() for genomic_location_pair in reads)
     numeric_input_data = NumericInputData(contig_sizes, reads)
     return contig_name_translation, numeric_input_data
 
@@ -157,7 +158,10 @@ def split(input_data, scaffold: Scaffolds):
     return Scaffolds.from_contig_paths(split_paths, contig_name_translation)
 
 
+
 def numeric_split(numeric_input_data: NumericInputData, path, bin_size=5000, max_distance=100000, threshold=0.2):
+    assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
+    return cluster_split(numeric_input_data, path)
     s = SplitterInterface(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs), path,
                           max_distance=max_distance, bin_size=bin_size, threshold=threshold)
     return s.split()
@@ -218,10 +222,10 @@ def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bi
 
 
 def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure='window', threshold=0.2,
-                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[
-    ContigPath]:
+                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[ContigPath]:
+    assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
     if distance_measure == 'dynamic_heatmap':
-        n_bins_heatmap_scoring = n_bins = distance_kwargs["n_bins_heatmap_scoring"]
+        n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
         joined = numeric_join(numeric_input_data, n_bins_heatmap_scoring)
         return numeric_split(numeric_input_data, joined, bin_size, max_distance, threshold)
 

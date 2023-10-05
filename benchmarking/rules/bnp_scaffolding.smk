@@ -1,5 +1,4 @@
 
-
 rule run_bnp_scaffolding:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",

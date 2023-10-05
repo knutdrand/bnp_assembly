@@ -41,6 +41,6 @@ def generate_training_from_contig_sizes(scaffold_aligments, n_reads=1000):
     # create_heatmap_figure(scaffold_aligments, 1000, scaffold_genome, scaffold_pair)[0].show()
     numeric_location_pair = genomic_location_pair.get_numeric_locations()
     # pair = StreamedGenomicLocationPair(genomic_location_pair for _ in itertools.count())
-    paired_read_stream = PairedReadStream(numeric_location_pair for _ in itertools.count())
+    paired_read_stream = PairedReadStream([numeric_location_pair] for _ in itertools.count())
     input_data = FullInputData(genome, paired_read_stream)
     return input_data, scaffold_genome, mapped
