@@ -15,6 +15,7 @@ from .scaffold_splitting.binned_bayes import Yahs
 import logging
 logger = logging.getLogger(__name__)
 
+
 def split_on_scores(contig_path, edge_scores, threshold, keep_over=True):
     px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores')
     if keep_over:

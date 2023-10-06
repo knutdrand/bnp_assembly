@@ -155,10 +155,10 @@ def default_make_scaffold(numeric_input_data, edge_distance_finder: EdgeDistance
 def split(input_data, scaffold: Scaffolds):
     contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
     contig_paths = scaffold.to_contig_paths(contig_name_translation)
-
-    split_paths =  numeric_split(numeric_input_data, contig_paths[0])
+    logger.info(f'Splitting path: {contig_paths[0]}')
+    split_paths = numeric_split(numeric_input_data, contig_paths[0])
+    logger.info(f'After split: {split_paths}')
     return Scaffolds.from_contig_paths(split_paths, contig_name_translation)
-
 
 
 def numeric_split(numeric_input_data: NumericInputData, path, bin_size=5000, max_distance=100000, threshold=0.2):

@@ -170,7 +170,7 @@ rule test_accuracy_with_missing_and_small_contigs:
             mean_low_mappability_size=2000,
             missing_region_mappability=0,
             ratio_small_contigs=0.5,
-            scaffolder="bnp_scaffolding",
+            scaffolder="bnp_scaffolding_dynamic_heatmaps",
         ).file_path() + "/accuracy.txt"
     output:
         touch("test_accuracy_with_missing_and_small_contigs")

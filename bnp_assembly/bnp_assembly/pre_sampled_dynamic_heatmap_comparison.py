@@ -35,7 +35,7 @@ def get_gap_distances(max_gap_distance, n):
     # ignore gaps larger than max distance / 2
     gaps = np.array([g for g in gaps if g < max_gap_distance] + [max_gap_distance])
     assert np.all(gaps[1:] > 0), gaps
-    print("Gaps found", gaps)
+    logger.info(f'Gaps found {gaps}')
     return gaps
 
 
@@ -182,7 +182,7 @@ class HeatmapComparisonRowColumns(HeatmapComparison):
         best = np.mean(scores)
         if plot_name is not None:
             px(name="dynamic_heatmaps").bar(scores, title=plot_name)
-            print(plot_name, scores, "Median:", best)
+            # print(plot_name, scores, "Median:", best)
 
         if best >= len(self._row_sums):
             best = len(self._row_sums) - 1
@@ -285,7 +285,7 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
 
             if edge.from_node_side.node_id == edge.to_node_side.node_id - 1:
                 px(name="dynamic_heatmaps").imshow(heatmap.array, title=f"Edge heatmap {edge}")
-                print(edge, distance)
+                # print(edge, distance)
 
         DirectedDistanceMatrix.from_edge_dict(len(input_data.contig_dict), distances).plot(
             name="dynamic_heatmap_scores").show()
@@ -312,7 +312,7 @@ class PreComputedDynamicHeatmapCreator:
         self._chosen_contigs = self._get_suitable_contigs_for_estimation()
         self._chosen_contig_mask = np.zeros(max(self._contig_sizes.keys())+1, dtype=bool)
         self._chosen_contig_mask[self._chosen_contigs] = True
-        print("Found %d contigs to estimate heatmaps from" % len(self._chosen_contigs))
+        logger.info("Found %d contigs to estimate heatmaps from" % len(self._chosen_contigs))
         assert len(self._chosen_contigs) > 0, "Did not find any contigs to estimate background dynamic heatmaps. Try setting max distance lower"
 
     def _get_suitable_contigs_for_estimation(self):
@@ -387,7 +387,7 @@ class PreComputedDynamicHeatmapCreator:
         """
         Creates dynamic heatmaps with gaps. If n_extra_heatmaps > 0, also adds n extra heatmaps by "fading" the last one to zero
         """
-        print("Using gap sizes %s" % self._gap_distances)
+        # print("Using gap sizes %s" % self._gap_distances)
         heatmaps = self.get_dynamic_heatmaps(next(reads), self._gap_distances)
         last_bin, last_heatmap = len(heatmaps)-1, heatmaps[-1]
 
@@ -485,7 +485,7 @@ def get_dynamic_heatmap_config_with_even_bins(cumulative_distance_distribution, 
     bin_borders = find_bins_with_even_number_of_reads3(cumulative_distance_distribution, n_bins, max_distance)
     #bin_size = 1000
     #bin_borders = np.arange(n_bins+1) * bin_size
-    print("Bin borders: ", bin_borders)
+    logger.info("Bin borders: {bin_borders}")
 
     def scale_func(x):
         if isinstance(x, int) and x >= max_distance:

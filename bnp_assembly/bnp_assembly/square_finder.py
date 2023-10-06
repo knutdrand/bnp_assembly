@@ -1,3 +1,4 @@
+import logging
 from itertools import chain
 from typing import List
 import plotly.express as px
@@ -7,11 +8,18 @@ import scipy.stats
 
 from bnp_assembly.clustering import count_interactions
 from bnp_assembly.contig_graph import ContigPath
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OptimalSquares:
-    def __init__(self, distance_matr):
-        pass
+    def __init__(self, distance_matrix):
+        self._distance_matrix = distance_matrix
+        self._cumulative_sum = np.cumsum(distance_matrix, axis=0)
+
+    def score_split(self, splits):
+        return get_score_for_split(self._distance_matrix, splits)
 
 
 def flatten(squares):
@@ -42,8 +50,11 @@ def find_splits(similarity_matrix: np.ndarray, max_splits: int = 10) -> List[int
     n_nodes = len(similarity_matrix)
     splits = [0, n_nodes]
     cur_score = get_score_for_split(similarity_matrix, splits)
+    optimal_squares = OptimalSquares(similarity_matrix)
+
     for split_number in range(max_splits):
-        new_score, new_split = max(((get_score_for_split(similarity_matrix, list(sorted(splits + [i]))), i)
+        logger.info(f'Finding split number {split_number}')
+        new_score, new_split = max(((optimal_squares.score_split(list(sorted(splits + [i]))), i)
                                    for i in range(1, len(similarity_matrix))))
         if new_score <= cur_score:
             return splits
@@ -62,5 +73,6 @@ def squares_split(numeric_input_data, path: ContigPath):
     size_array = np.array(list(numeric_input_data.contig_dict.values()))
     rate_matrix = interaction_counts / np.multiply.outer(size_array, size_array)
     #    px.imshow(rate_matrix).show()
+
     splits = find_splits(rate_matrix, max_splits=20)
     return split_based_on_indices(path, splits)
