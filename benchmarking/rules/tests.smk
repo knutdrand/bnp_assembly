@@ -1,6 +1,5 @@
 
 
-
 rule test_hifiasm:
     input:
         HifiasmResults.from_flat_params(
@@ -116,7 +115,7 @@ rule test_accuracy:
             source="not_assembled",
             extra_splits=20,
             split_on_n_ns=0,
-            scaffolder="bnp_scaffolding",
+            scaffolder="bnp_scaffolding_dynamic_heatmaps",
         ).file_path() + "/accuracy.txt"
     output:
         touch("test_accuracy")
@@ -195,7 +194,7 @@ rule test_athalia_rosea_real_reads:
             source="not_assembled",
             extra_splits=50,
             split_on_n_ns=0,
-            scaffolder="bnp_scaffolding",
+            scaffolder="bnp_scaffolding_dynamic_heatmaps",
         ).file_path() + "/accuracy.txt"
     output:
         touch("test_athalia_rosea_real_reads")

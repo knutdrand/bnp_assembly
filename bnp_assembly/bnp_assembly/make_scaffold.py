@@ -33,6 +33,8 @@ from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
 import logging
 
+from bnp_assembly.square_finder import squares_split
+
 logger = logging.getLogger(__name__)
 
 PathFinder = nxPathFinder
@@ -161,6 +163,7 @@ def split(input_data, scaffold: Scaffolds):
 
 def numeric_split(numeric_input_data: NumericInputData, path, bin_size=5000, max_distance=100000, threshold=0.2):
     assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
+    return squares_split(numeric_input_data, path)
     return cluster_split(numeric_input_data, path)
     s = SplitterInterface(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs), path,
                           max_distance=max_distance, bin_size=bin_size, threshold=threshold)
