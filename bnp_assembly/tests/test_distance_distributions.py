@@ -1,6 +1,6 @@
 import numpy as np
 
-from bnp_assembly.distance_distribution import calculate_distance_distritbution, distance_dist
+from bnp_assembly.distance_distribution import calculate_distance_distritbution, distance_dist, CumulativeDist2d
 from numpy.testing import assert_array_equal
 from .fixtures import contig_dict, read_pairs
 
@@ -19,3 +19,9 @@ def test_distance_dist(contig_dict, read_pairs):
     assert d[10]>0
     assert d[12]>0
     assert d[11]==0
+
+def test_2d_dist(contig_dict, read_pairs):
+    dist = distance_dist(read_pairs, contig_dict)
+    tmp = CumulativeDist2d(dist)
+    tmp.get_cumcum(10)
+    tmp.get_w_weight(20, 30, 40)

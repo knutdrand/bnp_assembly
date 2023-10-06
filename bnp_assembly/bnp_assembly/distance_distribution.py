@@ -6,6 +6,42 @@ from .datatypes import StreamedGenomicLocationPair, GenomicLocationPair
 from .location import LocationPair
 
 
+class CumulativeDist2d:
+    def __init__(self, cumulative_dist, background_value=None):
+        self._cumulative_dist = cumulative_dist
+        self._cumulative_cumulative_dist = np.cumsum(cumulative_dist)
+        self._dist_len = len(self._cumulative_dist)
+        if background_value is None:
+            n = self._dist_len // 10
+            self._background_value = (self._cumulative_dist[-1]-self._cumulative_dist[-n-1])/n
+        else:
+            self._background_value = background_value
+        # assert self._background_value>0
+
+    def get_cumcum(self, value):
+        if value >= self._dist_len:
+            return self._cumulative_cumulative_dist[-1]+self._background_value*(value-self._dist_len)
+        return self._cumulative_cumulative_dist[value]
+
+    def get_w_weight(self, distance, w_1, w_2):
+        assert w_1>0 and w_2>0
+        a = self.get_cumcum(distance + w_1 + w_2)
+        b = self.get_cumcum(distance + w_1)
+        c = self.get_cumcum(distance + w_2)
+        d = self.get_cumcum(distance)
+        tmp1 = a - b
+        w = tmp1 + d- c
+
+        #assert w != 0, (distance, w_1, w_2, w, a, b, c, d, tmp1)
+        return max(w, self._background_value*(w_1*w_2))
+
+    def get_weight(self, start_a, end_a, start_b, end_b):
+        t = self.get_cumcum[end_a+end_b]
+        t -= self.get_cumcum[end_a+start_b]
+        t -= self.get_cumcum[start_a+end_b]
+        t += self.get_cumcum[start_a+start_b]
+        return t
+
 
 def distance_dist(location_pairs, contig_dict) -> np.ndarray:
 

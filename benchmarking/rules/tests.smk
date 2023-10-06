@@ -125,6 +125,28 @@ rule test_accuracy:
                 assert float(lines[0].split()[1]) == 1.0, lines[0]
                 assert float(lines[1].split()[1]) == 1.0, lines[1]
 
+rule test_accuracy_big:
+    input:
+        ScaffoldingResults.from_flat_params(
+            genome_build="sacCer3",
+            individual="real",
+            dataset_size='big',
+            depth="10",
+            n_reads=1000000,
+            seed=123,
+            source="not_assembled",
+            extra_splits=20,
+            split_on_n_ns=0,
+            scaffolder="bnp_scaffolding_dynamic_heatmaps",
+        ).file_path() + "/accuracy.txt"
+    output:
+        touch("test_accuracy_big")
+    run:
+        with open(input[0]) as f:
+            lines = f.readlines()
+            assert float(lines[0].split()[1]) == 1.0, lines[0]
+            assert float(lines[1].split()[1]) == 1.0, lines[1]
+
 
 rule test_accuracy_with_missing:
     input:

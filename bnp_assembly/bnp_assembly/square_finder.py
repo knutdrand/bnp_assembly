@@ -10,50 +10,60 @@ from bnp_assembly.clustering import count_interactions
 from bnp_assembly.contig_graph import ContigPath
 import logging
 
+from bnp_assembly.distance_distribution import distance_dist, CumulativeDist2d
+from bnp_assembly.location import LocationPair
+
 logger = logging.getLogger(__name__)
 
 
 class OptimalSquares:
-    def __init__(self, count_matrix, opportunity_matrix=1, max_splits=20):
-        self._rate_matrix = count_matrix/opportunity_matrix
-        # self._cumulative_sum = np.cumsum(count_matrix, axis=0)
-        # self._diagonal_sums = self._cumulative_sum.diagonal()-self._rate_matrix.diagonal()
+    def __init__(self, count_matrix, opportunity_matrix=1, opportunity_matrix_background=1, max_splits=20):
+        self._count_matrix = count_matrix
+        self._opportunity_matrix = np.broadcast_to(opportunity_matrix, self._count_matrix.shape)
+        self._opportunity_matrix_background = np.broadcast_to(opportunity_matrix_background, self._count_matrix.shape)
         self._max_split = max_splits
+        px.imshow(self._count_matrix, title='count').show()
+        px.imshow(self._opportunity_matrix, title='opportunity').show()
+        px.imshow(self._opportunity_matrix_background, title='opportunity background').show()
+        px.imshow(self._count_matrix / self._opportunity_matrix, title='rate').show()
 
     def score_split(self, split_indices: List[int]) -> float:
-        similarity_matrix = self._rate_matrix
-
         if len(split_indices) != len(set(split_indices)):
             return -np.inf
 
-        intervals = more_itertools.pairwise(chain([0], split_indices, [len(similarity_matrix)]))
         inside_squares = []
+        inside_opportunity = []
         outside_squares = []
-        for start, end in intervals:
-            inside_square = similarity_matrix[start:end, start:end]
+        outside_opportunity = []
+        for start, end in more_itertools.pairwise(split_indices):
+            inside_square = self._count_matrix[start:end, start:end]
             inside_squares.append(inside_square[np.triu_indices(len(inside_square), k=0)])
-            outside_squares.append(similarity_matrix[start:end, :start])
-        log_likelihoods = (calculate_likelihoods(flatten(squares)) for squares in (inside_squares, outside_squares))
-        return sum(log_likelihoods)
+            inside_opp = self._opportunity_matrix[start:end, start:end]
+            inside_opportunity.append(inside_opp[np.triu_indices(len(inside_square), k=0)])
+            outside_squares.append(self._count_matrix[start:end, :start])
+            outside_opportunity.append(self._opportunity_matrix_background[start:end, :start])
+        log_likelihoods = [calculate_likelihoods(flatten(squares), flatten(opp)) for squares, opp in
+                           [(inside_squares, inside_opportunity),
+                            (outside_squares, outside_opportunity)]]
+        s = sum(log_likelihoods)
+        return s
 
     def find_splits(self):
-        similarity_matrix = self._rate_matrix
-        max_splits = self._max_split
-        n_nodes = len(similarity_matrix)
+        n_nodes = len(self._count_matrix)
+        max_splits = min(self._max_split, n_nodes - 1)
         splits = [0, n_nodes]
         cur_score = self.score_split(splits)
-        optimal_squares = OptimalSquares(similarity_matrix)
-
         for split_number in range(max_splits):
-            logger.info(f'Finding split number {split_number}')
-            new_score, new_split = max(((optimal_squares.score_split(list(sorted(splits + [i]))), i)
-                                        for i in range(1, len(similarity_matrix))))
+            logger.info(f'Finding split number {split_number}, cur score: {cur_score} cur_splits {splits}')
+            scores = [(self.score_split(list(sorted(splits + [i]))), i) for i in range(1, n_nodes) if i not in splits]
+            logger.info(f'Scores: {scores}, {max(scores)}')
+            new_score, new_split = max(scores)
             if new_score <= cur_score:
                 return splits
             cur_score = new_score
             splits = list(sorted(splits + [new_split]))
-
-        return find_splits(self._count_matrix)
+        return splits
+        # return find_splits(self._count_matrix)
 
 
 def flatten(squares):
@@ -62,54 +72,99 @@ def flatten(squares):
 
 def calculate_likelihoods(values, weights=1):
     weights = np.broadcast_to(weights, values.shape)
-    base_rate = np.sum(values)/np.sum(weights)
+    base_rate = np.sum(values) / np.sum(weights)
     rates = base_rate * weights
-    logpmf = scipy.stats.poisson.logpmf(values, rates)
-    return np.sum(logpmf)
+    log_pmf = scipy.stats.poisson.logpmf(values, rates)
+    assert np.all(np.isfinite(log_pmf)), (rates, values)
+    np_sum = np.sum(log_pmf)
+    assert np.isfinite(np_sum), (rates, values)
+    return np_sum
 
 
-def _get_score_for_split(similarity_matrix: np.ndarray, split_indices: List[int]) -> float:
-    if len(split_indices) != len(set(split_indices)):
-        return -np.inf
-
-    intervals = more_itertools.pairwise(chain([0], split_indices, [len(similarity_matrix)]))
-    inside_squares = []
-    outside_squares = []
-    for start, end in intervals:
-        inside_square = similarity_matrix[start:end, start:end]
-        inside_squares.append(inside_square[np.triu_indices(len(inside_square), k=0)])
-        outside_squares.append(similarity_matrix[start:end, :start])
-    log_likelihoods = (calculate_likelihoods(flatten(squares)) for squares in (inside_squares, outside_squares))
-    return sum(log_likelihoods)
-
-
-def find_splits(similarity_matrix: np.ndarray, max_splits: int = 10) -> List[int]:
-    return OptimalSquares(similarity_matrix, max_splits=max_splits).find_splits()
-    # n_nodes = len(similarity_matrix)
-    # splits = [0, n_nodes]
-    # cur_score = get_score_for_split(similarity_matrix, splits)
-    # optimal_squares = OptimalSquares(similarity_matrix)
-
-    for split_number in range(max_splits):
-        logger.info(f'Finding split number {split_number}')
-        new_score, new_split = max(((optimal_squares.score_split(list(sorted(splits + [i]))), i)
-                                   for i in range(1, len(similarity_matrix))))
-        if new_score <= cur_score:
-            return splits
-        cur_score = new_score
-        splits = list(sorted(splits + [new_split]))
+# def _get_score_for_split(similarity_matrix: np.ndarray, split_indices: List[int]) -> float:
+#     if len(split_indices) != len(set(split_indices)):
+#         return -np.inf
+#
+#     intervals = more_itertools.pairwise(chain([0], split_indices, [len(similarity_matrix)]))
+#     inside_squares = []
+#     outside_squares = []
+#     for start, end in intervals:
+#         inside_square = similarity_matrix[start:end, start:end]
+#         inside_squares.append(inside_square[np.triu_indices(len(inside_square), k=0)])
+#         outside_squares.append(similarity_matrix[start:end, :start])
+#     log_likelihoods = (calculate_likelihoods(flatten(squares)) for squares in (inside_squares, outside_squares))
+#     return sum(log_likelihoods)
+#
+#
+# def find_splits(similarity_matrix: np.ndarray, max_splits: int = 10) -> List[int]:
+#     return OptimalSquares(similarity_matrix, max_splits=max_splits).find_splits()
+#     # n_nodes = len(similarity_matrix)
+#     # splits = [0, n_nodes]
+#     # cur_score = get_score_for_split(similarity_matrix, splits)
+#     # optimal_squares = OptimalSquares(similarity_matrix)
+#
+#     for split_number in range(max_splits):
+#         logger.info(f'Finding split number {split_number}')
+#         new_score, new_split = max(((optimal_squares.score_split(list(sorted(splits + [i]))), i)
+#                                    for i in range(1, len(similarity_matrix))))
+#         if new_score <= cur_score:
+#             return splits
+#         cur_score = new_score
+#         splits = list(sorted(splits + [new_split]))
 
 
 def split_based_on_indices(path: ContigPath, splits):
     edges = path.edges
-    split_edges = [edges[i-1] for i in splits[1:-1]]
+    split_edges = [edges[i - 1] for i in splits[1:-1]]
     return path.split_on_edges(split_edges)
 
 
+def get_opportunity_matrix(size_array, dist_2):
+    all_splits = np.insert(np.cumsum(size_array), 0, 0)
+    matrix = np.array([[dist_2.get_w_weight(abs(offset_a-offset_b), size_a, size_b) for (size_a, offset_a) in zip(size_array, all_splits)] for size_b, offset_b in zip(size_array, all_splits)])
+    matrix[np.diag_indices_from(matrix)]*=2
+    return np.array(matrix)
+
+
 def squares_split(numeric_input_data, path: ContigPath):
+    np.seterr(divide='raise')
+    distance_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+    #px.line(distance_distribution[::10]).show()
+    dist_2 = CumulativeDist2d(distance_distribution)
+    # px.line(dist_2._cumulative_cumulative_dist[::10]).show()
     interaction_counts = count_interactions(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs))
     size_array = np.array(list(numeric_input_data.contig_dict.values()))
-    opportunity_matrix = np.multiply.outer(size_array, size_array)
-    optimal_squares = OptimalSquares(interaction_counts, opportunity_matrix, max_splits=20)
+    opportunity_matrix = get_opportunity_matrix(size_array, dist_2)
+    assert np.all(opportunity_matrix> 0), (opportunity_matrix, size_array, dist_2)
+    opportunity_matrix_background = np.multiply.outer(size_array, size_array)
+    optimal_squares = OptimalSquares(interaction_counts, opportunity_matrix, opportunity_matrix_background, max_splits=20)
     splits = optimal_squares.find_splits()
     return split_based_on_indices(path, splits)
+
+
+class SpecificSquareEstimator:
+    def __init__(self, starts_a, starts_b, ends_a, ends_bcontig_sizes):
+        self._starts_a = starts_a[:, None]
+        self._starts_b = starts_b[:, None]
+        self._ends_a = ends_a[:, None]
+        self._ends_b = ends_b[:, None]
+        self._counter = np.zeros(len(starts_a), dtype=int)
+        self._contig_sizes_mask = contig_sizes>=np.maximum(
+            sizes_a+distance_a, sizes_b+distance_b)
+
+    def register_location_pairs(self, location_pairs: LocationPair):
+        mask = location_pairs.location_a.contig_id == location_pairs.location_b.contig_id
+        location_pairs = location_pairs.subset_with_mask(mask)
+        mask = (location_pairs.location_a.offset >= self._starts_a) & (location_pairs.location_a.offset < self._ends_a)
+        mask &= (location_pairs.location_b.offset >= self._starts_b) & (location_pairs.location_b.offset < self._ends_b)
+        self._counter += np.sum(mask, axis=1)
+
+
+        for distance, sizes_a, sizes_b in zip(self._distances, self._sizes_a, self._sizes_b):
+            mask = np.abs(location_pairs.location_a.offset - location_pairs.location_b.offset) == distance
+            location_pairs = location_pairs.subset_with_mask(mask)
+            mask = (location_pairs.location_a.offset < sizes_a) & (location_pairs.location_b.offset < sizes_b)
+            location_pairs = location_pairs.subset_with_mask(mask)
+
+
+
