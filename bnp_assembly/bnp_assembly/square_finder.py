@@ -14,12 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class OptimalSquares:
-    def __init__(self, distance_matrix):
-        self._distance_matrix = distance_matrix
-        self._cumulative_sum = np.cumsum(distance_matrix, axis=0)
+    def __init__(self, count_matrix):
+        self._count_matrix = count_matrix
+        self._cumulative_sum = np.cumsum(count_matrix, axis=0)
+        self._diagonal_sums = self._cumulative_sum.diagonal()-self._count_matrix.diagonal()
 
     def score_split(self, splits):
-        return get_score_for_split(self._distance_matrix, splits)
+        return get_score_for_split(self._count_matrix, splits)
+
+    def find_splits(self):
+        return find_splits(self._count_matrix)
 
 
 def flatten(squares):
@@ -40,7 +44,7 @@ def get_score_for_split(similarity_matrix: np.ndarray, split_indices: List[int])
     outside_squares = []
     for start, end in intervals:
         inside_square = similarity_matrix[start:end, start:end]
-        inside_squares.append(inside_square[np.triu_indices(len(inside_square), k=1)])
+        inside_squares.append(inside_square[np.triu_indices(len(inside_square), k=0)])
         outside_squares.append(similarity_matrix[start:end, :start])
     log_likelihoods = (calculate_likelihoods(flatten(squares)) for squares in (inside_squares, outside_squares))
     return sum(log_likelihoods)
@@ -71,8 +75,7 @@ def split_based_on_indices(path: ContigPath, splits):
 def squares_split(numeric_input_data, path: ContigPath):
     interaction_counts = count_interactions(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs))
     size_array = np.array(list(numeric_input_data.contig_dict.values()))
-    rate_matrix = interaction_counts / np.multiply.outer(size_array, size_array)
-    #    px.imshow(rate_matrix).show()
-
+    opportunity_matrix = np.multiply.outer(size_array, size_array)
+    rate_matrix = interaction_counts/opportunity_matrix
     splits = find_splits(rate_matrix, max_splits=20)
     return split_based_on_indices(path, splits)

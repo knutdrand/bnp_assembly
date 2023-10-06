@@ -59,7 +59,6 @@ rule test_pbsim:
         touch("test_pbsim")
 
 
-
 rule test_gfase:
     input:
         multiext(PhasingResults.from_flat_params(phaser="gfase", depth=2, n_reads=500000).file_path() + "/", "phase_0.fasta", "phase_1.fasta")
@@ -105,25 +104,26 @@ rule test_accuracy_simple:
 
 rule test_accuracy:
     input:
-        ScaffoldingResults.from_flat_params(
+        [ScaffoldingResults.from_flat_params(
             genome_build="sacCer3",
             individual="simulated",
-            dataset_size="small",
+            dataset_size=size,
             depth="10",
-            n_reads="40000",
+            n_reads=n_reads,
             seed=123,
             source="not_assembled",
             extra_splits=20,
             split_on_n_ns=0,
             scaffolder="bnp_scaffolding_dynamic_heatmaps",
-        ).file_path() + "/accuracy.txt"
+        ).file_path() + "/accuracy.txt" for size, n_reads in [('small', 40000), ('medium', 100000)]][-1]
     output:
         touch("test_accuracy")
     run:
-        with open(input[0]) as f:
-            lines = f.readlines()
-            assert float(lines[0].split()[1]) == 1.0
-            assert float(lines[1].split()[1]) == 1.0
+        for i in input:
+            with open(i) as f:
+                lines = f.readlines()
+                assert float(lines[0].split()[1]) == 1.0, lines[0]
+                assert float(lines[1].split()[1]) == 1.0, lines[1]
 
 
 rule test_accuracy_with_missing:
@@ -181,7 +181,6 @@ rule test_accuracy_with_missing_and_small_contigs:
             assert float(lines[1].split()[1]) == 1.0
 
 
-
 rule test_athalia_rosea_real_reads:
     input:
         ScaffoldingResults.from_flat_params(
@@ -230,7 +229,6 @@ rule test_athalia_rosea_real_reads2:
             assert float(lines[0].split()[1]) >= 0.92
             # precision
             assert float(lines[1].split()[1]) >= 0.98
-
 
 
 rule test_debug_report:

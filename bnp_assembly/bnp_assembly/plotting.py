@@ -18,11 +18,16 @@ class DummyPlot:
     def show(self):
         pass
 
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: DummyPlot()
+
 
 class Dummy:
     def __getattr__(self, name):
         return lambda *args, **kwargs: DummyPlot()
 
+    def sublogger(self, *args, **kwargs):
+        return Dummy()
 
 _registered_names = dict()
 

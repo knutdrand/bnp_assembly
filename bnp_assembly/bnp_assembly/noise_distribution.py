@@ -59,7 +59,7 @@ class NoiseDistribution:
         # print(count, np.exp(r), np.exp(old_logpmf))
         return r
         return scipy.stats.poisson(mu=self._mean_rate() * self.size_factor(edge)).logpmf(
-            np.int64(self.transform(self._distance_matrix[edge])))
+            np.int64(self.transform(self._count_matrix[edge])))
 
     @lru_cache()
     def _mean_rate(self):

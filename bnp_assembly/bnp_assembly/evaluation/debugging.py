@@ -41,7 +41,7 @@ class ScaffoldingDebugger:
         self.contigs = contigs
         self._read_stream = reads
 
-        plotting.register(debug=plotting.ResultFolder(plotting_folder))
+        # plotting.register(debug=plotting.ResultFolder(plotting_folder))
         self.px = plotting.px(name="debug")
 
         contig_sizes, numeric_to_name_translation = get_numeric_contig_name_translation(self.contigs)
