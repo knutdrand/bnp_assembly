@@ -16,17 +16,30 @@ class ScaffoldMap:
         self._direction_dict = {dn.node_id: dn.orientation for dn in directed_nodes}
 
     def translate_locations(self, locations: Location):
+        offsets = self._offset_dict
         return np.array([self.translate_location(loc) for loc in locations])
 
-    def translate_location(self,  location: Location.single_entry):
+    def translate_location(self, location: Location.single_entry):
         node_id = int(location.contig_id)
         offset = self._offset_dict[node_id]
         if self._direction_dict[node_id] == '-':
-            local_offset = self._contig_dict[node_id]-location.offset-1
+            local_offset = self._contig_dict[node_id] - location.offset - 1
         else:
             local_offset = location.offset
-        return offset+local_offset
-        
+        return offset + local_offset
+
+
+class VectorizedScaffoldMap(ScaffoldMap):
+    def __init__(self, contig_path, contig_dict):
+        super().__init__(contig_path, contig_dict)
+        self._offset_array = np.array([self._offset_dict[dn.node_id] for dn in contig_path.directed_nodes])
+        self._is_reverse = np.array([dn.orientation == '-' for dn in contig_path.directed_nodes])
+
+    def translate_locations(self, locations):
+        local_offset = np.where(self._is_reverse[locations.contig_id],
+                                self._contig_dict[locations.contig_id] - locations.offset - 1, locations.offset)
+        return self._offset_array[locations.contig_id] + local_offset
+
 
 class ContigMap:
 
@@ -40,5 +53,3 @@ class ContigMap:
     @classmethod
     def from_original_and_paths(cls, genome: Genome, path_lists: tp.List[ContigPath]):
         pass
-        
-        

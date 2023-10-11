@@ -129,7 +129,7 @@ def get_opportunity_matrix(size_array, dist_2):
 def squares_split(numeric_input_data, path: ContigPath):
     np.seterr(divide='raise')
     distance_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
-    #px.line(distance_distribution[::10]).show()
+    # px.line(distance_distribution[::10]).show()
     dist_2 = CumulativeDist2d(distance_distribution)
     # px.line(dist_2._cumulative_cumulative_dist[::10]).show()
     interaction_counts = count_interactions(numeric_input_data.contig_dict, next(numeric_input_data.location_pairs))

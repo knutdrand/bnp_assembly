@@ -85,6 +85,10 @@ class DistanceDistribution:
         self._log_probabilities = log_probabilities
         assert np.all(~np.isinf(self._log_probabilities)), np.flatnonzero(np.isinf(self._log_probabilities))
 
+    @property
+    def max_distance(self):
+        return len(self._log_probabilities)-1
+
     @classmethod
     def from_probabilities(cls, probabilities):
         return cls(np.log(probabilities))
