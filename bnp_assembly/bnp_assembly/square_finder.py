@@ -22,6 +22,7 @@ class OptimalSquares:
         self._opportunity_matrix = np.broadcast_to(opportunity_matrix, self._count_matrix.shape)
         self._opportunity_matrix_background = np.broadcast_to(opportunity_matrix_background, self._count_matrix.shape)
         self._max_split = max_splits
+        self._n_nodes = len(self._count_matrix)
         px.imshow(self._count_matrix, title='count').show()
         px.imshow(self._opportunity_matrix, title='opportunity').show()
         px.imshow(self._opportunity_matrix_background, title='opportunity background').show()
@@ -36,26 +37,33 @@ class OptimalSquares:
         outside_squares = []
         outside_opportunity = []
         for start, end in more_itertools.pairwise(split_indices):
-            inside_square = self._count_matrix[start:end, start:end]
-            inside_squares.append(inside_square[np.triu_indices(len(inside_square), k=0)])
-            inside_opp = self._opportunity_matrix[start:end, start:end]
-            inside_opportunity.append(inside_opp[np.triu_indices(len(inside_square), k=0)])
-            outside_squares.append(self._count_matrix[start:end, :start])
-            outside_opportunity.append(self._opportunity_matrix_background[start:end, :start])
+            inside_triangle = self.get_inside_triangle(start, end, self._count_matrix)
+            inside_squares.append(inside_triangle)
+            inside_opportunity.append(self.get_inside_triangle(start, end, self._opportunity_matrix))
+            outside_squares.append(self.get_outside_cells(start, end, self._count_matrix))
+            outside_opportunity.append(self.get_outside_cells(start, end, self._opportunity_matrix))
+            #self._opportunity_matrix_background[start:end, :start])
         log_likelihoods = [calculate_likelihoods(flatten(squares), flatten(opp)) for squares, opp in
                            [(inside_squares, inside_opportunity),
                             (outside_squares, outside_opportunity)]]
         s = sum(log_likelihoods)
         return s
 
+    def get_outside_cells(self, start, end, matrix):
+        return matrix[start:end, :start]
+
+    def get_inside_triangle(self, start, end, matrix):
+        inside_square = matrix[start:end, start:end]
+        inside_triangle = inside_square[np.triu_indices(len(inside_square), k=0)]
+        return inside_triangle
+
     def find_splits(self):
-        n_nodes = len(self._count_matrix)
-        max_splits = min(self._max_split, n_nodes - 1)
-        splits = [0, n_nodes]
+        max_splits = min(self._max_split, self._n_nodes - 1)
+        splits = [0, self._n_nodes]
         cur_score = self.score_split(splits)
         for split_number in range(max_splits):
             logger.info(f'Finding split number {split_number}, cur score: {cur_score} cur_splits {splits}')
-            scores = [(self.score_split(list(sorted(splits + [i]))), i) for i in range(1, n_nodes) if i not in splits]
+            scores = [(self.score_split(list(sorted(splits + [i]))), i) for i in range(1, self._n_nodes) if i not in splits]
             logger.info(f'Scores: {scores}, {max(scores)}')
             new_score, new_split = max(scores)
             if new_score <= cur_score:
@@ -65,6 +73,18 @@ class OptimalSquares:
         return splits
         # return find_splits(self._count_matrix)
 
+
+class DirectOptimalSquares(OptimalSquares):
+    def __init__(self, connected_logprobs, disconnected_log_probs, max_splits=20):
+        self._connected_logprobs = connected_logprobs
+        self._disconnected_log_probs = disconnected_log_probs
+        self._n_nodes = len(connected_logprobs)
+        self._max_split = max_splits
+
+    def score_split(self, split_indices: List[int]):
+        scores = [self.get_inside_triangle(start, end, self._connected_logprobs) for start, end in more_itertools.pairwise(split_indices)]
+        scores += [self.get_outside_cells(start, end, self._disconnected_log_probs) for start, end in more_itertools.pairwise(split_indices)]
+        return sum(s.sum() for s in scores)
 
 def flatten(squares):
     return np.concatenate([square.ravel() for square in squares])

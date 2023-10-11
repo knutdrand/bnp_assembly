@@ -30,5 +30,5 @@ def test_reasonable():
     for location_pairs in location_pairs_iter:
         logsumprobmat.register_location_pairs(location_pairs)
     connected, disconnected =  logsumprobmat.matrices
-    px.imshow(connected, title='connected').show()
-    px.imshow(disconnected, title='disconnected').show()
+    #px.imshow(connected, title='connected').show()
+    #px.imshow(disconnected, title='disconnected').show()

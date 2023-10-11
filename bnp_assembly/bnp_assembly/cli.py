@@ -16,7 +16,8 @@ from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold, estimate_max_distance2, join as _join, split as _split
+from bnp_assembly.make_scaffold import make_scaffold, join as _join, split as _split
+from bnp_assembly.max_distance import estimate_max_distance2
 from .simulation import hic_read_simulation
 import logging
 from . import plotting

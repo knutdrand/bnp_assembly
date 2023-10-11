@@ -6,9 +6,10 @@ import numpy as np
 
 from bnp_assembly.contig_graph import ContigPath
 from bnp_assembly.contig_map import VectorizedScaffoldMap
-from bnp_assembly.distance_distribution import distance_dist
+from bnp_assembly.distance_distribution import distance_dist, DistanceDistribution
 from bnp_assembly.location import LocationPair
-from bnp_assembly.square_finder import OptimalSquares, split_based_on_indices
+from bnp_assembly.max_distance import estimate_max_distance2
+from bnp_assembly.square_finder import OptimalSquares, split_based_on_indices, DirectOptimalSquares
 
 
 class LogsumprobMatrices:
@@ -42,10 +43,11 @@ class LogsumprobMatrices:
         return self._distance_distribution.log_probability(distance_given_connected)
 
     def _logprob_of_distance_given_disconnected(self, distance_given_connected):
-        return -np.log(self._genome_size)
+        return -np.log(self._distance_distribution.max_distance)
 
     def _calculate_distance(self, location_pairs):
-        return np.abs(self._get_global_offset(location_pairs.location_a) - self._get_global_offset(location_pairs.location_b))
+        return np.abs(
+            self._get_global_offset(location_pairs.location_a) - self._get_global_offset(location_pairs.location_b))
 
     def _get_global_offset(self, location):
         return self._scaffold_map.translate_locations(location)
@@ -57,13 +59,15 @@ class LogsumprobMatrices:
 
 def squares_split(numeric_input_data, path: ContigPath):
     np.seterr(divide='raise')
-    distance_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
     size_array = np.array(list(numeric_input_data.contig_dict.values()))
-    matrix_obj = LogsumprobMatrices(size_array, path,  distance_distribution)
+    max_distance = estimate_max_distance2(size_array)
+    cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+    distance_distribution = DistanceDistribution.from_cumulative_distribution(cumulative_distribution, max_distance)
+    # distance_distribution = distance_distribution.cut_at_distance(max_distance).normalize()
+    matrix_obj = LogsumprobMatrices(size_array, path, distance_distribution)
     for location_pair in next(numeric_input_data.location_pairs):
         matrix_obj.register_location_pairs(location_pair)
     connected_matrix, disconnected_matrix = matrix_obj.matrices
-
-    optimal_squares = OptimalSquares(interaction_counts, opportunity_matrix, opportunity_matrix_background, max_splits=20)
+    optimal_squares = DirectOptimalSquares(connected_matrix, disconnected_matrix, max_splits=20)
     splits = optimal_squares.find_splits()
     return split_based_on_indices(path, splits)
