@@ -22,7 +22,7 @@ class LogsumprobMatrices:
         self._scaffold_map = VectorizedScaffoldMap(path, size_array)
 
     def register_location_pairs(self, location_pairs):
-        mask = self._calculate_distance(location_pairs) >= self._distance_distribution.max_distance
+        mask = self._calculate_distance(location_pairs) < self._distance_distribution.max_distance
         location_pairs = location_pairs.subset_with_mask(mask)
         self._register_for_disconnected(location_pairs)
         self._register_for_connected(location_pairs)
@@ -31,10 +31,12 @@ class LogsumprobMatrices:
         i, j = (location_pairs.location_a.contig_id, location_pairs.location_b.contig_id)
         distance_given_connected = self._calculate_distance(location_pairs)
         np.add.at(self._connected_matrix, (i, j), self._logprob_of_distance_given_connected(distance_given_connected))
+        np.add.at(self._connected_matrix, (j, i), self._logprob_of_distance_given_connected(distance_given_connected))
 
     def _register_for_disconnected(self, location_pairs: LocationPair):
         i, j = (location_pairs.location_a.contig_id, location_pairs.location_b.contig_id)
         np.add.at(self._disconnected_matrix, (i, j), self._logprob_of_distance_given_disconnected(location_pairs))
+        np.add.at(self._disconnected_matrix, (j, i), self._logprob_of_distance_given_disconnected(location_pairs))
 
     def _logprob_of_distance_given_connected(self, distance_given_connected):
         return self._distance_distribution.log_probability(distance_given_connected)
