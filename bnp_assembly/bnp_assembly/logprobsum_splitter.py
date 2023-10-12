@@ -1,8 +1,11 @@
 # Make better distance distribution
 # generate matrices
 # Hook it into Optimal squares
+import dataclasses
 import logging
+from typing import List
 
+import more_itertools
 import numpy as np
 import plotly.express as px
 from bnp_assembly.contig_graph import ContigPath
@@ -41,11 +44,32 @@ S | R
 L | S in the normalization constant
 L | not S in the area
 
-P(L | R) = P(S|R)*P(L|S)
+P(L | R) = P(S|R)*P(L|S) if S else P(not S| R) * P(L|S)
 
+P(all(L==l for l in locations) = P(all((L==l for l in locations if cell_ij[l]) for ij in contig_pairs)
 
+C_ij = prod(DistanceDist(d(l))/N for l in locations_ij) = prod(DistanceDist(d(l)) for l in location_ij)/N**n_reads
+N = sum(DistanceDist(d(i,j) for i, j in scaffolds) = sum(N_cell for cell in scaffold)
+D_ij = prod(1/A for location in locations) = 1/A**n_reads
+A = sum(1 for i, j in not scaffolds)
+
+Strategy for reads:
+Count reads:
+Outside range
+Inside range
+Inside range per cell
+DistanceDist weighted counts per cell
+
+Pre calculation:
+Calculate each cells contribution to N (n_ij)
+Calculate eacch cells contribution to A (a_ij).
+
+For each split, calculate N as the sum(n_ij for ij in scaffold)
+calculate A as the sum(a_ij for ij not in scaffold)
 '''
 
+class SplitScorer:
+    def __init__(self, N_matrix, A_matrix, ):
 
 
 class BaseProbabilityMatrices:
@@ -89,15 +113,19 @@ class BaseProbabilityMatrices:
             prob = self._distance_distribution.log_probability(offset)
             s+=prob*n_cells # Should add real probs here
         return s
+
+
 class LogsumprobMatrices:
     def __init__(self, size_array, path, distance_distribution):
         self._size_array = size_array
         self._path = path
         self._distance_distribution = distance_distribution
-        self._disconnected_matrix = np.zeros((len(size_array), len(size_array)))
-        self._connected_matrix = np.zeros((len(size_array), len(size_array)))
         self._genome_size = sum(size_array)
         self._scaffold_map = VectorizedScaffoldMap(path, size_array)
+
+        self._disconnected_matrix = np.zeros((len(size_array), len(size_array)))
+        self._connected_matrix = np.zeros((len(size_array), len(size_array)))
+
 
     def register_location_pairs(self, location_pairs):
         mask = self._calculate_distance(location_pairs) < self._distance_distribution.max_distance
@@ -132,6 +160,65 @@ class LogsumprobMatrices:
     @property
     def matrices(self):
         return self._connected_matrix, self._disconnected_matrix
+
+@dataclasses.dataclass
+class EstimationData:
+    outside_range_counts: int
+    inside_range_counts: int
+    inside_range_per_cell: np.ndarray
+    distance_wighted_counts: np.ndarray
+    inside_normalization: np.ndarray
+    outside_normalization: np.ndarray
+
+    def score_split(self, split_indices: List[int]):
+        intervals = more_itertools.pairwise(split_indices)
+        inside_indices = [slice(*interval) for interval in intervals]
+        outside_indices = [(slice(start, end), slice(None, start)) for start, end in intervals] # needs also the transpose
+
+        p_S_given_R = sum(self.inside_range_per_cell[i] for i in inside_indices)/self.inside_range_per_cell
+        p_not_S_given_R = 1-p_S_given_R
+
+        N = sum(self.inside_normalization[i] for i in inside_indices)
+        A = sum(self.outside_normalization[i]+self.outside_normalization.T[i] for i in inside_indices)
+
+
+
+
+        scores = [self.get_inside_triangle(start, end, self._connected_logprobs) for start, end in intervals]
+        scores2 = [self.get_outside_cells(start, end, self._disconnected_log_probs) for start, end in intervals]
+        score = sum(s.sum() for s in scores + scores2)
+        print(f'Score {score} {split_indices}')
+        return score
+
+class CountEverything(LogsumprobMatrices):
+    '''
+    Strategy:
+    Count reads:
+    Outside range
+    Inside range
+    Inside range per cell
+    DistanceDist weighted counts per cell
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._outside_range_counter = 0
+        self._inside_range_counter = 0
+        self._n_nodes = len(self._size_array)
+        self._inside_range_per_cell = np.zeros((self._n_nodes, self._n_nodes), dtype=int)
+        self._distance_dist_weighted_counts = np.zeros((self._n_nodes, self._n_nodes))
+
+    def register_location_pairs(self, location_pairs):
+        dists = self._calculate_distance(location_pairs)
+        mask= dists<self._max_dist
+        n_inside = np.count_nonzero(mask)
+        self._inside_range_counter+=n_inside
+        self._outside_range_counter+= len(mask)-n_inside
+        location_pairs = location_pairs.subset_on_mask(mask)
+        i, j = (location_pairs.location_a.contig_id, location_pairs.location_a.contig_id)
+        np.add.at(self._inside_range_per_cell, (i, j), 1)
+        distance_log_probs = self._distance_distribution.log_probability(dists[mask])
+        np.add.at(self._distance_dist_weighted_counts, (i, j), distance_log_probs)
 
 
 def squares_split(numeric_input_data, path: ContigPath):
