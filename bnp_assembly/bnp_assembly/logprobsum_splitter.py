@@ -90,7 +90,7 @@ class BaseProbabilityMatrices:
         for i, size_a in enumerate(self._size_array):
             for j, size_b in enumerate(self._size_array):
                 shape = (size_a, size_b)
-                offset = abs(offsets[i] - offsets[j])
+                offset = offsets[j]-offsets[i]
                 self._inside_matrix[i, j] = self.calculate_inside(offset, shape)
                 self._outside_matrix[i, j] = self.calculate_outside(offset, shape)
 
@@ -103,14 +103,32 @@ class BaseProbabilityMatrices:
         return self._outside_matrix
 
     def calculate_outside(self, offset, shape):
-        s = 0
-        for i in range(shape[0]+shape[1]-1):
-            if offset+i> self._max_distance:
+        '''01234
+        10123
+        21012
+        '''
+        max_dist = self._max_distance
+        s = min(shape)
+        for i in range(1, shape[0]):
+            if i + offset > max_dist:
+               break
+            s += min(shape[1], shape[0] - i)
+        for i in range(1, shape[1]):
+            if (offset-i) < -max_dist:
                 break
-            n_cells = min(i+1, shape[0], shape[1], sum(shape)-i-1)
-            prob = 1/1
-            s+=prob*n_cells # Should add real probs here
+            s += min(shape[0], shape[1] - i)
         return s
+
+
+
+        # s = 0
+        # for i in range(shape[0]+shape[1]-1):
+        #     if offset+i> self._max_distance:
+        #         break
+        #     n_cells = min(i+1, shape[0], shape[1], sum(shape)-i-1)
+        #     prob = 1/1
+        #     s+=prob*n_cells # Should add real probs here
+        # return s
 
     def calculate_inside(self, offset, shape):
         s = 0
@@ -246,6 +264,8 @@ def squares_split(numeric_input_data, path: ContigPath):
         counter.register_location_pairs(location_pair)
 
     estimation_data = counter.estimation_data()
+    px.imshow(estimation_data.inside_normalization).show()
+    px.imshow(estimation_data.outside_normalization).show()
     optimal_squares = EstimationDataSplitter(estimation_data)
     #connected_matrix, disconnected_matrix = matrix_obj.matrices
     # px.imshow(connected_matrix, title='connected').show()
