@@ -64,7 +64,8 @@ def test_simulated2(n_reads, n_nodes, method):
 # @pytest.mark.parametrize('method', ['forbes'])
 # @pytest.mark.parametrize('size', [4, 8, 10, 20, 30])
 def test_simulated_split(n_reads, n_nodes):
-    YahsSplitter.matrix_class = BinnedBayes
+    logging.basicConfig(level='info')
+    # YahsSplitter.matrix_class = BinnedBayes
     rng = np.random.default_rng(seed=100)
     true_paths, paths = run_simulated_split_experiment(
         SimulationParams(

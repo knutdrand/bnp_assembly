@@ -11,6 +11,7 @@ from bnp_assembly.location import LocationPair
 from .input_data import NumericInputData
 from .interface import SplitterInterface
 from .io import PairedReadStream
+from .logprobsum_splitter import squares_split
 from .make_scaffold import make_scaffold_numeric
 from dataclasses import dataclass
 import numpy as np
@@ -56,7 +57,7 @@ class SplittingParams:
 
 
 def run_simulated_split_experiment(simulation_params: SimulationParams, rng: object,
-                                   splitting_params: SplittingParams = SplittingParams()) -> object:
+                                   splitting_params: SplittingParams = SplittingParams(), splitting_func = squares_split) -> object:
     #n_nodes, n_reads, n_chromosomes = (
     #    simulation_params.n_nodes, simulation_params.n_reads, simulation_params.n_chromosomes)
     n_chromosomes = simulation_params.n_chromosomes
@@ -74,8 +75,12 @@ def run_simulated_split_experiment(simulation_params: SimulationParams, rng: obj
 
     # split = ScaffoldSplitter3(contig_dict, bin_size).split(contig_path, locations_pair, threshold)
     read_pairs= LocationPair(split_and_pairs.location_a, split_and_pairs.location_b)
-    s = SplitterInterface(contig_dict, read_pairs, contig_path, max_distance=1000, bin_size=50)
-    paths = s.split()
+    # s = SplitterInterface(contig_dict, read_pairs, contig_path, max_distance=1000, bin_size=50)
+
+    paths = splitting_func(NumericInputData(contig_dict, PairedReadStream(([read_pairs] for _ in itertools.count()))),
+                           contig_path)
+    # contig_dict, read_pairs, contig_path, max_distance=1000, bin_size=50)
+    # paths = s.split()
     # paths = YahsSplitter(contig_dict, bin_size=splitting_params.bin_size).split(contig_path,
     #                                                                             LocationPair(split_and_pairs.location_a,
     #                                                                                          split_and_pairs.location_b),

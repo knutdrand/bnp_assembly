@@ -75,16 +75,24 @@ class OptimalSquares:
 
 
 class DirectOptimalSquares(OptimalSquares):
-    def __init__(self, connected_logprobs, disconnected_log_probs, max_splits=20):
+    def __init__(self, connected_logprobs, disconnected_log_probs, max_splits=20, ):
         self._connected_logprobs = connected_logprobs
         self._disconnected_log_probs = disconnected_log_probs
         self._n_nodes = len(connected_logprobs)
         self._max_split = max_splits
+        # self._genome_size = genome_size
+        # self._max_distance = max_distance
 
     def score_split(self, split_indices: List[int]):
+        # effective_genome_ratio = (self._genome_size-len(split_indices)*self._max_distance)/self._genome_size
+
+        #log_ratio = np.log(effective_genome_ratio)
+        #print('Log ratio', log_ratio, effective_genome_ratio)
         scores = [self.get_inside_triangle(start, end, self._connected_logprobs) for start, end in more_itertools.pairwise(split_indices)]
-        scores += [self.get_outside_cells(start, end, self._disconnected_log_probs) for start, end in more_itertools.pairwise(split_indices)]
-        return sum(s.sum() for s in scores)
+        scores2 = [self.get_outside_cells(start, end, self._disconnected_log_probs) for start, end in more_itertools.pairwise(split_indices)]
+        score = sum(s.sum() for s in scores + scores2)
+        print(f'Score {score} {split_indices}')
+        return score
 
 def flatten(squares):
     return np.concatenate([square.ravel() for square in squares])
