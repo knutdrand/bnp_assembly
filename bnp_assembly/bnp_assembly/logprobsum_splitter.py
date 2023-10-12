@@ -131,13 +131,21 @@ class BaseProbabilityMatrices:
         # return s
 
     def calculate_inside(self, offset, shape):
-        s = 0
-        for i in range(shape[0]+shape[1]-1):
-            if offset+i> self._max_distance:
+        max_dist = self._max_distance
+        if abs(offset)>max_dist:
+            s = 0
+        else:
+            s = min(shape)*np.exp(self._distance_distribution.log_probability(abs(offset)))
+        for i in range(1, shape[0]):
+            if i + offset > max_dist:
+               break
+            logprob = self._distance_distribution.log_probability(abs(i + offset))
+            s += min(shape[1], shape[0] - i)*np.exp(logprob)
+        for i in range(1, shape[1]):
+            if (offset-i) < -max_dist:
                 break
-            n_cells = min(i+1, shape[0], shape[1], sum(shape)-i-1)
-            prob = self._distance_distribution.log_probability(offset)
-            s+=prob*n_cells # Should add real probs here
+            logprob = self._distance_distribution.log_probability(abs(i + offset))
+            s += min(shape[0], shape[1] - i)*np.exp(logprob)
         return s
 
 
@@ -198,7 +206,7 @@ class EstimationData:
 
     def score_split(self, split_indices: List[int]):
         intervals = more_itertools.pairwise(split_indices)
-        inside_indices = [slice(*interval) for interval in intervals]
+        inside_indices = [(slice(*interval), slice(*interval)) for interval in intervals]
         n_inside = sum(self.inside_range_per_cell[i].sum() for i in inside_indices)
         n_outside = self.inside_range_counts-n_inside
         p_inside = n_inside / self.inside_range_counts
@@ -264,8 +272,8 @@ def squares_split(numeric_input_data, path: ContigPath):
         counter.register_location_pairs(location_pair)
 
     estimation_data = counter.estimation_data()
-    px.imshow(estimation_data.inside_normalization).show()
-    px.imshow(estimation_data.outside_normalization).show()
+    #px.imshow(estimation_data.inside_normalization).show()
+    #px.imshow(estimation_data.outside_normalization).show()
     optimal_squares = EstimationDataSplitter(estimation_data)
     #connected_matrix, disconnected_matrix = matrix_obj.matrices
     # px.imshow(connected_matrix, title='connected').show()

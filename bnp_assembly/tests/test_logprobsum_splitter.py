@@ -54,6 +54,11 @@ def test_two():
     base_probs = BaseProbabilityMatrices(two_input.size_array, two_input.contig_path, two_input.distance_distribution)
     assert np.sum(base_probs.A) == 19
 
+
+def test_prob():
+    base_probs = BaseProbabilityMatrices(two_input.size_array, two_input.contig_path, DistanceDistribution(np.array([np.log(9/10), np.log(1/10)])))
+    np.testing.assert_allclose(np.sum(base_probs.N), 5*9/10+2*4*1/10)
+
 def test_logsumprob_acceptance():
     logsumprobmat = LogsumprobMatrices(size_array, contig_path, distance_distribution)
     logsumprobmat.register_location_pairs(location_pairs)

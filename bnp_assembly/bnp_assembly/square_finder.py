@@ -62,9 +62,9 @@ class OptimalSquares:
         splits = [0, self._n_nodes]
         cur_score = self.score_split(splits)
         for split_number in range(max_splits):
-            logger.info(f'Finding split number {split_number}, cur score: {cur_score} cur_splits {splits}')
+            print(f'Finding split number {split_number}, cur score: {cur_score} cur_splits {splits}')
             scores = [(self.score_split(list(sorted(splits + [i]))), i) for i in range(1, self._n_nodes) if i not in splits]
-            logger.info(f'Scores: {scores}, {max(scores)}')
+            print(f'Scores: {scores}, {max(scores)}')
             new_score, new_split = max(scores)
             if new_score <= cur_score:
                 return splits
