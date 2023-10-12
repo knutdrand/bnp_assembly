@@ -3,6 +3,7 @@
 # Hook it into Optimal squares
 import dataclasses
 import logging
+from numbers import Number
 from typing import List
 
 import more_itertools
@@ -13,7 +14,8 @@ from bnp_assembly.contig_map import VectorizedScaffoldMap
 from bnp_assembly.distance_distribution import distance_dist, DistanceDistribution
 from bnp_assembly.location import LocationPair
 from bnp_assembly.max_distance import estimate_max_distance2
-from bnp_assembly.square_finder import OptimalSquares, split_based_on_indices, DirectOptimalSquares
+from bnp_assembly.square_finder import OptimalSquares, split_based_on_indices, DirectOptimalSquares, \
+    EstimationDataSplitter
 
 logger  = logging.getLogger(__name__)
 
@@ -68,9 +70,6 @@ For each split, calculate N as the sum(n_ij for ij in scaffold)
 calculate A as the sum(a_ij for ij not in scaffold)
 '''
 
-class SplitScorer:
-    def __init__(self, N_matrix, A_matrix, ):
-
 
 class BaseProbabilityMatrices:
     def __init__(self, size_array, path, distance_distribution):
@@ -82,21 +81,30 @@ class BaseProbabilityMatrices:
         self._genome_size = sum(size_array)
         self._scaffold_map = VectorizedScaffoldMap(path, size_array)
         self._inside_matrix = np.zeros((len(size_array), len(size_array)))
+        self._outside_matrix = np.zeros((len(size_array), len(size_array)))
+        self._max_distance = self._distance_distribution.max_distance
+        self.fill_matrices()
 
-    def fill_inside_matrix(self):
+    def fill_matrices(self):
         offsets = np.insert(np.cumsum(self._size_array), 0, 0)
         for i, size_a in enumerate(self._size_array):
             for j, size_b in enumerate(self._size_array):
                 shape = (size_a, size_b)
                 offset = abs(offsets[i] - offsets[j])
                 self._inside_matrix[i, j] = self.calculate_inside(offset, shape)
+                self._outside_matrix[i, j] = self.calculate_outside(offset, shape)
 
-    def fill_outside_matrix(self):
-        pass
+    @property
+    def N(self):
+        return self._inside_matrix
+
+    @property
+    def A(self):
+        return self._outside_matrix
 
     def calculate_outside(self, offset, shape):
         s = 0
-        for i in range(shape[0]+shape[1]-1)
+        for i in range(shape[0]+shape[1]-1):
             if offset+i> self._max_distance:
                 break
             n_cells = min(i+1, shape[0], shape[1], sum(shape)-i-1)
@@ -106,7 +114,7 @@ class BaseProbabilityMatrices:
 
     def calculate_inside(self, offset, shape):
         s = 0
-        for i in range(shape[0]+shape[1]-1)
+        for i in range(shape[0]+shape[1]-1):
             if offset+i> self._max_distance:
                 break
             n_cells = min(i+1, shape[0], shape[1], sum(shape)-i-1)
@@ -173,22 +181,17 @@ class EstimationData:
     def score_split(self, split_indices: List[int]):
         intervals = more_itertools.pairwise(split_indices)
         inside_indices = [slice(*interval) for interval in intervals]
-        outside_indices = [(slice(start, end), slice(None, start)) for start, end in intervals] # needs also the transpose
-
-        p_S_given_R = sum(self.inside_range_per_cell[i] for i in inside_indices)/self.inside_range_per_cell
-        p_not_S_given_R = 1-p_S_given_R
-
-        N = sum(self.inside_normalization[i] for i in inside_indices)
-        A = sum(self.outside_normalization[i]+self.outside_normalization.T[i] for i in inside_indices)
-
-
-
-
-        scores = [self.get_inside_triangle(start, end, self._connected_logprobs) for start, end in intervals]
-        scores2 = [self.get_outside_cells(start, end, self._disconnected_log_probs) for start, end in intervals]
-        score = sum(s.sum() for s in scores + scores2)
-        print(f'Score {score} {split_indices}')
-        return score
+        n_inside = sum(self.inside_range_per_cell[i].sum() for i in inside_indices)
+        n_outside = self.inside_range_counts-n_inside
+        p_inside = n_inside / self.inside_range_counts
+        p_outside = 1-p_inside
+        N = sum(self.inside_normalization[i].sum() for i in inside_indices)
+        A = sum(self.outside_normalization[i].sum()+self.outside_normalization.T[i].sum() for i in inside_indices)
+        distance_prob_sum = sum(self.distance_wighted_counts[i].sum() for i in inside_indices)
+        if n_outside==0:
+            return distance_prob_sum+n_inside*(np.log(p_inside)-np.log(N))
+        formula = n_outside*(np.log(p_outside)-np.log(A)) + distance_prob_sum+n_inside*(np.log(p_inside)-N)
+        return formula
 
 class CountEverything(LogsumprobMatrices):
     '''
@@ -200,21 +203,31 @@ class CountEverything(LogsumprobMatrices):
     DistanceDist weighted counts per cell
     '''
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, size_array, path, distance_distribution):
+        super().__init__(size_array, path, distance_distribution)
         self._outside_range_counter = 0
         self._inside_range_counter = 0
         self._n_nodes = len(self._size_array)
         self._inside_range_per_cell = np.zeros((self._n_nodes, self._n_nodes), dtype=int)
         self._distance_dist_weighted_counts = np.zeros((self._n_nodes, self._n_nodes))
+        self._base_probability = BaseProbabilityMatrices(size_array, path, distance_distribution)
+        self._max_dist = distance_distribution.max_distance
 
-    def register_location_pairs(self, location_pairs):
+    def estimation_data(self):
+        assert isinstance(self._inside_range_counter, Number), self._inside_range_counter
+        return EstimationData(self._outside_range_counter, self._inside_range_counter,
+                              self._inside_range_per_cell, self._distance_dist_weighted_counts,
+                              self._base_probability.N,
+                              self._base_probability.A
+                              )
+
+    def register_location_pairs(self, location_pairs: LocationPair):
         dists = self._calculate_distance(location_pairs)
         mask= dists<self._max_dist
         n_inside = np.count_nonzero(mask)
-        self._inside_range_counter+=n_inside
+        self._inside_range_counter += n_inside
         self._outside_range_counter+= len(mask)-n_inside
-        location_pairs = location_pairs.subset_on_mask(mask)
+        location_pairs = location_pairs.subset_with_mask(mask)
         i, j = (location_pairs.location_a.contig_id, location_pairs.location_a.contig_id)
         np.add.at(self._inside_range_per_cell, (i, j), 1)
         distance_log_probs = self._distance_distribution.log_probability(dists[mask])
@@ -227,13 +240,16 @@ def squares_split(numeric_input_data, path: ContigPath):
     max_distance = estimate_max_distance2(size_array)
     cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
     distance_distribution = DistanceDistribution.from_cumulative_distribution(cumulative_distribution, max_distance)
-    # distance_distribution = distance_distribution.cut_at_distance(max_distance).normalize()
-    matrix_obj = LogsumprobMatrices(size_array, path, distance_distribution)
+    counter= CountEverything(size_array, path, distance_distribution)
+    # matrix_obj = LogsumprobMatrices(size_array, path, distance_distribution)
     for location_pair in next(numeric_input_data.location_pairs):
-        matrix_obj.register_location_pairs(location_pair)
-    connected_matrix, disconnected_matrix = matrix_obj.matrices
-    px.imshow(connected_matrix, title='connected').show()
-    px.imshow(disconnected_matrix, title='disconnected').show()
-    optimal_squares = DirectOptimalSquares(connected_matrix, disconnected_matrix, sum(size_array), max_distance, max_splits=20)
+        counter.register_location_pairs(location_pair)
+
+    estimation_data = counter.estimation_data()
+    optimal_squares = EstimationDataSplitter(estimation_data)
+    #connected_matrix, disconnected_matrix = matrix_obj.matrices
+    # px.imshow(connected_matrix, title='connected').show()
+    # px.imshow(disconnected_matrix, title='disconnected').show()
+    #optimal_squares = DirectOptimalSquares(connected_matrix, disconnected_matrix, sum(size_array), max_distance, max_splits=20)
     splits = optimal_squares.find_splits()
     return split_based_on_indices(path, splits)

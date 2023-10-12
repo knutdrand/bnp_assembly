@@ -74,6 +74,15 @@ class OptimalSquares:
         # return find_splits(self._count_matrix)
 
 
+class EstimationDataSplitter(OptimalSquares):
+    def __init__(self, estimation_data, max_splits=20):
+        self._max_split = max_splits
+        self._estimation_data = estimation_data
+        self._n_nodes = len(estimation_data.inside_range_per_cell)
+
+    def score_split(self, split_indices):
+        return self._estimation_data.score_split(split_indices)
+
 class DirectOptimalSquares(OptimalSquares):
     def __init__(self, connected_logprobs, disconnected_log_probs, max_splits=20, ):
         self._connected_logprobs = connected_logprobs
@@ -93,6 +102,8 @@ class DirectOptimalSquares(OptimalSquares):
         score = sum(s.sum() for s in scores + scores2)
         print(f'Score {score} {split_indices}')
         return score
+
+
 
 def flatten(squares):
     return np.concatenate([square.ravel() for square in squares])
