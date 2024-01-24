@@ -25,6 +25,9 @@ class DirectedDistanceMatrix:
             mat[edge] = value
         return mat
 
+    def to_edge_dict(self):
+        return {edge: self[edge] for edge in self.keys()}
+
     def keys(self):
         all_edges = (Edge.from_numeric_index((i, j)) for i in range(len(self._matrix)) for j in range(len(self._matrix)))
         return (edge for edge in all_edges if edge.from_node_side.node_id != edge.to_node_side.node_id)

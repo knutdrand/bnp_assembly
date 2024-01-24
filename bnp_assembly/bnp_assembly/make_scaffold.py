@@ -213,10 +213,30 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
+def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20):
+    """Joins based on dynamic heatmaps and splits using the same heatmaps"""
+    cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+
+    edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
+                                                      n_bins_heatmap_scoring)
+    distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
+                                                        edge_distance_finder)
+    path = join_all_contigs(distance_matrix)
+
+    # split this path based on the scores from distance matrix
+    edge_scores = distance_matrix.to_edge_dict()
+    # must get edge scores in the same order as the path has edges
+    edge_scores = {edge: score for edge, score in edge_scores.items() if edge in path.edges}
+    edge_scores = {edge: score for edge, score in sorted(edge_scores.items(), key=lambda x: path.edges.index(x[0]))}
+    logger.info(f"Edge dict: {edge_scores}")
+    return split_on_scores(path, edge_scores, threshold=8, keep_over=False)
+    # return path
+
+
 def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bins):
     max_distance_heatmaps = min(1000000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
     max_gap_distance = min(5000000, (
-        estimate_max_distance2(numeric_input_data.contig_dict.values()) * 2 - max_distance_heatmaps))
+            estimate_max_distance2(numeric_input_data.contig_dict.values()) * 2 - max_distance_heatmaps))
     heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution,
                                                                n_bins=n_bins,
                                                                max_distance=max_distance_heatmaps)
@@ -225,10 +245,13 @@ def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bi
 
 
 def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure='window', threshold=0.2,
-                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[ContigPath]:
+                          bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[
+    ContigPath]:
     assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
+    logger.info(f"Using distance measure {distance_measure}")
     if distance_measure == 'dynamic_heatmap':
         n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
+        return dynamic_heatmap_join_and_split(numeric_input_data, n_bins_heatmap_scoring=n_bins_heatmap_scoring)
         joined = numeric_join(numeric_input_data, n_bins_heatmap_scoring)
         return numeric_split(numeric_input_data, joined, bin_size, max_distance, threshold)
 

@@ -43,7 +43,8 @@ def run_simulated_experiment(simulation_params, rng, distance_measure='window', 
     paths = make_scaffold_numeric(input_data,
                                   distance_measure=distance_measure,
                                   window_size=30,
-                                  splitting_method=splitting_method
+                                  splitting_method=splitting_method,
+                                  n_bins_heatmap_scoring=5
                                   )
     true_paths = split_and_pairs.split.get_paths()
     return true_paths, paths

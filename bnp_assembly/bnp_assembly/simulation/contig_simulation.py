@@ -123,13 +123,14 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
                 intra_chromosome_splits.append((prev_contig_name, contig_name))
 
             prev_contig_name = contig_name
-            scaffold_alignments.append([genome.name[contig_id], start, end, contig_name, 0, end - start, "+"])
+            scaffold_alignments.append([genome.name[contig_id].to_string(), start, end, contig_name, 0, end - start, "+"])
 
     new_fasta = bnp.datatypes.SequenceEntry.from_entry_tuples(
         zip(new_contig_names,
             trim_contig_sequences_for_ns(new_contig_sequences))
     )
     logging.info(f"Ended up with {len(new_fasta)} genome")
+    logging.info(str(scaffold_alignments))
     return SimulatedContigs(new_fasta, ScaffoldAlignments.from_entry_tuples(scaffold_alignments),
                             inter_chromosome_splits, intra_chromosome_splits)
 

@@ -182,7 +182,7 @@ class HeatmapComparisonRowColumns(HeatmapComparison):
         best = np.mean(scores)
         if plot_name is not None:
             px(name="dynamic_heatmaps").bar(scores, title=plot_name)
-            # print(plot_name, scores, "Median:", best)
+            print(plot_name, scores, "Mean:", best)
 
         if best >= len(self._row_sums):
             best = len(self._row_sums) - 1
@@ -516,4 +516,9 @@ def get_dynamic_heatmap_config_with_uniform_bin_sizes(n_bins=5, bin_size=1000):
         n_bins=n_bins,
         max_distance=max_distance
     )
+
+
+def split_using_dynamic_heatmaps(numeric_input_data: NumericInputData, path, bin_size=5000, max_distance=100000, threshold=0.2):
+    assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
+
 
