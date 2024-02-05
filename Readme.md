@@ -9,3 +9,15 @@ This repository contains:
 
 * [A HiC scaffolder under development](bnp_assembly/Readme.md)
 * [A Snakemake pipeline for benchmarking HiC scaffolding](benchmarking/Readme.md)
+
+
+## Installation
+
+* Clone the repository
+* Install the package with pip
+```bash
+cd bnp_assembly
+pip install -e .
+```
+
+See separate instructions inside the benchmarking directory for how to install and run the benchmarking pipeline.
