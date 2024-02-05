@@ -43,7 +43,7 @@ class CumulativeDist2d:
         return t
 
 
-def distance_dist(location_pairs, contig_dict) -> np.ndarray:
+def distance_dist(location_pairs: object, contig_dict: object) -> np.ndarray:
 
     if isinstance(location_pairs, LocationPair):
         distances = get_intra_distances(location_pairs)
@@ -84,6 +84,12 @@ class DistanceDistribution:
     def __init__(self, log_probabilities):
         self._log_probabilities = log_probabilities
         assert np.all(~np.isinf(self._log_probabilities)), np.flatnonzero(np.isinf(self._log_probabilities))
+
+    def cut_at_distance(self):
+        return self.__class__(self._log_probabilities[:self.max_distance])
+
+    def normalize(self):
+        return self.__class__(self._log_probabilities - scipy.special.logsumexp(self._log_probabilities))
 
     @property
     def max_distance(self):

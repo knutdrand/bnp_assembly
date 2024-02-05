@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDist
 from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
 from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
-from bnp_assembly.location import LocationPair
+from bnp_assembly.max_distance import estimate_max_distance2
 from bnp_assembly.missing_data import find_contig_clips
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
@@ -26,14 +26,14 @@ from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
-from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import log_config, DynamicHeatmapDistanceFinder, \
-    get_dynamic_heatmap_config_with_even_bins, get_dynamic_heatmap_config_with_uniform_bin_sizes
+from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmapDistanceFinder, \
+    get_dynamic_heatmap_config_with_even_bins
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
 import logging
 
-from bnp_assembly.square_finder import squares_split
+from bnp_assembly.logprobsum_splitter import squares_split
 
 logger = logging.getLogger(__name__)
 
@@ -326,12 +326,3 @@ def join_all_contigs(distance_matrix) -> ContigPath:
     assert False
 
 
-def estimate_max_distance2(contig_sizes: Iterable[int]):
-    """
-    Finds a distance so contigs >  this distance cover at least 10% of total genome
-    """
-    sorted = np.sort(list(contig_sizes))[::-1]
-    cumsum = np.cumsum(sorted)
-    total_size = cumsum[-1]
-    cutoff = np.searchsorted(cumsum, total_size // 10, side="right")
-    return sorted[cutoff] // 8

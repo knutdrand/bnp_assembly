@@ -153,7 +153,7 @@ def simulate_noise(split_and_pairs, n_noise, rng=None):
     ps = sizes / total_size
     contig_ids = list(contig_dict.keys())
     simulated_contig_ids = (rng.choice(contig_ids, p=ps, size=(2, n_noise), replace=True))
-    offsets = rng.uniform(0, sizes[simulated_contig_ids])
+    offsets = rng.uniform(0, sizes[simulated_contig_ids]).astype(int)
     return tuple(Location(simulated_contig_ids[i], offsets[i]) for i in range(2))
 
 
