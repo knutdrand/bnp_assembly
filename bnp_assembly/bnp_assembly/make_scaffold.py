@@ -213,7 +213,7 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
-def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20):
+def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20, split_threshold=10):
     """Joins based on dynamic heatmaps and splits using the same heatmaps"""
     cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
 
@@ -229,7 +229,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     edge_scores = {edge: score for edge, score in edge_scores.items() if edge in path.edges}
     edge_scores = {edge: score for edge, score in sorted(edge_scores.items(), key=lambda x: path.edges.index(x[0]))}
     logger.info(f"Edge dict: {edge_scores}")
-    return split_on_scores(path, edge_scores, threshold=8, keep_over=False)
+    return split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=False)
     # return path
 
 
@@ -251,7 +251,9 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     logger.info(f"Using distance measure {distance_measure}")
     if distance_measure == 'dynamic_heatmap':
         n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
-        return dynamic_heatmap_join_and_split(numeric_input_data, n_bins_heatmap_scoring=n_bins_heatmap_scoring)
+        return dynamic_heatmap_join_and_split(numeric_input_data,
+                                              n_bins_heatmap_scoring=n_bins_heatmap_scoring,
+                                              split_threshold=threshold)
         joined = numeric_join(numeric_input_data, n_bins_heatmap_scoring)
         return numeric_split(numeric_input_data, joined, bin_size, max_distance, threshold)
 

@@ -228,6 +228,7 @@ rule test_athalia_rosea_real_reads:
             assert float(lines[1].split()[1]) >= 0.98
 
 
+
 rule test_athalia_rosea_real_reads2:
     input:
         ScaffoldingResults.from_flat_params(
@@ -239,11 +240,36 @@ rule test_athalia_rosea_real_reads2:
             seed=1,
             source="not_assembled",
             extra_splits=50,
-            split_on_n_ns=0,
+            split_on_n_ns=200,  # split on ns to get realistic splits
             scaffolder="bnp_scaffolding_dynamic_heatmaps",
         ).file_path() + "/accuracy.txt"
     output:
         touch("test_athalia_rosea_real_reads2")
+    run:
+        with open(input[0]) as f:
+            lines = f.readlines()
+            # recall
+            assert float(lines[0].split()[1]) >= 0.92
+            # precision
+            assert float(lines[1].split()[1]) >= 0.98
+
+
+rule test_athalia_rosea_real_reads3:
+    input:
+        ScaffoldingResults.from_flat_params(
+            genome_build="athalia_rosea",
+            individual="real",
+            dataset_size="big",
+            depth="10",
+            n_reads="10000000",
+            seed=1,
+            source="not_assembled",
+            extra_splits=0,
+            split_on_n_ns=200,  # split on ns to get realistic splits
+            scaffolder="bnp_scaffolding_dynamic_heatmaps",
+        ).file_path() + "/accuracy.txt"
+    output:
+        touch("test_athalia_rosea_real_reads3")
     run:
         with open(input[0]) as f:
             lines = f.readlines()

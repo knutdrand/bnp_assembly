@@ -12,7 +12,7 @@ np.random.seed(int(snakemake.wildcards.seed))
 extra_splits = int(snakemake.wildcards.extra_splits)
 contigs = bnp.open(snakemake.input[0]).read()
 
-simulated = simulate_contigs_from_genome(contigs, extra_splits, rng=rng, also_split_at_ns=int(snakemake.wildcards.splits_on_n_ns),
+simulated = simulate_contigs_from_genome(contigs, extra_splits, rng=rng, also_split_at_ns=int(snakemake.wildcards.split_on_n_ns),
                                          ratio_small_contigs=float(snakemake.wildcards.ratio_small_contigs),
                                          min_contig_size=int(snakemake.wildcards.min_contig_size))
 new_fasta = simulated.contigs

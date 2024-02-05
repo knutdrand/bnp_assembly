@@ -98,7 +98,7 @@ class Scaffolds:
 
     @property
     @lru_cache(maxsize=None)
-    def edges(self):
+    def edges(self) -> tp.Set[Edge]:
         return set(edge for scaffold in self._scaffolds for edge in scaffold.edges)
 
     def has_edge(self, edge: Edge) -> bool:

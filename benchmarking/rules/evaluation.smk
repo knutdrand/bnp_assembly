@@ -138,12 +138,14 @@ rule accuracy_bnp:
     input:
         scaffold_agp = ScaffoldingResults.path() + "/scaffolds.agp",
         true_agp = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.agp",
+        contigs_fasta = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
     output:
         results = ScaffoldingResults.path() + "/accuracy.txt",
         missing_edges = ScaffoldingResults.path() + "/accuracy.txt.missing_edges",
     shell:
         """
-        bnp_assembly evaluate-agp {input.scaffold_agp} {input.true_agp} {output.results} && cat {output.results}
+        bnp_assembly evaluate-agp {input.scaffold_agp} {input.true_agp} {output.results} --contig-genome-fasta {input.contigs_fasta} \
+        && cat {output.results}
         """
 
 

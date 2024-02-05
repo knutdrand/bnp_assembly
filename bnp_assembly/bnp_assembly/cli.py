@@ -147,7 +147,12 @@ def simulate_hic(contigs: str, n_reads: int, read_length: int, fragment_size_mea
 
 
 @app.command()
-def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str):
+def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str, contig_genome_fasta: str = None):
+    contig_sizes = None
+    if contig_genome_fasta is not None:
+        # get contig sizes from fasta, and compute weighted scores also
+        contig_sizes = bnp.Genome.from_file(contig_genome_fasta).get_genome_context().chrom_sizes
+
     estimated_agp = ScaffoldAlignments.from_agp(estimated_agp_path)
     true_agp = ScaffoldAlignments.from_agp(true_agp_path)
     comparison = ScaffoldComparison(estimated_agp, true_agp)
@@ -155,6 +160,10 @@ def evaluate_agp(estimated_agp_path: str, true_agp_path: str, out_file_name: str
     with open(out_file_name, "w") as f:
         f.write(f'edge_recall\t{comparison.edge_recall()}\n')
         f.write(f'edge_precision\t{comparison.edge_precision()}\n')
+        if contig_sizes:
+            f.write(f'weighted_edge_recall\t{comparison.weighted_edge_recall(contig_sizes)}\n')
+            f.write(f'weighted_edge_precision\t{comparison.weighted_edge_precision(contig_sizes)}\n')
+
     with open(out_file_name + ".missing_edges", "w") as f:
         f.write('\n'.join([str(e) for e in missing_edges]))
 

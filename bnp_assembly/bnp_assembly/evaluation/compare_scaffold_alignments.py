@@ -3,6 +3,7 @@ from functools import lru_cache
 import typing as tp
 
 import numpy as np
+from bnp_assembly.graph_objects import Edge
 
 from ..agp import ScaffoldAlignments
 from ..scaffolds import Scaffolds
@@ -42,6 +43,26 @@ class ScaffoldComparison:
         for edge in self.missing_edges():
             print(edge)
         return len(self._true_scaffold.edges & self._estimated_scaffold.edges) / len(self._true_scaffold.edges)
+
+    @staticmethod
+    def edge_weight(edge: Edge, contig_sizes) -> float:
+        node1_size = contig_sizes[edge.from_node_side.node_id]
+        node2_size = contig_sizes[edge.to_node_side.node_id]
+        #return min(node1_size, node2_size)
+        return (node1_size + node2_size) / 2
+
+    def weighted_edge_recall(self, contig_sizes: tp.Dict[str, int]) -> float:
+        """Weighted by the size of the contigs in the edge. Computes weights for true positive edges and divides by weight for true edges"""
+        true_positives = self._true_scaffold.edges & self._estimated_scaffold.edges
+        positives = self._true_scaffold.edges
+        return (sum(self.edge_weight(edge, contig_sizes) for edge in true_positives) /
+                sum(self.edge_weight(edge, contig_sizes) for edge in positives))
+
+    def weighted_edge_precision(self, contig_sizes: tp.Dict[str, int]) -> float:
+        true_positives = self._true_scaffold.edges & self._estimated_scaffold.edges
+        true_positives_and_false_positives = self._estimated_scaffold.edges
+        return (sum(self.edge_weight(edge, contig_sizes) for edge in true_positives) /
+                sum(self.edge_weight(edge, contig_sizes) for edge in true_positives_and_false_positives))
 
     def missing_edges(self) -> tp.Set[str]:
         return self._true_scaffold.edges - self._estimated_scaffold.edges
