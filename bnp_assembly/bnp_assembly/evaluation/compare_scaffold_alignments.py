@@ -55,14 +55,20 @@ class ScaffoldComparison:
         """Weighted by the size of the contigs in the edge. Computes weights for true positive edges and divides by weight for true edges"""
         true_positives = self._true_scaffold.edges & self._estimated_scaffold.edges
         positives = self._true_scaffold.edges
+        positives_weight = sum(self.edge_weight(edge, contig_sizes) for edge in positives)
+        if positives_weight == 0:
+            return 0
         return (sum(self.edge_weight(edge, contig_sizes) for edge in true_positives) /
-                sum(self.edge_weight(edge, contig_sizes) for edge in positives))
+                positives_weight)
 
     def weighted_edge_precision(self, contig_sizes: tp.Dict[str, int]) -> float:
         true_positives = self._true_scaffold.edges & self._estimated_scaffold.edges
         true_positives_and_false_positives = self._estimated_scaffold.edges
+        positives_weight = sum(self.edge_weight(edge, contig_sizes) for edge in true_positives_and_false_positives)
+        if positives_weight == 0:
+            return 0
         return (sum(self.edge_weight(edge, contig_sizes) for edge in true_positives) /
-                sum(self.edge_weight(edge, contig_sizes) for edge in true_positives_and_false_positives))
+                positives_weight)
 
     def missing_edges(self) -> tp.Set[str]:
         return self._true_scaffold.edges - self._estimated_scaffold.edges

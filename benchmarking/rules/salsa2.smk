@@ -19,7 +19,8 @@ rule run_salsa2:
         contigs_index=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
         hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bed",
     output:
-        scaffolds = ScaffoldingResults.path(scaffolder="salsa2") + "/scaffolds.fa"
+        scaffolds = ScaffoldingResults.path(scaffolder="salsa2") + "/scaffolds.fa",
+        agp = ScaffoldingResults.path(scaffolder="salsa2") + "/scaffolds.agp",
     conda:
         "../envs/salsa2.yml"
     params:
@@ -27,6 +28,7 @@ rule run_salsa2:
     shell:
         """
         rm -rf {params.out_prefix} &&
-        run_pipeline.py -p yes -a {input.contigs} -l {input.contigs_index} -b {input.hic_to_contig_mappings} -e CATG -o {params.out_prefix} && 
-        mv {params.out_prefix}/scaffolds_FINAL.fasta {output.scaffolds}
+        run_pipeline.py --clean no -p yes -a {input.contigs} -l {input.contigs_index} -b {input.hic_to_contig_mappings} -e CATG -o {params.out_prefix} && 
+        mv {params.out_prefix}/scaffolds_FINAL.fasta {output.scaffolds} &&
+        mv {params.out_prefix}/scaffolds_FINAL.agp {output.agp}
         """
