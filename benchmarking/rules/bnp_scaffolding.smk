@@ -23,8 +23,8 @@ rule run_bnp_scaffolding_dynamic_heatmaps:
         fa = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/scaffolds.fa",
         agp = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/scaffolds.agp"
     shell:
-        "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 12 "
-        "--bin-size 5000  --logging-folder {params.log_folder} --distance-measure dynamic_heatmap "
+        "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 2000000 "
+        "--bin-size 5000  --logging-folder {params.log_folder} --distance-measure dynamic_heatmap --n-bins-heatmap-scoring 10"
 
 
 

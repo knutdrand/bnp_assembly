@@ -3,6 +3,8 @@ import subprocess
 import argparse
 import pathlib
 import json
+import logging
+logging.basicConfig(level=logging.INFO)
 
 # Local imports.
 import scaffold_distance

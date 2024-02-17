@@ -32,7 +32,7 @@ rule run_whatshap:
 
 
 
-rule make_hic_heatmap_for_scaffolds:
+rule make_heatmap:
     input:
         scaffolds = ScaffoldingResults.path() + "/scaffolds.fa",
         agp = ScaffoldingResults.path() + "/scaffolds.agp",
@@ -81,30 +81,28 @@ rule missing_data:
 
 rule run_edison:
     input:
-        assembly = ScaffoldingResults.path() + "/scaffolds.fa",
-        true_reference = ReferenceGenome.path(file_ending="") + "/haplotype0.fa"
+        assembly = ScaffoldingResults.path() + "/scaffolds.agp",
+        true_reference = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.agp",
+        #true_reference = ReferenceGenome.path(file_ending="") + "/haplotype0.fa"
     output:
         txt_report = ScaffoldingResults.path() + "/edison.txt",
-        alignment_viz = ScaffoldingResults.path() + "/alignment.pdf",
-        agp = ScaffoldingResults.path() + "/assembly.agp",
+        #alignment_viz = ScaffoldingResults.path() + "/alignment.pdf",
+        #agp = ScaffoldingResults.path() + "/assembly.agp",
     conda: "../envs/edison.yml"
     threads:
         10000000  # hack: cannot be run in parallel because of temporary files
     params:
-        edison_agp_file = lambda wildcards, input, output: input.assembly.split(os.path.sep)[-1].replace(".fa", "_assembly.agp"),
-        edison_pdf_alignment = lambda wildcards, input, output: input.assembly.split(os.path.sep)[-1].replace(".fa", "_alignment.pdf"),
+        #edison_agp_file = lambda wildcards, input, output: input.assembly.split(os.path.sep)[-1].replace(".fa", "_assembly.agp"),
+        edison_pdf_alignment = lambda wildcards, input, output: input.assembly.split(os.path.sep)[-1].replace(".agp", "_alignment.pdf"),
     shell:
         """
         rm -f {output} &&
-        rm -f {params.edison_agp_file} &&
-        echo {params.edison_agp_file} && 
         python edison/edit_distance.py -a {input.assembly} -r {input.true_reference} > {output.txt_report} && 
-        mv {params.edison_pdf_alignment} {output.alignment_viz} &&
-        mv {params.edison_agp_file} {output.agp} &&
         cat {output.txt_report}
         """
+        #mv {params.edison_pdf_alignment} {output.alignment_viz} &&
         #&& gio open {params.edison_pdf_alignment}
-
+        #mv {params.edison_agp_file} {output.agp} &&
 
 
 # heatmap, edison

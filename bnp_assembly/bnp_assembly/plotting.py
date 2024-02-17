@@ -146,8 +146,8 @@ class FolderSaver:
     def write_report(self):
         for sublogger in self._subloggers.values():
             sublogger.write_report()
-
-        with open(f'{self._folder_name}/report.html', 'w') as f:
+        file_name = f'{self._folder_name}/report.html'
+        with open(file_name, 'w') as f:
             f.write(self.generate_html())
 
     def generate_html(self):

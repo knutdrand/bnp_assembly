@@ -9,6 +9,8 @@ rule run_yahs:
         agp = ScaffoldingResults.path(scaffolder="yahs") + "/scaffolds.agp",
     conda:
         "../envs/yahs.yml"
+    benchmark:
+        ScaffoldingResults.path(scaffolder="yahs") + "/benchmark.csv",
     params:
         out_prefix = lambda wildcards, input, output: output[0].replace("_scaffolds_final.fa", ""),
         args = lambda wildcards: config["yahs_parameters"][wildcards.genome_build]

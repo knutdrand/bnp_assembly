@@ -1,3 +1,5 @@
+from typing import Dict, Tuple
+
 from .graph_objects import NodeSide, Edge
 import numpy as np
 from .plotting import px, DummyPlot, level_dict
@@ -47,8 +49,11 @@ class DirectedDistanceMatrix:
         self._matrix[edge.numeric_index] = score
 
     def __getitem__(self, edge: Edge):
-
         return self._matrix[edge.numeric_index]
+
+    def items(self):
+        for edge in self.keys():
+            yield edge, self[edge]
 
     def inversion_plot(self, name):
         n_nodes = len(self)//2
@@ -90,3 +95,23 @@ class DirectedDistanceMatrix:
         #fig.update_layout(xaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names),
         #                  yaxis = dict(tickmode = 'array', tickvals=offsets, ticktext=names))
         # return fig
+
+    def adjust_with_clipping(self, contig_clips: Dict[int, Tuple[int, int]], contig_sizes: Dict[int, int], ignore_larger_than=800000):
+        for node_id, (start, end) in contig_clips.items():
+            start_clip = start
+            end_clip = contig_sizes[node_id] - end
+            for edge, distance in self.items():
+                if distance > ignore_larger_than:
+                    continue
+                # find edges where first node is node_id, r, subtract end clip
+                if edge.from_node_side.node_id == node_id:
+                    if edge.from_node_side.side == 'r':
+                        self[edge] = max(0, self[edge]-end_clip)
+                    else:
+                        self[edge] = max(0, self[edge]-start_clip)
+
+                elif edge.to_node_side.node_id == node_id:
+                    if edge.to_node_side.side == 'r':
+                        self[edge] = max(0, self[edge]-start_clip)
+                    else:
+                        self[edge] = max(0, self[edge]-end_clip)

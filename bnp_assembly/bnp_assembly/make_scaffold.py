@@ -171,27 +171,30 @@ def numeric_split(numeric_input_data: NumericInputData, path, bin_size=5000, max
 
 
 def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge_distance_finder: EdgeDistanceFinder,
-                                      bin_size=1000) -> DirectedDistanceMatrix:
+                                      bin_size=1000, use_clipping_to_adjust_distances: bool=False) -> DirectedDistanceMatrix:
     contig_dict = numeric_input_data.contig_dict
+    original_contig_dict = contig_dict.copy()
     read_pairs = numeric_input_data.location_pairs
     contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
     logger.info(f'contig_clis: {contig_clips}')
     new_contig_dict = {contig_id: end - start for contig_id, (start, end) in contig_clips.items()}
+    logging.info("Using effective contig sizes after clipping: %s" % ('\n'.join(f"{k}:{v}" for k, v in new_contig_dict.items())))
     assert all(v > 0 for v in new_contig_dict.values()), new_contig_dict
     del contig_dict
     clip_mapper = ClipMapper(contig_clips)
 
-    # mapped_stream = clip_mapper.map_maybe_stream(next(read_pairs))
-    # wrap clipped reads in PairedReadStream (need to have stream for some of the distance methods)
     new_read_stream = PairedReadStream((clip_mapper.map_maybe_stream(s) for s in read_pairs))
     distance_matrix = edge_distance_finder(new_read_stream, effective_contig_sizes=new_contig_dict)
 
-    # adjusted_counts = adjust_counts_by_missing_data(counts, contig_dict, regions, cumulative_distribution, reads_per_bp, max_distance)
-    # adjusted_counts = adjust_for_missing_data(counts, contig_dict, cumulative_distribution, bin_sizes)
-    # forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, next(read_pairs), cumulative_distribution)
-    # distance_matrix = forbes_obj.get_distance_matrix()
-    # distance_matrix = create_distance_matrix(len(new_contig_dict), counts, new_contig_dict)
-    # distance_matrix.plot(name='forbes3')
+    distance_matrix.plot(name="dynamic_heatmap_scores").show()
+
+    # adjust distances with clippings
+    if use_clipping_to_adjust_distances:
+        logging.info("Adjusting distance matrix with clipping")
+        distance_matrix.adjust_with_clipping(contig_clips, original_contig_dict)
+        distance_matrix.plot(name="dynamic_heatmap_scores_after_clipping_adjustment").show()
+
+
     return distance_matrix
 
 
@@ -220,7 +223,8 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
                                                       n_bins_heatmap_scoring)
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
-                                                        edge_distance_finder)
+                                                        edge_distance_finder,
+                                                        use_clipping_to_adjust_distances=True)
     path = join_all_contigs(distance_matrix)
 
     # split this path based on the scores from distance matrix

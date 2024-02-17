@@ -129,7 +129,10 @@ include: "rules/real_data.smk"
 include: "rules/salsa2.smk"
 
 ruleorder: download_athalia_rosea_reference > convert_reference_genome_to_fasta
-
+ruleorder: download_nymphalis_urticae_reference > convert_reference_genome_to_fasta
+ruleorder: download_athalia_rosea_reference > download_reference_with_accession
+ruleorder: download_nymphalis_urticae_reference > download_reference_with_accession
+ruleorder: download_reference_with_accession > convert_reference_genome_to_fasta
 
 rule download_athalia_rosea_reference_tmp:
     output:
@@ -150,3 +153,38 @@ rule download_athalia_rosea_reference:
         python scripts/rename_athalia_rosea_contigs.py {input} > {output}
         """
 
+
+rule download_nymphalis_urticae_reference_tmp:
+    output:
+        "data/nymphalis_urticae/reference.fa.tmp"
+    shell:
+        """
+        wget -O {output} 'https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_905147175.2?download=true'
+        """
+
+
+rule download_nymphalis_urticae_reference:
+    input:
+        "data/nymphalis_urticae/reference.fa.tmp"
+    output:
+        "data/nymphalis_urticae/reference.fa"
+    shell:
+        """
+        python scripts/rename_athalia_rosea_contigs.py {input} > {output}
+        """
+
+
+
+# this rule can in future be used instead of the rules above by adding accessions to config
+# can be conflicting with the other rules for downloading references
+# should be rewritten to a single rule that checks what is in config
+rule download_reference_with_accession:
+    output:
+        "data/{species_name,thyatira_batis}/reference.fa"
+    params:
+        accession = lambda wildcards: config["genomes"][wildcards.species_name]["real"]["assembly_accession"]
+    shell:
+        """
+        wget -O {output}.tmp 'https://www.ebi.ac.uk/ena/browser/api/fasta/{params.accession}?download=true' && 
+        python scripts/rename_athalia_rosea_contigs.py {output}.tmp > {output}
+        """

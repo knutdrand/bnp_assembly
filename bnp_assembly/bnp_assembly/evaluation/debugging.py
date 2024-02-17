@@ -41,7 +41,7 @@ class ScaffoldingDebugger:
         self.contigs = contigs
         self._read_stream = reads
 
-        # plotting.register(debug=plotting.ResultFolder(plotting_folder))
+        plotting.register(debug=plotting.ResultFolder(plotting_folder))
         self.px = plotting.px(name="debug")
 
         contig_sizes, numeric_to_name_translation = get_numeric_contig_name_translation(self.contigs)
@@ -86,8 +86,8 @@ class ScaffoldingDebugger:
         total_contig_sizes = self.contig_sizes[contig_a_id] + self.contig_sizes[contig_b_id]
         n_bins = heatmap_size // bin_size
 
-        if n_bins > 1000:
-            bin_size = total_contig_sizes // 1000
+        if n_bins > 250:
+            bin_size = total_contig_sizes // 250
             logging.info("Adjusting bin size to %d", bin_size)
         elif n_bins < 100:
             bin_size = total_contig_sizes // 100
@@ -196,6 +196,8 @@ class ScaffoldingDebugger:
         sorted_edges = self._get_sorted_edges()
         seen_edges = set()
         for edge in sorted_edges:
+            #if edge.from_node_side.node_id != 72 and edge.to_node_side.node_id != 72:
+            #    continue
             if edge.reverse() in seen_edges:
                 continue
             seen_edges.add(edge)

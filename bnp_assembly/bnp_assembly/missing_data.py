@@ -189,7 +189,8 @@ def find_clips(bins, mean_coverage, window_size):
     return (start, end)
 
 
-def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: PairedReadStream, window_size=10):
+def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: PairedReadStream, window_size=10) \
+        -> Dict[int, Tuple[int, int]]:
     assert isinstance(read_pairs, PairedReadStream)
     bins, bin_sizes = get_missing_region_counts(contig_dict, next(read_pairs), bin_size)
 

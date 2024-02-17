@@ -57,5 +57,5 @@ def test_weighted_edge_recall_with_wrong_scaffold():
          ('scaffold_1', 40, 42, 'contig_4', 0, 2, '+'),
          ('scaffold_1', 42, 44, 'contig_3', 0, 2, '+')]
     )
-    comparison = ScaffoldComparison(wrong_scaffold, true_scaffold)
-    assert comparison.weighted_edge_recall(contig_sizes) == 10 / 18
+    comparison = ScaffoldComparison(wrong_scaffold, true_scaffold, contig_sizes)
+    assert comparison.weighted_edge_recall() == 10 / 18

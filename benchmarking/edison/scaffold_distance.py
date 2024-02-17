@@ -5,6 +5,7 @@ import pathlib
 import grouping
 import ordering
 import agp
+import logging
 
 
 def setup():
@@ -369,8 +370,10 @@ def distance(reference, assembly):
 
     # Make sure the reference and assembly contain the same contigs.
     if set(reference[0].keys()) != set(assembly[0].keys()):
-        print("Reference and Assembly have unequal sets of contigs!")
-        return
+        logging.error("Reference and Assembly have unequal sets of contigs!")
+        logging.error("Reference: \n " + '\n  '.join(sorted(list(set(reference[0].keys())))))
+        logging.error("Assembly: \n  " + '\n  '.join(sorted(list(set(assembly[0].keys())))))
+        raise Exception("Unequal sets of contigs.")
 
     print()
     print("   Scaffolding Statistics    ")

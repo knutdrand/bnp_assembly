@@ -1,4 +1,6 @@
 import itertools
+import logging
+
 import numpy as np
 from bionumpy.datatypes import BamEntry
 from .location import LocationPair, Location
@@ -35,6 +37,7 @@ def get_genomic_read_pairs(genome: bnp.Genome, bam_file_name, mapq_threshold=10)
     interval = bnp.alignments.alignment_to_interval(alignments)
     reads = genome.get_intervals(interval)
     location = reads.get_location('stop')
+    assert len(mask) % 2 == 0, "Number of reads should be even if reads are paired correctly"
     mask = mask[::2] & mask[1::2]
     return GenomicLocationPair(location[::2][mask], location[1::2][mask])
 
@@ -72,6 +75,7 @@ class PairedReadStream:
         reads = genome.get_intervals(interval)
         location = reads.get_location('stop')
         mask = mask[::2] & mask[1::2]
+        #logging.info(f"{np.sum(mask==0)/len(mask)} reads filtered out with mapq < {mapq_threshold}")
         genomic_locations = GenomicLocationPair(location[::2][mask], location[1::2][mask])
         numeric_locations = genomic_locations.get_numeric_locations()
         return numeric_locations
@@ -80,4 +84,10 @@ class PairedReadStream:
     def from_bam_entry(cls, genome: bnp.Genome, bam_entry, mapq_threshold=10):
         locations = PairedReadStream.parse_bam_entry(genome, bam_entry, mapq_threshold)
         return cls(itertools.repeat([locations]))
+
+
+
+
+
+
 

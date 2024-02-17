@@ -71,7 +71,7 @@ rule sort_hic_mapped_reads_by_name:
     input:
         "{file}.bam"
     output:
-        "{file}.sorted_by_read_name.bam"
+        "{file}.sorted_by_read_name.unsanitized.bam"
     conda:
         "../envs/samtools.yml"
     shell:
@@ -93,4 +93,13 @@ rule sort_hic_mapped_reads_by_position:
         """
 
 
-rule bed_to_bam:
+rule sanitize_hic:
+    input:
+        "{file}.sorted_by_read_name.unsanitized.bam"
+    output:
+        "{file}.sorted_by_read_name.bam"
+    shell:
+        """
+        bnp_assembly sanitize-paired-end-bam {input} {output}
+        """
+

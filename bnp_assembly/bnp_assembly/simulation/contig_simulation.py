@@ -86,9 +86,12 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
 
         if n_random_splits == 0 and len(split_positions) == 0:
             # will not split anywhere
-            new_contig_names.append(f"contig{new_contig_id}")
+            contig_name = f"contig{new_contig_id}"
+            new_contig_names.append(contig_name)
             new_contig_sequences.append(genome.sequence[contig_id])
             new_contig_id += 1
+            end = len(old_contig_sequence)
+            scaffold_alignments.append([genome.name[contig_id].to_string(), 0, end, contig_name, 0, end, "+"])
             continue
 
         random_split_positions = np.array([], dtype=int)
