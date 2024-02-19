@@ -216,7 +216,8 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
-def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20, split_threshold=10):
+def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20,
+                                   split_threshold: float=10.0):
     """Joins based on dynamic heatmaps and splits using the same heatmaps"""
     cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
 
@@ -252,71 +253,12 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[
     ContigPath]:
     assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
-    logger.info(f"Using distance measure {distance_measure}")
-    if distance_measure == 'dynamic_heatmap':
-        n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
-        return dynamic_heatmap_join_and_split(numeric_input_data,
-                                              n_bins_heatmap_scoring=n_bins_heatmap_scoring,
-                                              split_threshold=threshold)
-        joined = numeric_join(numeric_input_data, n_bins_heatmap_scoring)
-        return numeric_split(numeric_input_data, joined, bin_size, max_distance, threshold)
 
-    if distance_measure == 'forbes3' and splitting_method != 'poisson':
-        cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
-        edge_distance_finder = ForbesDistanceFinder(numeric_input_data.contig_dict, cumulative_distribution,
-                                                    max_distance)
-        return default_make_scaffold(numeric_input_data, edge_distance_finder, threshold=threshold,
-                                     max_distance=max_distance, bin_size=bin_size)
+    n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
+    return dynamic_heatmap_join_and_split(numeric_input_data,
+                                          n_bins_heatmap_scoring=n_bins_heatmap_scoring,
+                                          split_threshold=threshold)
 
-    contig_dict, read_pairs = numeric_input_data.contig_dict, next(numeric_input_data.location_pairs)
-    if isinstance(read_pairs, List):
-        read_pairs = read_pairs[0]  # some tests have a stream of read pairs
-
-    # assert False
-    px = px_func(name='joining')
-    logging.info(f"Using splitting method {splitting_method} and distance measure {distance_measure}")
-    if distance_measure == 'window':
-        original_distance_matrix = calculate_distance_matrices(contig_dict, read_pairs, **distance_kwargs)
-        split_matrix = original_distance_matrix
-    elif distance_measure == 'forbes':
-        pair_counts = get_pair_counts(contig_dict, read_pairs)
-        node_side_counts = get_node_side_counts(pair_counts)
-        d = {'length': [], 'node_side_count': [], 'node_side': []}
-        for node_side in node_side_counts:
-            d['length'].append(contig_dict[node_side.node_id])
-            d['node_side_count'].append(node_side_counts[node_side])
-            d['node_side'].append(str(node_side))
-        pd.DataFrame(d).to_csv('node_side_counts.csv')
-        DirectedDistanceMatrix.from_edge_dict(len(contig_dict), pair_counts).plot(name='pair counts')
-        px.bar(x=[str(ns) for ns in node_side_counts.keys()], y=list(node_side_counts.values()),
-               title='node side counts')
-        original_distance_matrix = get_forbes_matrix(pair_counts, node_side_counts)
-        original_distance_matrix.plot(name='forbes')
-    elif distance_measure == 'forbes2':
-        original_distance_matrix = OrientationWeightedCounter(contig_dict, read_pairs).get_distance_matrix()
-        original_distance_matrix.plot(name='forbes2')
-    elif distance_measure == 'forbes3':
-        forbes_obj = OrientationWeightedCountesWithMissing(contig_dict, read_pairs, max_distance=max_distance)
-        original_distance_matrix = forbes_obj.get_distance_matrix()
-        original_distance_matrix.plot(name='forbes3')
-    original_distance_matrix.inversion_plot('forbes2')
-    distance_matrix = original_distance_matrix
-    assert_array_equal(distance_matrix.data.T, distance_matrix.data)
-    path = join_all_contigs(distance_matrix)
-    forbes_obj.plot_scores(forbes_obj.positions, forbes_obj.scores, edges=path.edges)
-    if splitting_method == 'poisson':
-        cumulative_distribution = CumulativeDistribution(
-            distance_dist(read_pairs, contig_dict),
-            p_noise=0.4,
-            genome_size=sum(contig_dict.values()))
-        # logging.info("Paths before splitting: %s" % paths)
-        paths = split_contig_poisson(path, contig_dict, cumulative_distribution, threshold, original_distance_matrix,
-                                     len(read_pairs.location_b))
-    else:
-        s = SplitterInterface(contig_dict, read_pairs, path, max_distance=100000, bin_size=5000)
-        paths = s.split()
-        # paths = [path]# split_contig(path, contig_dict, threshold*0.65, bin_size, read_pairs)
-    return paths
 
 
 def join_all_contigs(distance_matrix) -> ContigPath:

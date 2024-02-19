@@ -6,6 +6,8 @@ Compare edge F's to F's calulated from sampled intra reads.
 '''
 import dataclasses
 
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BinnedNumericGlobalOffset
+
 from .distance_distribution import distance_dist
 from .plotting import px
 from typing import Tuple, Callable, Iterable, Dict, List, Union, Optional
@@ -62,12 +64,28 @@ class DynamicHeatmap:
     def set_array(self, a):
         self._array = a
 
+    def add_nondynamic_matrix(self, matrix: np.ndarray):
+        """Adds all values from nonsparse matrix to heatmap by adding to appropriate bins"""
+        rows, cols = np.nonzero(matrix)
+        values = matrix[rows, cols].toarray().ravel()
+        self.add_from_indexes_and_values(rows, cols, values)
+        #for i, j in zip(x, y):
+        #    self.add(i, j, matrix[i, j])
+
+    def add_from_indexes_and_values(self, rows: np.ndarray, cols: np.ndarray, values: np.ndarray):
+        assert isinstance(values, np.ndarray)
+        scaled_rows = self._scale_func(rows)
+        scaled_cols = self._scale_func(cols)
+        assert np.all(scaled_rows < self._array.shape[0]), f"{scaled_rows[scaled_rows >= self._array.shape[0]]}, {rows[scaled_rows >= self._array.shape[0]]}, {self._array.shape[0]}"
+        assert np.all(scaled_cols < self._array.shape[1])
+        np.add.at(self._array, (scaled_rows, scaled_cols), values)
+
     @classmethod
     def empty(cls, config: DynamicHeatmapConfig):
         return cls(np.zeros((config.n_bins, config.n_bins)), config.scale_func)
 
-    def add(self, a, b):
-        self._array[self._scale_func(a), self._scale_func(b)] += 1
+    def add(self, a, b, value=1):
+        self._array[self._scale_func(a), self._scale_func(b)] += value
 
     @classmethod
     def create_from_positions(cls, positions_tuple: Tuple[list, list], scale_func=lambda x: np.log(x + 1),
@@ -293,8 +311,16 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         #                                                                   max_distance=max_distance)
         dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config, max_gap_distance=self._max_gap_distance)
         gap_distances = dynamic_heatmap_creator.get_gap_distances()
-        sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
-        heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(list(sampled_heatmaps.values())[::-1], add_n_extra=3)
+
+        #sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
+        # new, making from sparse interaction matrix instead of from reads
+        logging.info("MAking sparse interaction matrix")
+        interaction_matrix_bin_size = 50
+        global_offset = BinnedNumericGlobalOffset.from_contig_sizes(effective_contig_sizes, interaction_matrix_bin_size)
+        sparse_interaction_matrix = SparseInteractionMatrix.from_reads(global_offset, reads)
+        sampled_heatmaps = dynamic_heatmap_creator.create_from_sparse_interaction_matrix(sparse_interaction_matrix)
+
+        heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(sampled_heatmaps[::-1], add_n_extra=3)
         heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
 
         def score_function(gap_index):
@@ -379,12 +405,10 @@ class PreComputedDynamicHeatmapCreator:
 
     def get_dynamic_heatmap(self, read_pairs: Iterable[LocationPair], gap_distance: int) -> DynamicHeatmap:
         return self.get_dynamic_heatmaps(read_pairs, [gap_distance])[0]
-        heatmap = DynamicHeatmap.empty(self._config)
-        for chunk in read_pairs:
-            self.update_heatmap(chunk, gap_distance, heatmap)
 
-        heatmap.set_array(heatmap.array / len(self._chosen_contigs))
-        return heatmap
+
+    def get_dynamic_heatmap_from_sparse_interaction_matrix(self, matrix, gap_distance: int) -> DynamicHeatmap:
+        return self.get_dynamic_heatmaps_from_sparse_interaction_matrix(matrix, [gap_distance])[0]
 
     def get_dynamic_heatmaps(self, read_pairs: Iterable[LocationPair], gap_distances: List[int]) -> List[DynamicHeatmap]:
         heatmaps = [DynamicHeatmap.empty(self._config) for gap in gap_distances]
@@ -417,25 +441,44 @@ class PreComputedDynamicHeatmapCreator:
                 heatmap, offset_a, offset_b, gap_distance, self._contig_sizes[contig_id_a]
             )
 
-    def create(self, reads: Union[PairedReadStream, Iterable[LocationPair]], n_extra_heatmaps=0) -> DynamicHeatmaps:
+    def create(self, reads: Union[PairedReadStream, Iterable[LocationPair]], n_extra_heatmaps=0) -> List[DynamicHeatmap]:
         """
         Creates dynamic heatmaps with gaps. If n_extra_heatmaps > 0, also adds n extra heatmaps by "fading" the last one to zero
         """
         logging.info("Using gap distances when creating background heatmaps %s" % self._gap_distances)
         heatmaps = self.get_dynamic_heatmaps(next(reads), self._gap_distances)
-        last_bin, last_heatmap = len(heatmaps)-1, heatmaps[-1]
+        return heatmaps
 
-        heatmaps = dict(enumerate(heatmaps))
-        if n_extra_heatmaps > 0:
-            for i in range(n_extra_heatmaps):
-                if np.all(heatmaps[last_bin].array == 0):
-                    logging.info(f"Stopping creation of heatmaps after {i} extra heatmaps because all are zero.")
-                    break
-                heatmaps[last_bin+i] = DynamicHeatmap(np.maximum(0, last_heatmap.array - 1))
-                #print("Creating extra dynamic heatmap", i)
-                #print(heatmaps[last_bin+i].array, np.all(heatmaps[last_bin+i].array == 0))
-                last_heatmap = heatmaps[last_bin+i]
+    def create_from_sparse_interaction_matrix(self, matrix: SparseInteractionMatrix):
+        return self.get_dynamic_heatmaps_from_sparse_interaction_matrix(matrix, self._gap_distances)
 
+    def get_dynamic_heatmaps_from_sparse_interaction_matrix(self, matrix, gap_distances):
+        heatmaps = [DynamicHeatmap.empty(self._config) for gap in gap_distances]
+        for heatmap, gap_distance in zip(heatmaps, gap_distances):
+            for contig in self._chosen_contigs:
+                # get correct coordinates
+                split_position = self._size_array[contig] // 2
+                max_distance = self._config.max_distance
+
+                x_start = split_position + gap_distance
+                x_end = split_position + gap_distance + max_distance
+                y_start = split_position - gap_distance - max_distance
+                y_end = split_position - gap_distance
+                submatrix = matrix.get_contig_submatrix(contig, x_start, x_end, y_start, y_end)
+
+                # submatrix must be flipped on y-axis to represent distance from split pos
+                #submatrix.flip_rows()
+
+                # this is a sparse matrix in binned coordinates, convert
+                submatrix = submatrix.to_nonbinned()
+                submatrix.flip_rows()
+                assert submatrix.sparse_matrix.shape[0] <= max_distance, f"{submatrix.sparse_matrix.shape[0]} > {max_distance}"
+                assert submatrix.sparse_matrix.shape[1] <= max_distance
+                heatmap.add_nondynamic_matrix(submatrix.sparse_matrix)
+
+        # divide all heatmaps
+        for heatmap in heatmaps:
+            heatmap.set_array(heatmap.array / len(self._chosen_contigs))
         return heatmaps
 
 
@@ -509,7 +552,7 @@ def find_bins_with_even_number_of_reads3(cumulative_distance_distribution, n_bin
             number = 0
     bin_borders = np.array(bin_offsets)[:n_bins]
     # always set first bin to be as low as half of smallest contig?
-    bin_borders[1] = 8000
+    #bin_borders[1] = 8000
     return np.append(bin_borders, max_distance)
 
 

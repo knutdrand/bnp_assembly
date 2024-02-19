@@ -1,6 +1,7 @@
 import itertools
 
 import numpy as np
+from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix
 from numpy.testing import assert_array_equal
 import pytest
 
@@ -47,9 +48,9 @@ def config():
 @pytest.fixture
 def genome():
     return {
-        1: 10,
-        2: 2,
-        3: 20
+        0: 10,
+        1: 2,
+        2: 20
     }
 
 
@@ -57,35 +58,46 @@ def genome():
 def read_pairs():
     read_pairs = [
         LocationPair(
-            Location([1, 1, 2, 3, 3], [8, 8, 1, 1, 1]),
-            Location([1, 1, 1, 1, 3], [2, 8, 1, 3, 9])
+            Location([0, 0, 1, 2, 2, 2], [8, 8, 1, 1, 9, 7]),
+            Location([0, 0, 0, 0, 2, 2], [2, 8, 1, 3, 11, 12])
         )
     ]
-    return read_pairs
+
+    return (read_pairs for _ in itertools.count())
 
 
-@pytest.mark.xfail
 def test_create_dynamic_heatmap(config, genome, read_pairs):
     creator = PreComputedDynamicHeatmapCreator(genome, config, n_precomputed_heatmaps=2)
-    assert creator._get_suitable_contigs_for_estimation() == [1, 3]
-    heatmap = creator.get_dynamic_heatmap(read_pairs, gap_distance=0)
-    print(heatmap)
+    assert creator._get_suitable_contigs_for_estimation() == [2]
+    heatmap = creator.get_dynamic_heatmap(next(read_pairs), gap_distance=0)
+    print(heatmap.array)
 
     correct = np.array([
+        [0, 1, 0, 0],
         [0, 0, 0, 0],
-        [0, 0, 0, 0],
-        [0, 0, 0, 0.5],
+        [0, 0, 1, 0],
         [0, 0, 0, 0]
     ])
     assert_array_equal(heatmap.array, correct)
+
+    # create using SparseInteractionMatrix instead of reads
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes(genome, 1)
+    matrix = SparseInteractionMatrix.from_reads(global_offset, read_pairs)
+    heatmap2 = creator.get_dynamic_heatmap_from_sparse_interaction_matrix(matrix, gap_distance=0)
+    print(heatmap2.array)
+    assert_array_equal(heatmap2.array, correct)
+    assert_array_equal(heatmap2.array, heatmap.array)
+
 
 
 # multiple heatmaps for different gaps
 def test_create_dynamic_heatmaps(config, genome, read_pairs):
     read_pairs_stream = (read_pairs for _ in itertools.count())
     creator = PreComputedDynamicHeatmapCreator(genome, config, n_precomputed_heatmaps=4)
-    heatmaps = creator.create(read_pairs_stream)
+    heatmaps = creator.create(next(read_pairs_stream))
     assert len(heatmaps) == 4
+    print(heatmaps[2].array)
+
 
 
 location_a = Location([0, 1, 2], [3, 2, 1])
@@ -250,3 +262,21 @@ def test_max_distance2():
     contig_sizes = [2, 1, 3, 100, 60, 1, 1]
     assert estimate_max_distance2(contig_sizes) == 100 // 8
 
+
+def test_get_dynamic_heatmap():
+    contig_sizes = {0: 45979, 1: 45979, 2: 45979, 3: 45979, 4: 45983}
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes(contig_sizes, 50)
+    matrix = SparseInteractionMatrix.empty(global_offset)
+
+    x_end = 28934
+    x_start = 23187
+    y_end = 22791
+    y_start = 17044
+    max_distance = 5747
+    assert x_end-x_start == max_distance
+
+    submatrix_binned = matrix.get_contig_submatrix(0, x_start, x_end, y_start, y_end)
+    submatrix = submatrix_binned.to_nonbinned()
+
+    assert submatrix.sparse_matrix.shape[0] <= max_distance, f"{submatrix.sparse_matrix.shape[0]} > {max_distance}"
+    assert submatrix.sparse_matrix.shape[1] <= max_distance

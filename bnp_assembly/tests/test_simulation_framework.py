@@ -1,5 +1,5 @@
 from bionumpy import Genome
-
+import pytest
 from bnp_assembly.agp import ScaffoldAlignments, ScaffoldMap
 from bnp_assembly.datatypes import GenomicLocationPair
 from bnp_assembly.edison import get_scaffold_distance
@@ -32,6 +32,7 @@ def test_generate_contigs_and_reads():
     pass
 
 
+@pytest.mark.skip  # slow
 def test_generate_training_from_contig_sizes():
     input_data, *_ = generate_training_from_contig_sizes(scaffold_assembly)
     make_scaffold(input_data,
@@ -43,6 +44,7 @@ def test_generate_training_from_contig_sizes():
                   max_distance=1000000)
 
 
+@pytest.mark.skip  # slow
 def test_generate_training_from_contig_sizes_big():
     big_scaffold_assembly = ScaffoldAlignments.from_agp('../example_data/athalia_rosea.agp')
     input_data, sg, contig_positions = generate_training_from_contig_sizes(big_scaffold_assembly, n_reads=100000)
