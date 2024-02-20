@@ -4,6 +4,7 @@ from typing import Dict, Union
 import bionumpy as bnp
 from bionumpy.genomic_data.global_offset import GlobalOffset
 import numpy as np
+from bnp_assembly.graph_objects import Edge
 from bnp_assembly.interaction_matrix import InteractionMatrix
 from bnp_assembly.io import PairedReadStream
 from scipy.sparse import bsr_array, lil_matrix
@@ -86,7 +87,6 @@ class BinnedNumericGlobalOffset:
         cumulative_contig_sizes = np.insert(np.cumsum(self._contig_sizes), 0, 0)
         return cumulative_contig_sizes[contig_id]
 
-
     def get_unbinned_coordinates_from_global_binned_coordinates(self, global_binned_coordinates: np.ndarray, as_float=False):
         assert np.all(global_binned_coordinates < self.total_size()), (global_binned_coordinates[global_binned_coordinates >= self.total_size()], self.total_size())
         # returns a tuple of contig_ids and local_offsets
@@ -99,6 +99,13 @@ class BinnedNumericGlobalOffset:
             return coordinates
         return np.ceil(coordinates)
         #return (cumulative_contig_sizes[contig_ids] + local_offsets).astype(int)
+
+    def get_unbinned_local_coordinates_from_contig_binned_coordinates(self, contig_id, binned_coordinates: np.ndarray, as_float=False):
+        """Translates a binned coordinate to a real offset at the contig"""
+        coordinates = binned_coordinates * self._contig_sizes[contig_id] / self._contig_n_bins[contig_id]
+        if as_float:
+            return coordinates
+        return np.ceil(coordinates)
 
     def round_global_coordinate(self, contig_id, local_offset, as_float=False):
         """
@@ -119,6 +126,11 @@ class BinnedNumericGlobalOffset:
         contig_binsize = self._contig_sizes[contig_id] / self._contig_n_bins[contig_id]
         return distance // contig_binsize
 
+    def contig_first_bin(self, contig_id):
+        return self.from_local_coordinates(contig_id, 0)
+
+    def contig_last_bin(self, contig_id):
+        return self.from_local_coordinates(contig_id, self.contig_sizes[contig_id]-1)
 
 
 class NaiveSparseInteractionMatrix:
@@ -179,6 +191,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         matrix = lil_matrix((size, size), dtype=float)
         return cls(matrix, global_offset)
 
+    def set_matrix(self, matrix):
+        assert self._data.shape == matrix.shape
+        self._data = matrix
+
     def add_one(self, contig_a, offset_a, contig_b, offset_b):
         x = self._global_offset.from_local_coordinates(contig_a, offset_a)
         y = self._global_offset.from_local_coordinates(contig_b, offset_b)
@@ -224,6 +240,52 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
                                                       np.array([end_bin-start_bin]),
                                                       np.array([0]))
         return SparseInteractionMatrix(submatrix, new_global_offset)
+
+    def get_edge_interaction_matrix(self, edge: Edge) -> np.ndarray:
+        """
+        returns submatrix of interaction for a given Edge.
+        First row column in returned matrix represent nearest interaction
+        """
+        node_a = edge.from_node_side.node_id
+        node_b = edge.to_node_side.node_id
+
+        # get whole part of interaction matrix, flip it correctly according to node sides
+        # so that nearest interactions are in first row/column
+        g = self._global_offset
+        matrix = self._data[
+            g.contig_first_bin(node_a):g.contig_last_bin(node_a)+1,
+            g.contig_first_bin(node_b):g.contig_last_bin(node_b)+1
+        ]
+
+        if edge.from_node_side.side == 'l':
+            if edge.to_node_side.side == 'l':
+                return matrix
+            else:
+                return matrix[:, ::-1]
+        else:
+            if edge.to_node_side.side == 'l':
+                return matrix[::-1, :]
+            else:
+                return matrix[::-1, ::-1]
+
+    def get_unbinned_edge_interaction_matrix_as_indexes_and_values(self, edge: Edge) -> np.ndarray:
+        """
+        Returns with unbinned coordinates
+        """
+        matrix = self.get_edge_interaction_matrix(edge)
+        # translate nonnegative coordinates. The two nodes can have different binning
+        new_size = (self._global_offset.contig_sizes[edge.from_node_side.node_id],
+                    self._global_offset.contig_sizes[edge.to_node_side.node_id])
+        #unbinned = np.zeros(new_size)
+        rows, cols = matrix.nonzero()
+        values = np.array(matrix[rows, cols]).ravel()
+        new_rows = self._global_offset.get_unbinned_local_coordinates_from_contig_binned_coordinates(edge.from_node_side.node_id, rows)
+        new_cols = self._global_offset.get_unbinned_local_coordinates_from_contig_binned_coordinates(edge.to_node_side.node_id, cols)
+        print("Binned/unbinned rows: ", rows, new_rows)
+        #unbinned[new_rows, new_cols] = values
+        return new_rows, new_cols, values
+        #return unbinned
+
 
     def get_contig_submatrix(self, contig_id: int, x_start: int, x_end: int, y_start: int, y_end: int) -> 'SparseInteractionMatrix':
         assert x_end-x_start == y_end-y_start

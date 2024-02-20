@@ -120,6 +120,28 @@ def test_create_from_locations():
                                NodeSide(1, 'l'))).array[0, 0] == 1
 
 
+def test_create_from_interaction_matrix():
+    dh = DynamicHeatmaps(np.array([4, 5, 6]), DynamicHeatmapConfig(n_bins=4, scale_func=lambda x: x, max_distance=4))
+    #dh.register_location_pairs(location_pair)
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 4, 1: 5, 2: 6}, 1)
+    matrix = SparseInteractionMatrix.from_reads(global_offset, ([location_pair] for _ in itertools.count()))
+    print(matrix.nonsparse_matrix)
+
+    dh.register_edge_using_interaction_matrix(Edge(NodeSide(0, 'r'), NodeSide(1, 'l')), matrix)
+    m = dh.get_heatmap(Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))).array
+    assert m[0, 0] == 1
+
+    dh.register_edge_using_interaction_matrix(Edge(NodeSide(0, 'l'), NodeSide(1, 'l')), matrix)
+    m = dh.get_heatmap(Edge(NodeSide(0, 'l'), NodeSide(1, 'l'))).array
+    assert m[3, 0] == 1
+
+    dh.register_edge_using_interaction_matrix(Edge(NodeSide(0, 'l'), NodeSide(1, 'r')), matrix)
+    m = dh.get_heatmap(Edge(NodeSide(0, 'l'), NodeSide(1, 'r'))).array
+    assert np.all(m == 0)
+
+
+
+
 def test_create_from_many_locations():
     dh = DynamicHeatmaps(np.array([4, 5, 6]), DynamicHeatmapConfig(n_bins=3, scale_func=lambda x: x, max_distance=3))
     for _ in range(10000):

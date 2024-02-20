@@ -237,6 +237,20 @@ class DynamicHeatmaps:
     def _get_flat_index(self, tuple_index):
         return sum(i * factor for i, factor in zip(tuple_index, self._array.shape))
 
+    def register_edge_using_interaction_matrix(self, edge: Edge, matrix: SparseInteractionMatrix):
+        rows, cols, values = matrix.get_unbinned_edge_interaction_matrix_as_indexes_and_values(edge)
+        new_rows = self._scale_func(rows)
+        new_cols = self._scale_func(cols)
+        if len(new_rows) == 0:
+            return
+        edge_index = DynamicHeatmaps.array_index(edge)
+        print(rows, new_rows)
+        print(cols, new_cols)
+        for r, c, v in zip(new_rows, new_cols, values.ravel()):
+            if c < self._n_bins and r < self._n_bins:
+                self._array[edge_index][int(r), int(c)] += v
+        #self._array[edge_index][new_rows, new_cols] = values
+
     def register_location_pairs(self, location_pairs: LocationPair):
         a = location_pairs.location_a
         b = location_pairs.location_b
@@ -255,7 +269,13 @@ class DynamicHeatmaps:
                      a_idx, b_idx), self._array.shape[2:])
                 self._array[a_dir, b_dir] += np.bincount(idx, minlength=self._array[0, 0].size).reshape(self._array.shape[2:])
 
-    def get_heatmap(self, edge: Edge, use_half_contigs=False):
+    @staticmethod
+    def array_index(edge):
+        a_dir, b_dir = (0 if node_side.side == 'l' else 1 for node_side in (edge.from_node_side, edge.to_node_side))
+        a, b = (node_side.node_id for node_side in (edge.from_node_side, edge.to_node_side))
+        return (a_dir, b_dir, a, b)
+
+    def get_heatmap(self, edge: Edge, use_half_contigs=False, both_ways=True):
         # if use_half_contigs, only use maximum half of the contig for scoring
         factor = 1
         if use_half_contigs:
@@ -267,6 +287,9 @@ class DynamicHeatmaps:
         b_bins = max(1, self._scale_func(self._size_array[b] // factor))
         assert a_bins >= 1 and b_bins >= 1
         heatmap = DynamicHeatmap(self._array[a_dir, b_dir, a, b, :a_bins,:b_bins], self._scale_func)
+        if not both_ways:
+            # if counts represent both cominations of reads, no need to add heatmap for the other way
+            return heatmap
         heatmap2 = DynamicHeatmap(self._array[b_dir, a_dir, b, a, :b_bins,:a_bins], self._scale_func)
         return DynamicHeatmap(heatmap.array + heatmap2.array.T, self._scale_func)
 
@@ -294,6 +317,14 @@ def get_dynamic_heatmaps_from_reads(dynamic_heatmap_config, input_data: NumericI
     return dynamic_heatmaps
 
 
+def get_dynamic_heatmaps_from_interaction_matrix(dynamic_heatmap_config, interaction_matrix: SparseInteractionMatrix):
+    contig_sizes = interaction_matrix._global_offset._contig_sizes
+    dynamic_heatmaps = DynamicHeatmaps(contig_sizes, dynamic_heatmap_config)
+    for edge in get_all_possible_edges(len(contig_sizes)):
+        dynamic_heatmaps.register_edge_using_interaction_matrix(edge, interaction_matrix)
+    return dynamic_heatmaps
+
+
 class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
     def __init__(self, heatmap_config: DynamicHeatmapConfig = log_config, max_gap_distance=None):
         self._heatmap_config = heatmap_config
@@ -315,13 +346,15 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         #sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
         # new, making from sparse interaction matrix instead of from reads
         logging.info("MAking sparse interaction matrix")
-        interaction_matrix_bin_size = 50
+        interaction_matrix_bin_size = 100
         global_offset = BinnedNumericGlobalOffset.from_contig_sizes(effective_contig_sizes, interaction_matrix_bin_size)
         sparse_interaction_matrix = SparseInteractionMatrix.from_reads(global_offset, reads)
         sampled_heatmaps = dynamic_heatmap_creator.create_from_sparse_interaction_matrix(sparse_interaction_matrix)
 
         heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(sampled_heatmaps[::-1], add_n_extra=3)
-        heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
+        #heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
+        heatmaps = get_dynamic_heatmaps_from_interaction_matrix(self._heatmap_config, sparse_interaction_matrix)
+        both_ways = False
 
         def score_function(gap_index):
             # translate a gap index to an actual gap distance
@@ -332,7 +365,7 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
 
         distances = {}
         for edge in get_all_possible_edges(len(input_data.contig_dict)):
-            heatmap = heatmaps.get_heatmap(edge, use_half_contigs=True)
+            heatmap = heatmaps.get_heatmap(edge, use_half_contigs=True, both_ways=both_ways)
             plot_name = None
             if edge.from_node_side.node_id == 72 or edge.from_node_side.node_id == edge.to_node_side.node_id - 1 or edge.from_node_side.node_id == edge.to_node_side.node_id-2:
                 plot_name = f"Searchshorted indexes {edge}"

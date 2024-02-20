@@ -1,5 +1,7 @@
 import pytest
+import scipy
 from bionumpy.genomic_data.global_offset import GlobalOffset
+from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
@@ -184,4 +186,21 @@ def test_get_contig_intra_matrix():
         [0, 0, 0],
         [0, 0, 0]
     ])
+
+
+def test_get_edge_matrix():
+    g = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
+    matrix = SparseInteractionMatrix.empty(g)
+    data = np.arange(16).reshape((4, 4))
+    sparse_data = scipy.sparse.lil_matrix(data)
+    matrix.set_matrix(sparse_data)
+    print(matrix)
+
+    edge = Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))
+    sub = matrix.get_edge_interaction_matrix(edge)
+    assert_array_equal(data[0:2:-1, 2:4], sub)
+
+    edge = Edge(NodeSide(0, 'l'), NodeSide(1, 'r'))
+    sub = matrix.get_edge_interaction_matrix(edge)
+    assert_array_equal(data[0:2, 2:4:-1], sub)
 
