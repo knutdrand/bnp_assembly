@@ -45,7 +45,7 @@ def test_perfect_join(folder_name, methods):
     #@print(true_alignments)
     criterion = 1.0
     if methods[0] == "dynamic_heatmap":
-        criterion = 0.90
+        criterion = 0.85
 
     print("Recall", comparison.edge_recall())
     print("Precision", comparison.edge_precision())

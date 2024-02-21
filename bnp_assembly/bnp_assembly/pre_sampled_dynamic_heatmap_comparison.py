@@ -349,10 +349,12 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         interaction_matrix_bin_size = 100
         global_offset = BinnedNumericGlobalOffset.from_contig_sizes(effective_contig_sizes, interaction_matrix_bin_size)
         sparse_interaction_matrix = SparseInteractionMatrix.from_reads(global_offset, reads)
+        logging.info("Making sampled heatmaps")
         sampled_heatmaps = dynamic_heatmap_creator.create_from_sparse_interaction_matrix(sparse_interaction_matrix)
 
         heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(sampled_heatmaps[::-1], add_n_extra=3)
         #heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
+        logging.info("Getting edge heatmaps")
         heatmaps = get_dynamic_heatmaps_from_interaction_matrix(self._heatmap_config, sparse_interaction_matrix)
         both_ways = False
 
@@ -410,7 +412,7 @@ class PreComputedDynamicHeatmapCreator:
 
     def _get_suitable_contigs_for_estimation(self):
         # find contigs that are at least 2 x max distance
-        contigs = [contig for contig, size in self._contig_sizes.items() if size >= 2 * self._config.max_distance + self._gap_distances[-1]]
+        contigs = [contig for contig, size in self._contig_sizes.items() if size >= 2 * self._config.max_distance + 2*self._gap_distances[-1]]
         if len(contigs) == 0:
             logging.error(self._config.max_distance)
             logging.error(self._gap_distances)
@@ -489,14 +491,17 @@ class PreComputedDynamicHeatmapCreator:
         heatmaps = [DynamicHeatmap.empty(self._config) for gap in gap_distances]
         for heatmap, gap_distance in zip(heatmaps, gap_distances):
             for contig in self._chosen_contigs:
+                logging.info(f"Processing contig {contig}")
                 # get correct coordinates
                 split_position = self._size_array[contig] // 2
                 max_distance = self._config.max_distance
+                logging.info(f"Split position: {split_position}, max distance: {max_distance}, gap_distance: {gap_distance}. Contig size: {self._size_array[contig]}")
 
                 x_start = split_position + gap_distance
                 x_end = split_position + gap_distance + max_distance
                 y_start = split_position - gap_distance - max_distance
                 y_end = split_position - gap_distance
+                logging.info(f"Getting submatrix for contig {contig} with coordinates {x_start}, {x_end}, {y_start}, {y_end}")
                 submatrix = matrix.get_contig_submatrix(contig, x_start, x_end, y_start, y_end)
 
                 # submatrix must be flipped on y-axis to represent distance from split pos

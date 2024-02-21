@@ -171,7 +171,7 @@ class NaiveSparseInteractionMatrix:
 
         logging.info("Convert to row sparse")
         matrix = matrix.tocsr()
-        logging.info("Convert to row sparse")
+        logging.info("Converted to row sparse")
 
         return cls(matrix, global_offset, bin_size)
 
@@ -289,16 +289,14 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
 
     def get_contig_submatrix(self, contig_id: int, x_start: int, x_end: int, y_start: int, y_end: int) -> 'SparseInteractionMatrix':
         assert x_end-x_start == y_end-y_start
-        assert y_end < self._global_offset.contig_sizes[contig_id]
-        assert x_end < self._global_offset.contig_sizes[contig_id]
+        assert y_end <= self._global_offset.contig_sizes[contig_id], (y_end, self._global_offset.contig_sizes[contig_id])
+        assert x_end <= self._global_offset.contig_sizes[contig_id], (x_end, self._global_offset.contig_sizes[contig_id])
         assert x_start >= 0
         assert y_start >= 0
 
         """
         "Round" coordinates down to nearest bin before converting to bins, to ensure that the submatrix
-        is quadratic
-        set start to be position of first bin translated back
-        end is this position plus the original diff
+        is quadratic. If not, one direction may have more bins than the other when x_end-x_start is the same as y_end-y_start
         """
         #logging.info(f"before x_start: {x_start}, x_end: {x_end}, y_start: {y_start}, y_end: {y_end}")
         contig_size = self._global_offset.contig_sizes[contig_id]
@@ -315,23 +313,6 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         y_bin_end = int(y_bin_start + self._global_offset.distance_to_n_bins(contig_id, y_size) + 1)
 
         assert y_bin_end-y_bin_start == x_bin_end-x_bin_start
-
-        """
-        x_end = x_start + x_size
-        y_end = y_start + y_size
-
-        y_end_left = y_end-self._global_offset.round_global_coordinate(contig_id, y_end, as_float=True)
-        x_end_left = x_end-self._global_offset.round_global_coordinate(contig_id, x_end, as_float=True)
-        print(f"Left: {x_end_left}, {y_end_left}")
-        #logging.info(f"after  x_start: {x_start}, x_end: {x_end}, y_start: {y_start}, y_end: {y_end}")
-
-        # returns a sparse matrix of intra-matrix at contig from start to end position relative to contig start
-        bins = self._global_offset.from_local_coordinates(contig_id, np.array([y_start, y_end, x_start, x_end]))
-        # increase end bins
-        bins[1] += 1
-        bins[3] += 1
-        assert bins[1]-bins[0] == bins[3]-bins[2], f"{bins[1]-bins[0]} != {bins[3]-bins[2]}"
-        """
         submatrix = self.get_submatrix(slice(y_bin_start, y_bin_end), slice(x_bin_start, x_bin_end))
 
         #logging.info(f"New contig size: {x_end-x_start}, new bin size: {bins[1]-bins[0]}. Y: {y_start}, {y_end}, {y_end-y_start}. Bins: {bins}")
