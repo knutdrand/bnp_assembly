@@ -5,6 +5,7 @@ Compare edge F's to F's calulated from sampled intra reads.
 * Find wich distance matches each bin best and do median or something
 '''
 import dataclasses
+import time
 
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BinnedNumericGlobalOffset
 
@@ -244,10 +245,11 @@ class DynamicHeatmaps:
         if len(new_rows) == 0:
             return
         edge_index = DynamicHeatmaps.array_index(edge)
-        print(rows, new_rows)
-        print(cols, new_cols)
+        #print(rows, new_rows)
+        #print(cols, new_cols)
         for r, c, v in zip(new_rows, new_cols, values.ravel()):
-            if c < self._n_bins and r < self._n_bins:
+            if c >= 0 and c < self._n_bins and r >= 0 and r < self._n_bins:
+            #if c < self._n_bins and r < self._n_bins:
                 self._array[edge_index][int(r), int(c)] += v
         #self._array[edge_index][new_rows, new_cols] = values
 
@@ -330,30 +332,32 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         self._heatmap_config = heatmap_config
         self._max_gap_distance = max_gap_distance
 
-    def __call__(self, reads: PairedReadStream, effective_contig_sizes):
+    def __call__(self, reads: Union[PairedReadStream, SparseInteractionMatrix], effective_contig_sizes):
         """
         Returns a DirectedDistanceMatrix with "distances" using the dynamic heatmap method
         (comparing heatmaps for contigs against background heatmaps)
         """
+        if isinstance(reads, PairedReadStream):
+            interaction_matrix_bin_size = 100
+            global_offset = BinnedNumericGlobalOffset.from_contig_sizes(effective_contig_sizes, interaction_matrix_bin_size)
+            sparse_interaction_matrix = SparseInteractionMatrix.from_reads(global_offset, reads)
+        else:
+            assert isinstance(reads, SparseInteractionMatrix)
 
         #edge_distances = get_distance_counts_using_dynamic_heatmaps(NumericInputData(effective_contig_sizes, reads))
-        input_data = NumericInputData(effective_contig_sizes, reads)
-        assert isinstance(input_data.location_pairs, PairedReadStream), type(input_data.location_pairs)
-        #                                                                   max_distance=max_distance)
-        dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(input_data.contig_dict, self._heatmap_config, max_gap_distance=self._max_gap_distance)
+        #input_data = NumericInputData(effective_contig_sizes, reads)
+        dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator(effective_contig_sizes, self._heatmap_config, max_gap_distance=self._max_gap_distance)
         gap_distances = dynamic_heatmap_creator.get_gap_distances()
 
-        #sampled_heatmaps = dynamic_heatmap_creator.create(input_data.location_pairs, n_extra_heatmaps=0)
+        #sampled_heatmaps = dynamic_heatmap_creator.create(reads, n_extra_heatmaps=0)
         # new, making from sparse interaction matrix instead of from reads
         logging.info("MAking sparse interaction matrix")
-        interaction_matrix_bin_size = 100
-        global_offset = BinnedNumericGlobalOffset.from_contig_sizes(effective_contig_sizes, interaction_matrix_bin_size)
-        sparse_interaction_matrix = SparseInteractionMatrix.from_reads(global_offset, reads)
         logging.info("Making sampled heatmaps")
         sampled_heatmaps = dynamic_heatmap_creator.create_from_sparse_interaction_matrix(sparse_interaction_matrix)
 
         heatmap_comparison = HeatmapComparisonRowColumns.from_heatmap_stack(sampled_heatmaps[::-1], add_n_extra=3)
         #heatmaps = get_dynamic_heatmaps_from_reads(self._heatmap_config, input_data)
+        #both_ways = True
         logging.info("Getting edge heatmaps")
         heatmaps = get_dynamic_heatmaps_from_interaction_matrix(self._heatmap_config, sparse_interaction_matrix)
         both_ways = False
@@ -366,7 +370,7 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
             return gap_distances[gap_index]
 
         distances = {}
-        for edge in get_all_possible_edges(len(input_data.contig_dict)):
+        for edge in get_all_possible_edges(len(effective_contig_sizes)):
             heatmap = heatmaps.get_heatmap(edge, use_half_contigs=True, both_ways=both_ways)
             plot_name = None
             if edge.from_node_side.node_id == 72 or edge.from_node_side.node_id == edge.to_node_side.node_id - 1 or edge.from_node_side.node_id == edge.to_node_side.node_id-2:
@@ -501,18 +505,35 @@ class PreComputedDynamicHeatmapCreator:
                 x_end = split_position + gap_distance + max_distance
                 y_start = split_position - gap_distance - max_distance
                 y_end = split_position - gap_distance
+                y_size = y_end-y_start
                 logging.info(f"Getting submatrix for contig {contig} with coordinates {x_start}, {x_end}, {y_start}, {y_end}")
+                t0 = time.perf_counter()
                 submatrix = matrix.get_contig_submatrix(contig, x_start, x_end, y_start, y_end)
+                logging.info(f"Got submatrix in {time.perf_counter()-t0} seconds")
 
                 # submatrix must be flipped on y-axis to represent distance from split pos
                 #submatrix.flip_rows()
 
                 # this is a sparse matrix in binned coordinates, convert
+                t0 = time.perf_counter()
+                y, x, values = submatrix.to_nonbinned(return_indexes_and_values=True)
+                logging.info(f"Converted to nonbinned in {time.perf_counter()-t0} seconds")
+                # flip rows
+                y = y_size - y - 1  # changing coordinates to go from end of matrix
+                assert np.all(y >= 0)
+                #y = y[::-1]
+                t0 = time.perf_counter()
+                heatmap.add_from_indexes_and_values(y, x, values)
+                logging.info(f"Added nondynamic in {time.perf_counter()-t0} seconds")
+                """
                 submatrix = submatrix.to_nonbinned()
+                logging.info(f"Converted to nonbinned in {time.perf_counter()-t0} seconds")
                 submatrix.flip_rows()
                 assert submatrix.sparse_matrix.shape[0] <= max_distance, f"{submatrix.sparse_matrix.shape[0]} > {max_distance}"
                 assert submatrix.sparse_matrix.shape[1] <= max_distance
+                t0 = time.perf_counter()
                 heatmap.add_nondynamic_matrix(submatrix.sparse_matrix)
+                """
 
         # divide all heatmaps
         for heatmap in heatmaps:

@@ -102,7 +102,10 @@ class BinnedNumericGlobalOffset:
 
     def get_unbinned_local_coordinates_from_contig_binned_coordinates(self, contig_id, binned_coordinates: np.ndarray, as_float=False):
         """Translates a binned coordinate to a real offset at the contig"""
-        coordinates = binned_coordinates * self._contig_sizes[contig_id] / self._contig_n_bins[contig_id]
+        assert np.all(binned_coordinates >= 0)
+        coordinates = binned_coordinates * (self._contig_sizes[contig_id] / self._contig_n_bins[contig_id])  # last division first to prevent overflow
+        assert np.all(coordinates >= 0), (coordinates, binned_coordinates, self._contig_sizes[contig_id], self._contig_n_bins[contig_id])
+        assert np.all(coordinates < self._contig_sizes[contig_id])
         if as_float:
             return coordinates
         return np.ceil(coordinates)
@@ -281,7 +284,6 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         values = np.array(matrix[rows, cols]).ravel()
         new_rows = self._global_offset.get_unbinned_local_coordinates_from_contig_binned_coordinates(edge.from_node_side.node_id, rows)
         new_cols = self._global_offset.get_unbinned_local_coordinates_from_contig_binned_coordinates(edge.to_node_side.node_id, cols)
-        print("Binned/unbinned rows: ", rows, new_rows)
         #unbinned[new_rows, new_cols] = values
         return new_rows, new_cols, values
         #return unbinned
@@ -321,22 +323,26 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
                                                       np.array([0]))
         return SparseInteractionMatrix(submatrix, new_global_offset)
 
-    def to_nonbinned(self):
+    def to_nonbinned(self, return_indexes_and_values=False):
         """
         Returns a new SparseInteractionMatrix with a NumericGlobalOffset, i.e. no binning.
+        Much faster with return_indexes_and_values, which does not create a matrix
         """
         contig_sizes = {i: size for i, size in enumerate(self._global_offset.contig_sizes)}
-        new_global_offset = NumericGlobalOffset(contig_sizes)
-        new_matrix = SparseInteractionMatrix.empty(new_global_offset)
 
         # get all indexes and values from old matrix, translate indexes to new coordinates
         y, x = self._data.nonzero()
         assert np.all(y < self._global_offset.total_size())
         new_x = self._global_offset.get_unbinned_coordinates_from_global_binned_coordinates(x)
         new_y = self._global_offset.get_unbinned_coordinates_from_global_binned_coordinates(y)
+
+        if return_indexes_and_values:
+            return new_y.astype(int), new_x.astype(int), np.array(self._data[y, x]).ravel()
+
+        new_global_offset = NumericGlobalOffset(contig_sizes)
+        new_matrix = SparseInteractionMatrix.empty(new_global_offset)
         assert np.all(new_x < new_matrix._data.shape[1]), (new_x[new_x >= new_matrix._data.shape[1]], new_matrix._data.shape[1])
         assert np.all(new_y < new_matrix._data.shape[0]), (new_y[new_y >= new_matrix._data.shape[0]], new_matrix._data.shape[0])
-
         new_matrix._data[new_y, new_x] = self._data[y, x]
         return new_matrix
 
