@@ -69,19 +69,20 @@ class DirectedDistanceMatrix:
                     table['orientation'].append(f'{dir_a}{dir_b}')
         self.px.line(table, x='from_node', y='score', line_shape='hv', color='orientation', title=f'Inversion plot-{name}')
 
-    def plot(self, level=logging.INFO, name=''):
+    def plot(self, level=logging.INFO, name='', dirs='rllr'):
         n_nodes = len(self)//2
         new_matrix = np.empty((n_nodes, n_nodes))
         max_value = self.data.max()
         matrices = {'{dira}{dirb}'}
+
         for node_id in range(n_nodes):
             for node_id_2 in range(n_nodes):
                 if node_id == node_id_2:
                     new_matrix[node_id, node_id_2] = np.nan
                     continue
-                edge = Edge(NodeSide(node_id, 'r'), NodeSide(node_id_2, 'l'))
+                edge = Edge(NodeSide(node_id, dirs[0]), NodeSide(node_id_2, dirs[1]))
                 new_matrix[node_id, node_id_2] = self[edge]
-                edge_r = Edge(NodeSide(node_id, 'l'), NodeSide(node_id_2, 'r'))
+                edge_r = Edge(NodeSide(node_id, dirs[2]), NodeSide(node_id_2, dirs[3]))
                 new_matrix[node_id_2, node_id] = self[edge_r]
 
         #assert np.all(~np.isnan(new_matrix))
@@ -105,13 +106,17 @@ class DirectedDistanceMatrix:
                     continue
                 # find edges where first node is node_id, r, subtract end clip
                 if edge.from_node_side.node_id == node_id:
-                    if edge.from_node_side.side == 'r':
+                    if edge.from_node_side.side == 'r' and end_clip > 0:
+                        logging.info(f'Adjusting edge {edge} with end clip {end_clip} at from node. Clip: {node_id, start, end, start_clip, end_clip}')
                         self[edge] = max(0, self[edge]-end_clip)
-                    else:
+                    elif start_clip > 0 and edge.to_node_side.side == 'l':
+                        logging.info(f'Adjusting edge {edge} with start clip {start_clip} at from node. Clip: {node_id, start, end, start_clip, end_clip}')
                         self[edge] = max(0, self[edge]-start_clip)
 
                 elif edge.to_node_side.node_id == node_id:
-                    if edge.to_node_side.side == 'r':
+                    if edge.to_node_side.side == 'l' and start_clip > 0:
+                        logging.info(f'Adjusting edge {edge} with start clip {start_clip} at to node. Clip: {node_id, start, end, start_clip, end_clip}')
                         self[edge] = max(0, self[edge]-start_clip)
-                    else:
+                    elif end_clip > 0 and edge.to_node_side.side == 'r':
+                        logging.info(f'Adjusting edge {edge} with end clip {end_clip} at to node. Clip: {node_id, start, end, start_clip, end_clip}')
                         self[edge] = max(0, self[edge]-end_clip)

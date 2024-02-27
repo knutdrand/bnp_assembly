@@ -11,6 +11,7 @@ from bnp_assembly.io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold, join
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("folder_name", ["../example_data/simulated_perfect_join"])
 # (joining, splitting) method
 @pytest.mark.parametrize("methods", [

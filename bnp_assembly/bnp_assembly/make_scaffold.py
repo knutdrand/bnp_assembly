@@ -3,6 +3,7 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix
 from numpy.testing import assert_array_equal
 from scipy.stats import poisson
 
@@ -18,7 +19,7 @@ from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get
 from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.max_distance import estimate_max_distance2
-from bnp_assembly.missing_data import find_contig_clips
+from bnp_assembly.missing_data import find_contig_clips, find_contig_clips_from_interaction_matrix
 from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
 from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
 from bnp_assembly.interface import SplitterInterface
@@ -27,7 +28,7 @@ from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmapDistanceFinder, \
-    get_dynamic_heatmap_config_with_even_bins
+    get_dynamic_heatmap_config_with_even_bins, get_dynamic_heatmap_config_with_uniform_bin_sizes
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
@@ -171,29 +172,36 @@ def numeric_split(numeric_input_data: NumericInputData, path, bin_size=5000, max
 
 
 def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge_distance_finder: EdgeDistanceFinder,
-                                      bin_size=1000, use_clipping_to_adjust_distances: bool=False) -> DirectedDistanceMatrix:
+                                      bin_size=1000, use_clipping_to_adjust_distances: bool=False,
+                                      interaction_matrix: SparseInteractionMatrix=None,
+                                      interaction_matrix_clipping: SparseInteractionMatrix = None,
+
+                                      ) -> DirectedDistanceMatrix:
     contig_dict = numeric_input_data.contig_dict
     original_contig_dict = contig_dict.copy()
-    read_pairs = numeric_input_data.location_pairs
-    contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
-    logger.info(f'contig_clis: {contig_clips}')
+    #read_pairs = numeric_input_data.location_pairs
+    #contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
+    contig_clips = find_contig_clips_from_interaction_matrix(contig_dict, interaction_matrix_clipping, window_size=100)
+    interaction_matrix.trim_with_clips(contig_clips)
+
+    logger.info(f'contig_clips: {contig_clips}')
     new_contig_dict = {contig_id: end - start for contig_id, (start, end) in contig_clips.items()}
     logging.info("Using effective contig sizes after clipping: %s" % ('\n'.join(f"{k}:{v}" for k, v in new_contig_dict.items())))
     assert all(v > 0 for v in new_contig_dict.values()), new_contig_dict
     del contig_dict
-    clip_mapper = ClipMapper(contig_clips)
 
-    new_read_stream = PairedReadStream((clip_mapper.map_maybe_stream(s) for s in read_pairs))
-    distance_matrix = edge_distance_finder(new_read_stream, effective_contig_sizes=new_contig_dict)
+    #clip_mapper = ClipMapper(contig_clips)
+    #new_read_stream = PairedReadStream((clip_mapper.map_maybe_stream(s) for s in read_pairs))
+    distance_matrix = edge_distance_finder(interaction_matrix, effective_contig_sizes=new_contig_dict)
 
     distance_matrix.plot(name="dynamic_heatmap_scores").show()
+    distance_matrix.plot(name="dynamic_heatmap_scores_rr_and_ll", dirs='rrll').show()
 
     # adjust distances with clippings
     if use_clipping_to_adjust_distances:
         logging.info("Adjusting distance matrix with clipping")
         distance_matrix.adjust_with_clipping(contig_clips, original_contig_dict)
         distance_matrix.plot(name="dynamic_heatmap_scores_after_clipping_adjustment").show()
-
 
     return distance_matrix
 
@@ -217,15 +225,23 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
 
 
 def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20,
-                                   split_threshold: float=10.0):
+                                   split_threshold: float=10.0, interaction_matrix: SparseInteractionMatrix=None,
+                                   interaction_matrix_clipping: SparseInteractionMatrix=None,
+                                   cumulative_distribution=None):
     """Joins based on dynamic heatmaps and splits using the same heatmaps"""
-    cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+    logging.info("Getting cumulative dist")
+    if cumulative_distribution is None:
+        cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+    logging.info("Cumulative dist done")
 
     edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
                                                       n_bins_heatmap_scoring)
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
                                                         edge_distance_finder,
-                                                        use_clipping_to_adjust_distances=True)
+                                                        use_clipping_to_adjust_distances=False,
+                                                        interaction_matrix=interaction_matrix,
+                                                        interaction_matrix_clipping=interaction_matrix_clipping
+                                                        )
     path = join_all_contigs(distance_matrix)
 
     # split this path based on the scores from distance matrix
@@ -239,12 +255,13 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
 
 
 def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bins):
-    max_distance_heatmaps = min(1000000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
+    max_distance_heatmaps = min(500000, estimate_max_distance2(numeric_input_data.contig_dict.values()))
     max_gap_distance = min(5000000, (
             estimate_max_distance2(numeric_input_data.contig_dict.values()) * 2 - max_distance_heatmaps))
     heatmap_config = get_dynamic_heatmap_config_with_even_bins(cumulative_distribution,
                                                                n_bins=n_bins,
                                                                max_distance=max_distance_heatmaps)
+    #heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(20, 200)
     edge_distance_finder = DynamicHeatmapDistanceFinder(heatmap_config, max_gap_distance=max_gap_distance)
     return edge_distance_finder
 
@@ -257,7 +274,11 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
     return dynamic_heatmap_join_and_split(numeric_input_data,
                                           n_bins_heatmap_scoring=n_bins_heatmap_scoring,
-                                          split_threshold=threshold)
+                                          split_threshold=threshold,
+                                          interaction_matrix=distance_kwargs.get("interaction_matrix", None),
+                                          interaction_matrix_clipping=distance_kwargs.get("interaction_matrix_clipping", None),
+                                          cumulative_distribution=distance_kwargs.get("cumulative_distribution", None),
+                                          )
 
 
 

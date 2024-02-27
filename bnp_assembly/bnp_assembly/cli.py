@@ -10,6 +10,7 @@ import bionumpy as bnp
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.contig_graph import DirectedNode
+from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
 from bnp_assembly.evaluation.visualization import show_contigs_heatmap
@@ -18,12 +19,16 @@ from bnp_assembly.heatmap import create_heatmap_figure
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
+from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix
+from shared_memory_wrapper import to_file, from_file
+
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold, join as _join, split as _split
+from bnp_assembly.make_scaffold import make_scaffold, join as _join, split as _split, get_numeric_input_data
 from bnp_assembly.max_distance import estimate_max_distance2
 from .simulation import hic_read_simulation
 import logging
 from . import plotting
+import plotly.express as px
 
 logging.basicConfig(level=logging.DEBUG)
 app = typer.Typer()
@@ -36,8 +41,17 @@ def estimate_max_distance(contig_sizes: Iterable[int]):
 @app.command()
 def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
              logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None,
-             distance_measure: str = "forbes3", n_bins_heatmap_scoring: int=10):
+             distance_measure: str = "forbes3", n_bins_heatmap_scoring: int=10, interaction_matrix: str = None, cumulative_distribution: str = None, interaction_matrix_big: str = None):
     logging.info(f"Using threshold {threshold}")
+
+    if interaction_matrix is not None:
+        interaction_matrix = from_file(interaction_matrix)
+
+    if interaction_matrix_big is not None:
+        interaction_matrix_big = from_file(interaction_matrix_big)
+
+    if cumulative_distribution is not None:
+        cumulative_distribution = from_file(cumulative_distribution)
 
     if logging_folder is not None:
         register_logging(logging_folder)
@@ -58,12 +72,50 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                              bin_size=bin_size,
                              max_distance=max_distance,
                              n_bins_heatmap_scoring=n_bins_heatmap_scoring,
+                             interaction_matrix=interaction_matrix,
+                             interaction_matrix_clipping=interaction_matrix_big,
+                             cumulative_distribution=cumulative_distribution,
                              )
     alignments = scaffold.to_scaffold_alignments(genome, 1)
     alignments.to_agp(out_directory + "/scaffolds.agp")
-    sequence_entries = scaffold.to_sequence_entries(genome.read_sequence())
+    sequence_entries = scaffold.to_sequence_entries(genome.read_sequence(), padding=2)
     with bnp.open(out_file_name, "w") as f:
         f.write(sequence_entries)
+
+
+@app.command()
+def make_interaction_matrix(contig_filename: str, read_filename: str, out_filename: str, bin_size: int=50):
+    genome = bnp.Genome.from_file(contig_filename)
+    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
+    input_data = FullInputData(genome, read_stream)
+    contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
+
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes(numeric_input_data.contig_dict, bin_size)
+    matrix = SparseInteractionMatrix.from_reads(global_offset, numeric_input_data.location_pairs)
+    matrix.normalize()
+    to_file(matrix, out_filename)
+    logging.info("Wrote interaction matrix to file %s" % out_filename)
+
+
+@app.command()
+def plot_interaction_matrix(interaction_matrix_filename: str):
+    matrix = from_file(interaction_matrix_filename)
+    nonsparse = matrix.nonsparse_matrix
+    fig = px.imshow(np.log2(nonsparse+1))
+    fig.show()
+    matrix.normalize()
+    fig = px.imshow(np.log2(matrix.nonsparse_matrix+1), title='Normalized interaction matrix')
+    fig.show()
+
+
+@app.command()
+def get_cumulative_distribution(contig_filename: str, read_filename: str, out_filename: str):
+    genome = bnp.Genome.from_file(contig_filename)
+    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
+    input_data = FullInputData(genome, read_stream)
+    contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
+    cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
+    to_file(cumulative_distribution, out_filename)
 
 
 @app.command()
@@ -107,7 +159,7 @@ def register_logging(logging_folder):
 @app.command()
 def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file_name: str, bin_size: int = 0):
     genome = bnp.Genome.from_file(fasta_filename, filter_function=None)
-    locations_pair = get_genomic_read_pairs(genome, interval_filename)
+    locations_pair = get_genomic_read_pairs(genome, interval_filename, mapq_threshold=20)
     alignments = ScaffoldAlignments.from_agp(agp_file)
     fig, interaction_matrix = create_heatmap_figure(alignments, bin_size, genome, locations_pair)
 

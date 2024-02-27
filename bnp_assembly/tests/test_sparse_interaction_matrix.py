@@ -1,6 +1,8 @@
 import pytest
 import scipy
 from bionumpy.genomic_data.global_offset import GlobalOffset
+
+from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
@@ -29,6 +31,7 @@ def test_from_reads(read_pairs3):
     contig_sizes = {0: 30, 1: 40}
     matrix = NaiveSparseInteractionMatrix.from_reads(contig_sizes, read_pairs3, 10)
     print(matrix.nonsparse_matrix)
+
 
     #assert_array_equal(
     #    matrix,
@@ -77,6 +80,7 @@ def test_sparse_interaction_matrix(read_pairs2):
     assert nonsparse[-1, 1] == 1
     nonbinned = matrix.to_nonbinned()
 
+    print(matrix.average_read_pair_distance())
 
 def test_nonbinned():
     contig_sizes = {0: 8, 1: 10, 2: 14}
@@ -124,21 +128,22 @@ def test_get_contig_submatrix():
     g = BinnedNumericGlobalOffset.from_contig_sizes({0: 13}, 5)
     matrix = SparseInteractionMatrix.empty(g)
 
+    # both coordinates are in same bin, will give empty matrix
     sub = matrix.get_contig_submatrix(0, 0, 1, 0, 1)
-    assert sub.nonsparse_matrix.shape == (1, 1)
+    assert sub.nonsparse_matrix.shape == (0, 0)
 
     sub = matrix.get_contig_submatrix(0, 0, 1, 5, 6)
-    assert sub.nonsparse_matrix.shape == (1, 1)
+    assert sub.nonsparse_matrix.shape == (0, 0)
 
     for i in range(6):
         for j in range(6):
             print(i, j)
             sub = matrix.get_contig_submatrix(0, i, i+1, j, j+1)
-            assert sub.nonsparse_matrix.shape == (1, 1)
+            assert sub.nonsparse_matrix.shape == (0, 0)
 
     for i in range(5):
         for j in range(5):
-            sub = matrix.get_contig_submatrix(0, i, i+2, j, j+2)
+            sub = matrix.get_contig_submatrix(0, i, i+5, j, j+5)
             assert sub.nonsparse_matrix.shape == (1, 1)
 
 
@@ -203,4 +208,43 @@ def test_get_edge_matrix():
     edge = Edge(NodeSide(0, 'l'), NodeSide(1, 'r'))
     sub = matrix.get_edge_interaction_matrix(edge)
     assert_array_equal(data[0:2, 2:4:-1], sub)
+
+
+def test_get_unbinned_coordinates():
+    contig_size = 20
+    sparse_bin_size = 2
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: contig_size}, sparse_bin_size)
+
+    x = np.array([0, 1, 2, 3])
+    converted = global_offset.get_unbinned_local_coordinates_from_contig_binned_coordinates(0, x)
+    assert_array_equal(converted, [0, 2, 4, 6])
+    print(x, converted)
+
+
+def test_get_matrix_for_path():
+    g = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2, 2: 2}, 1)
+    matrix = SparseInteractionMatrix.empty(g)
+
+    data = np.arange(36).reshape(6, 6)
+    matrix.set_matrix(scipy.sparse.lil_matrix(data))
+    print(matrix.nonsparse_matrix)
+
+    # same path as in original matrix should not change anything
+    path = [DirectedNode(0, '+'), DirectedNode(1, '+'), DirectedNode(2, '+')]
+    path_matrix = matrix.get_matrix_for_path(path)
+    assert_array_equal(path_matrix.toarray(), matrix.nonsparse_matrix)
+
+    # reverse path should reverse the matrix
+    path = [DirectedNode(2, '-'), DirectedNode(1, '-'), DirectedNode(0, '-')]
+    path_matrix = matrix.get_matrix_for_path(path)
+    assert_array_equal(path_matrix.toarray(), matrix.nonsparse_matrix[::-1, ::-1])
+
+    # middle node reversed
+    path = [DirectedNode(0, '+'), DirectedNode(1, '-'), DirectedNode(2, '+')]
+    path_matrix = matrix.get_matrix_for_path(path)
+    correct = matrix.nonsparse_matrix.copy()
+    correct[2:4, :] = correct[2:4, :][::-1, :]
+    correct[:, 2:4] = correct[:, 2:4][:, ::-1]
+    assert_array_equal(correct, path_matrix.toarray())
+
 

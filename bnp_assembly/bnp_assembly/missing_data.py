@@ -1,4 +1,7 @@
 import logging
+
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix
+
 logging.basicConfig(level=logging.INFO)
 from npstructures import RaggedArray, RaggedShape
 
@@ -160,30 +163,17 @@ def adjust_counts_by_missing_data(existing_counts: Counter,
     return adjusted_counts
 
 
-def find_end_clip(bins, window_size, mean_coverage):
+def find_end_clip(bins, window_size=None, mean_coverage=None):
     return find_start_clip(bins[::-1], window_size, mean_coverage)
 
 
-def find_start_clip(bins, window_size, mean_coverage):
+def find_start_clip(bins, window_size=None, mean_coverage=None):
     return find_change_point(bins[0:len(bins)])
-    running_sum = np.insert(np.cumsum(bins), 0, 0)
-    diffs = running_sum[window_size:] - running_sum[:-window_size]
-
-    threshold = mean_coverage * window_size
-    mask = diffs > threshold
-    index = next((i for i, value in enumerate(mask) if value), 0)
-    for i in range(index, index + window_size):
-        if i >= len(bins):
-            return i
-        if bins[i] >= mean_coverage / 2:
-            # logging.info(f'{i}: {bins}')
-            return i
-    return index
 
 
-def find_clips(bins, mean_coverage, window_size):
-    start, end = (find_start_clip(bins, window_size, mean_coverage),
-                  find_end_clip(bins, window_size, mean_coverage))
+def find_clips(bins, mean_coverage=None, window_size=None):
+    start, end = (find_start_clip(bins),
+                  find_end_clip(bins))
     if start + end >= len(bins):
         return (0, 0)  # Whole node disappears, just use the whole node
     return (start, end)
@@ -208,6 +198,35 @@ def find_contig_clips(bin_size: int, contig_dict: Dict[str, int], read_pairs: Pa
     logger.info(f"Bin size when finding clips: {bin_size}")
     logger.info(f"Found clips: {clip_ids}")
     clips = {contig_id: (start_id * bin_size, contig_dict[contig_id] - end_id * bin_size) for
+             contig_id, (start_id, end_id) in clip_ids.items()}
+    return clips
+
+
+def find_contig_clips_from_interaction_matrix(contig_dict: Dict[str, int],
+                                              interaction_matrix: SparseInteractionMatrix, window_size=10) \
+        -> Dict[int, Tuple[float, float]]:
+
+    #bins, bin_sizes = get_missing_region_counts_from_interaction_matrix(contig_dict, interaction_matrix)
+    bins = {}
+    bin_sizes = {}
+    for contig in contig_dict:
+        logging.info(f"Processing contig {contig}")
+        submatrix = interaction_matrix.contig_submatrix(contig).toarray()
+        bins[contig] = interaction_matrix.get_contig_coverage_counts(contig).astype(int)
+        bin_sizes[contig] = interaction_matrix.contig_bin_size(contig)
+        #px(name="missing_data").imshow(np.log(submatrix+1), title=f"contig matrix {contig}")
+
+    for node, b in bins.items():
+        px(name="missing_data").array(b, title=f"bin counts contig {node}")
+        px(name="missing_data").line(b, title=f"bin counts contig {node}")
+
+    #mean_coverage = interaction_matrix.mean_coverage_per_bin()  #sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values()) * bin_size
+    #assert isinstance(mean_coverage, float), mean_coverage
+    #logging.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
+    # logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
+    clip_ids = {contig_id: find_clips(counts) for contig_id, counts in bins.items()}
+    logger.info(f"Found clips: {clip_ids}")
+    clips = {contig_id: (start_id * bin_sizes[contig_id], contig_dict[contig_id] - end_id * bin_sizes[contig_id]) for
              contig_id, (start_id, end_id) in clip_ids.items()}
     return clips
 

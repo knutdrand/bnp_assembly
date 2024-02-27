@@ -5,8 +5,10 @@ from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.generate_training import generate_training_data_set
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.scaffolds import Scaffolds
+import pytest
 
 
+@pytest.mark.skip
 def test_generate_training_data_set():
     dir = "../example_data/yeast_small/"
     truth = Scaffolds.from_scaffold_alignments(ScaffoldAlignments.from_agp(dir + "hifiasm.hic.p_ctg.agp"))

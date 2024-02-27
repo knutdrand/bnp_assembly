@@ -8,7 +8,7 @@ from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparis
 
 def create_heatmap_figure(alignments: ScaffoldAlignments, bin_size: int, genome: bnp.Genome,
                           locations_pair: GenomicLocationPair, true_alignments: ScaffoldAlignments = None):
-    bin_size = max(bin_size, genome.size // 1000, 1000)
+    bin_size = max(bin_size, genome.size // 1000, 100)
     print("Using bin size", bin_size)
     interaction_matrix = InteractionMatrix.from_locations_pair(locations_pair, bin_size=bin_size)
     fig = interaction_matrix.plot()

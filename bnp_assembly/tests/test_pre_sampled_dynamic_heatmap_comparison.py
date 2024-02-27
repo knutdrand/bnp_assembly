@@ -1,6 +1,8 @@
 import itertools
-
+import plotly.express as px
 import numpy as np
+import scipy.sparse
+
 from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix
 from numpy.testing import assert_array_equal
 import pytest
@@ -9,7 +11,8 @@ from bnp_assembly.max_distance import estimate_max_distance2
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, PreComputedDynamicHeatmapCreator, \
     DynamicHeatmapConfig, find_bins_with_even_number_of_reads, get_dynamic_heatmap_config_with_even_bins, \
-    get_all_possible_edges, get_gap_distances, find_bins_with_even_number_of_reads3
+    get_all_possible_edges, get_gap_distances, find_bins_with_even_number_of_reads3, \
+    get_dynamic_heatmap_config_with_uniform_bin_sizes
 import bionumpy as bnp
 
 from bnp_assembly.graph_objects import NodeSide, Edge
@@ -83,10 +86,19 @@ def test_create_dynamic_heatmap(config, genome, read_pairs):
     # create using SparseInteractionMatrix instead of reads
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes(genome, 1)
     matrix = SparseInteractionMatrix.from_reads(global_offset, read_pairs)
+    print("Nonsparse")
+    print(matrix.nonsparse_matrix)
     heatmap2 = creator.get_dynamic_heatmap_from_sparse_interaction_matrix(matrix, gap_distance=0)
+
+    # old correct must be wrong. 9 and 11 are 1 away from split which is 10. The coordinate 10/10 is at the diagonal
+    correct = np.array([
+        [0, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 1, 0]
+    ])
     print(heatmap2.array)
     assert_array_equal(heatmap2.array, correct)
-    assert_array_equal(heatmap2.array, heatmap.array)
 
 
 
@@ -302,3 +314,39 @@ def test_get_dynamic_heatmap():
 
     assert submatrix.sparse_matrix.shape[0] <= max_distance, f"{submatrix.sparse_matrix.shape[0]} > {max_distance}"
     assert submatrix.sparse_matrix.shape[1] <= max_distance
+
+
+
+
+def test_create_background_heatmaps_from_sparse_interaction_matrix():
+    contig_size = 20
+    sparse_bin_size = 2
+    sparse_size = contig_size // sparse_bin_size
+    contig_sizes = np.array([contig_size])
+    matrix = np.zeros((sparse_size, sparse_size))
+    # create a matrix with high values on diagonal and lower further from diagonal
+    for i in range(sparse_size):
+        for j in range(sparse_size):
+            matrix[i, j] = sparse_size - abs(i-j)
+
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: contig_size}, sparse_bin_size)
+    interaction_matrix = SparseInteractionMatrix(scipy.sparse.csr_matrix(matrix), global_offset)
+    nonsparse = interaction_matrix.nonsparse_matrix
+    px.imshow(nonsparse).show()
+
+    heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(3, bin_size=2)
+    dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator({0: contig_size}, heatmap_config,
+                                                           max_gap_distance=3, n_precomputed_heatmaps=3)
+
+    print(dynamic_heatmap_creator._chosen_contigs)
+    print(dynamic_heatmap_creator.get_gap_distances())
+    sampled_heatmaps = dynamic_heatmap_creator.create_from_sparse_interaction_matrix(interaction_matrix)
+    print(sampled_heatmaps[0])
+
+    px.imshow(sampled_heatmaps[0].array).show()
+
+    assert_array_equal(sampled_heatmaps[0].array, [
+        [9, 8, 7],
+        [8, 7, 6],
+        [7, 6, 5]
+    ])

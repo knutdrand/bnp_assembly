@@ -7,7 +7,7 @@ import typing as tp
 
 @dataclass
 class DirectedNode:
-    node_id: str
+    node_id: int
     orientation: tp.Literal["+", "-"]
 
     def __repr__(self):
@@ -15,6 +15,18 @@ class DirectedNode:
 
     def reverse(self):
         return DirectedNode(self.node_id, '+' if self.orientation == '-' else '-')
+
+    @property
+    def left_side(self):
+        side = "l" if self.orientation == "+" else "r"
+        return NodeSide(self.node_id, side)
+
+    @property
+    def right_side(self):
+        side = "r" if self.orientation == "+" else "l"
+        return NodeSide(self.node_id, side)
+
+
 
 class ContigPath:
     def __init__(self, node_ids, reverse_mask, node_names=None):

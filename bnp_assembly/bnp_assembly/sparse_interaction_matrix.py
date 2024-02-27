@@ -1,14 +1,18 @@
 import logging
-from typing import Dict, Union
+from typing import Dict, Union, Tuple, List
 
 import bionumpy as bnp
+import scipy.sparse
 from bionumpy.genomic_data.global_offset import GlobalOffset
 import numpy as np
+
+from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.graph_objects import Edge
 from bnp_assembly.interaction_matrix import InteractionMatrix
 from bnp_assembly.io import PairedReadStream
 from scipy.sparse import bsr_array, lil_matrix
 from scipy.sparse import csr_matrix
+import sklearn
 
 
 class NumericGlobalOffset(GlobalOffset):
@@ -244,7 +248,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
                                                       np.array([0]))
         return SparseInteractionMatrix(submatrix, new_global_offset)
 
-    def get_edge_interaction_matrix(self, edge: Edge) -> np.ndarray:
+    def get_edge_interaction_matrix(self, edge: Edge, orient_according_to_nearest_interaction=True) -> np.ndarray:
         """
         returns submatrix of interaction for a given Edge.
         First row column in returned matrix represent nearest interaction
@@ -260,16 +264,23 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
             g.contig_first_bin(node_b):g.contig_last_bin(node_b)+1
         ]
 
-        if edge.from_node_side.side == 'l':
-            if edge.to_node_side.side == 'l':
-                return matrix
+        if orient_according_to_nearest_interaction:
+            if edge.from_node_side.side == 'l':
+                if edge.to_node_side.side == 'l':
+                    return matrix
+                else:
+                    return matrix[:, ::-1]
             else:
-                return matrix[:, ::-1]
+                if edge.to_node_side.side == 'l':
+                    return matrix[::-1, :]
+                else:
+                    return matrix[::-1, ::-1]
         else:
-            if edge.to_node_side.side == 'l':
-                return matrix[::-1, :]
-            else:
-                return matrix[::-1, ::-1]
+            if edge.from_node_side.side == 'l':
+                matrix = matrix[::-1, :]
+            if edge.to_node_side.side == 'r':
+                matrix = matrix[:, ::-1]
+            return matrix
 
     def get_unbinned_edge_interaction_matrix_as_indexes_and_values(self, edge: Edge) -> np.ndarray:
         """
@@ -308,11 +319,11 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         y_start = self._global_offset.round_global_coordinate(contig_id, y_start, as_float=True)
 
         x_bin_start = self._global_offset.from_local_coordinates(contig_id, x_start)
-        y_bin_start = self._global_offset.from_local_coordinates(contig_id, y_start)
+        y_bin_start = self._global_offset.from_local_coordinates(contig_id, y_start)+1  # +1 because start is exlusive (other direction)
 
         # end bins will be exclusive, i.e. first bin where first position is at end
-        x_bin_end = int(x_bin_start + self._global_offset.distance_to_n_bins(contig_id, x_size) + 1)
-        y_bin_end = int(y_bin_start + self._global_offset.distance_to_n_bins(contig_id, y_size) + 1)
+        x_bin_end = int(x_bin_start + self._global_offset.distance_to_n_bins(contig_id, x_size))
+        y_bin_end = int(y_bin_start + self._global_offset.distance_to_n_bins(contig_id, y_size))
 
         assert y_bin_end-y_bin_start == x_bin_end-x_bin_start
         submatrix = self.get_submatrix(slice(y_bin_start, y_bin_end), slice(x_bin_start, x_bin_end))
@@ -346,3 +357,97 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         new_matrix._data[new_y, new_x] = self._data[y, x]
         return new_matrix
 
+    def contig_bin_size(self, contig):
+        return self._global_offset.contig_sizes[contig] / self._global_offset._contig_n_bins[contig]
+
+    def get_contig_coverage_counts(self, contig):
+        submatrix = self.contig_submatrix(contig)
+        return np.array(np.sum(submatrix, axis=0))[0]
+
+    def contig_submatrix(self, contig):
+        start = self._global_offset.contig_first_bin(contig)
+        end = self._global_offset.contig_last_bin(contig)
+        submatrix = self._data[start:end, start:end]
+        return submatrix
+
+    def mean_coverage_per_bin(self):
+        n_reads = self._data.sum()
+        n_bins = self._data.shape[0]
+        return n_reads / n_bins
+
+    def trim_with_clips(self, contig_clips: Dict[int, Tuple[int, int]]):
+        """Removes bins at ends of conigs that are clipped. Assumes clipping matches bins"""
+        new_contig_sizes = self._global_offset.contig_sizes.copy()
+        new_contig_n_bins = self._global_offset._contig_n_bins.copy()
+        bin_sizes = {self.contig_bin_size(contig) for contig in contig_clips}
+
+        bins_to_remove = np.zeros(self._data.shape[0], bool)
+
+        for contig, (start, end) in contig_clips.items():
+            contig_start_bin = self._global_offset.contig_first_bin(contig)
+            contig_end_bin = self._global_offset.contig_last_bin(contig)
+            # start is where clipping at start end, end is where clipping at end begins
+            start_bin = self._global_offset.from_local_coordinates(contig, start)
+            assert start_bin >= contig_start_bin
+            if start_bin > contig_start_bin:
+                bins_to_remove[contig_start_bin:start_bin] = True
+                new_contig_n_bins[contig] -= start_bin-contig_start_bin
+                new_contig_sizes[contig] -= start
+
+            if end < self._global_offset.contig_sizes[contig]:
+                end_bin = self._global_offset.from_local_coordinates(contig, end)
+                assert end_bin <= contig_end_bin
+                # contig_end_bin is last bin in contig, not exclusive ?
+                bins_to_remove[end_bin:contig_end_bin+1] = True
+                new_contig_n_bins[contig] -= contig_end_bin+1-end_bin
+                new_contig_sizes[contig] -= self._global_offset.contig_sizes[contig]-end
+
+        logging.info(f"Old contig sizes: {self._global_offset.contig_sizes}, old contig n bins: {self._global_offset._contig_n_bins}")
+        logging.info(f"New contig sizes: {new_contig_sizes}, new contig n bins: {new_contig_n_bins}")
+
+        logging.info(f"Removing {np.sum(bins_to_remove)}/{len(bins_to_remove)} bins")
+        self._data = self._data[~bins_to_remove, :][:, ~bins_to_remove]
+        assert self._data.shape[0] == np.sum(~bins_to_remove), f"{self._data.shape}, {np.sum(~bins_to_remove)}"
+        assert self._data.shape[0] == self._data.shape[1]
+        new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+        self._global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
+
+    def normalize(self):
+        logging.info("Normalizing %s" % type(self._data))
+        old_row_mean = np.sum(self._data) / self._data.shape[0]
+        self._data = sklearn.preprocessing.normalize(self._data, axis=0, norm='l1')
+        self._data = sklearn.preprocessing.normalize(self._data, axis=1, norm='l1')
+        self._data *= old_row_mean
+
+    def average_read_pair_distance(self):
+        read1, read2 = np.nonzero(self._data)
+        pos1 = self._global_offset.get_unbinned_coordinates_from_global_binned_coordinates(read1, as_float=True)
+        pos2 = self._global_offset.get_unbinned_coordinates_from_global_binned_coordinates(read2, as_float=True)
+        total = np.sum(self._data)
+        distances = np.abs(pos1-pos2)
+        weights = np.array(self._data[read1, read2]).ravel()
+        return np.sum(distances*weights) / total
+
+    def get_matrix_for_path(self, contigs: List[DirectedNode]):
+        rows = []
+        for contig1 in contigs:
+            columns_in_row = []
+            for contig2 in contigs:
+                edge = Edge(contig1.right_side, contig2.left_side)
+                submatrix = self.get_edge_interaction_matrix(edge, orient_according_to_nearest_interaction=False)
+                columns_in_row.append(submatrix)
+
+            rows.append(scipy.sparse.hstack(columns_in_row))
+        matrix = scipy.sparse.vstack(rows)
+        return matrix
+
+    def flip_contig(self, contig):
+        pass
+
+
+def average_element_distance(sparse_matrix):
+    pos1, pos2 = np.nonzero(sparse_matrix)
+    total = np.sum(sparse_matrix)
+    distances = np.abs(pos1 - pos2)
+    weights = np.array(sparse_matrix[pos1, pos2]).ravel()
+    return np.sum(distances * weights) / total
