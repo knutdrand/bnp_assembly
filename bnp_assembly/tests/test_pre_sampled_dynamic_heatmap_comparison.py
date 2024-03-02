@@ -11,8 +11,9 @@ from bnp_assembly.max_distance import estimate_max_distance2
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmap, PreComputedDynamicHeatmapCreator, \
     DynamicHeatmapConfig, find_bins_with_even_number_of_reads, get_dynamic_heatmap_config_with_even_bins, \
-    get_all_possible_edges, get_gap_distances, find_bins_with_even_number_of_reads3, \
+    get_gap_distances, find_bins_with_even_number_of_reads3, \
     get_dynamic_heatmap_config_with_uniform_bin_sizes
+from bnp_assembly.util import get_all_possible_edges
 import bionumpy as bnp
 
 from bnp_assembly.graph_objects import NodeSide, Edge

@@ -4,32 +4,30 @@ Run through all reads for inter to calculate F = dynamic bin size heatmap
 Compare edge F's to F's calulated from sampled intra reads.
 * Find wich distance matches each bin best and do median or something
 '''
-import dataclasses
 import time
 
 import scipy
 
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BinnedNumericGlobalOffset
 
-from .distance_distribution import distance_dist
 from .plotting import px
-from typing import Tuple, Callable, Iterable, Dict, List, Union, Optional
-import numpy as np
+from typing import Tuple, Callable, Iterable, Dict, List, Union
 from dataclasses import dataclass
 
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
-from bnp_assembly.input_data import FullInputData, NumericInputData
+from bnp_assembly.input_data import NumericInputData
 from bnp_assembly.io import PairedReadStream
-from bnp_assembly.location import LocationPair, Location
-import bionumpy as bnp
+from bnp_assembly.location import Location
 
 import numpy as np
 
 from bnp_assembly.graph_objects import Edge
-from bnp_assembly.input_data import FullInputData
 from bnp_assembly.location import LocationPair
 import logging
+
+from .util import get_all_possible_edges
+
 logger = logging.getLogger(__name__)
 
 
@@ -398,10 +396,10 @@ class DynamicHeatmapDistanceFinder(EdgeDistanceFinder):
         for edge in get_all_possible_edges(len(effective_contig_sizes)):
             heatmap = heatmaps.get_heatmap(edge, use_half_contigs=True, both_ways=both_ways)
             plot_name = None
-            if edge.from_node_side.node_id == 3 or edge.from_node_side.node_id == edge.to_node_side.node_id - 1 or edge.from_node_side.node_id == edge.to_node_side.node_id-2:
+            if edge.from_node_side.node_id == 2123 or edge.from_node_side.node_id == edge.to_node_side.node_id - 1 or edge.from_node_side.node_id == edge.to_node_side.node_id-2:
                 plot_name = f"Searchshorted indexes {edge}"
             distance = heatmap_comparison.get_heatmap_score(heatmap, plot_name=plot_name)
-            if edge.from_node_side.node_id == 3 or edge.from_node_side.node_id == edge.to_node_side.node_id - 1 or edge.from_node_side.node_id == edge.to_node_side.node_id-2:
+            if edge.from_node_side.node_id == 2123 or edge.from_node_side.node_id == edge.to_node_side.node_id - 1 or edge.from_node_side.node_id == edge.to_node_side.node_id-2:
                 print(edge, "Distance: ", distance, score_function(int(distance)))
 
             distances[edge] = score_function(int(distance))
@@ -585,11 +583,6 @@ class PreComputedDynamicHeatmapCreator:
         for heatmap in heatmaps:
             heatmap.set_array(heatmap.array / n_total_samples)
         return heatmaps
-
-
-def get_all_possible_edges(n_contigs):
-    all_edges = (Edge.from_numeric_index((i, j)) for i in range(n_contigs*2) for j in range(n_contigs*2))
-    return (edge for edge in all_edges if edge.from_node_side.node_id != edge.to_node_side.node_id)
 
 
 def find_bins_with_even_number_of_reads(cumulative_distance_distribution, n_bins=10, max_distance=1000000) -> DynamicHeatmapConfig:

@@ -1,3 +1,4 @@
+import random
 import pytest
 import scipy
 from bionumpy.genomic_data.global_offset import GlobalOffset
@@ -210,6 +211,42 @@ def test_get_edge_matrix():
     assert_array_equal(data[0:2, 2:4:-1], sub)
 
 
+def test_correct_submatrix_when_getting_matrix_for_path():
+    """
+    Checks that the submatrix above last contig is correctly flipped
+    when getting path matrix. Compares this submatrix (which is created by getting many
+    submatrices and stacking them) in path matrix
+    to the original submatrix when flipped
+    """
+    np.random.seed(0)
+    n_contigs = 4
+    contig_sizes = {i: random.randint(1000, 2000) for i in range(n_contigs)}
+    total_size = sum(contig_sizes.values())
+    matrix = np.random.choice([0, 1, 5], (total_size, total_size), p=[0.9, 0.05, 0.05])
+    matrix = np.maximum(matrix, matrix.T)  # make symmetric
+
+    initial_path = [DirectedNode(contig, '+') for contig in range(len(contig_sizes))]
+    new_path = initial_path.copy()
+    new_path[3] = new_path[3].reverse()
+
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes(contig_sizes, 1)
+    interaction_matrix = SparseInteractionMatrix.empty(global_offset)
+    interaction_matrix.set_matrix(scipy.sparse.lil_matrix(matrix).tocsr())
+
+    path_matrix = interaction_matrix.get_matrix_for_path(new_path)
+
+    contig_start = interaction_matrix._global_offset.contig_first_bin(3)
+    contig_end = interaction_matrix._global_offset.contig_last_bin(3)+1
+
+    submatrix = interaction_matrix.sparse_matrix[0:contig_start, contig_start:contig_end]
+    submatrix_flipped = submatrix[:, ::-1]
+    new_path_submatrix = path_matrix[0:contig_start, contig_start:contig_end]
+    print("Matrices")
+    print(new_path_submatrix.toarray())
+    print(submatrix_flipped.toarray())
+    assert np.all(submatrix_flipped.toarray() == new_path_submatrix.toarray())
+
+
 def test_get_unbinned_coordinates():
     contig_size = 20
     sparse_bin_size = 2
@@ -226,6 +263,9 @@ def test_get_matrix_for_path():
     matrix = SparseInteractionMatrix.empty(g)
 
     data = np.arange(36).reshape(6, 6)
+    # make symmetric
+    data = np.maximum(data, data.T)
+    print(data)
     matrix.set_matrix(scipy.sparse.lil_matrix(data))
     print(matrix.nonsparse_matrix)
 
@@ -248,3 +288,65 @@ def test_get_matrix_for_path():
     assert_array_equal(correct, path_matrix.toarray())
 
 
+def test_get_matrix_for_path2():
+    g = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
+    matrix = SparseInteractionMatrix.empty(g, allow_nonsymmetric=True)
+    data = [
+        [0, 1, 0, 2],
+        [0, 0, 0, 0],
+        [0, 2, 0, 0],
+        [1, 0, 1, 0]
+    ]
+    matrix.set_matrix(scipy.sparse.lil_matrix(data).tocsr())
+    print(matrix.nonsparse_matrix)
+
+    initial_path = [DirectedNode(1, '-'), DirectedNode(0, '+')]
+    new = matrix.get_matrix_for_path(initial_path, as_raw_matrix=True)
+
+    assert_array_equal(new.toarray(), [
+        [0, 1, 1, 0],
+        [0, 0, 0, 2],
+        [2, 0, 0, 1],
+        [0, 0, 0, 0]
+    ])
+
+    initial_path = [DirectedNode(0, '-'), DirectedNode(1, '+')]
+    new = matrix.get_matrix_for_path(initial_path, as_raw_matrix=True)
+    print(new.toarray())
+    assert_array_equal(new.toarray(), [
+        [0, 0, 0, 0],
+        [1, 0, 0, 2],
+        [2, 0, 0, 0],
+        [0, 1, 1, 0]
+    ])
+
+
+
+def test_normalize_on_row_cols():
+
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
+    matrix = np.array([
+        [1, 2, 3, 4],
+        [2, 1, 1, 2],
+        [3, 1, 1, 0],
+        [4, 2, 0, 1]
+    ])
+
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    matrix.normalize_on_row_and_column_products()
+    print(matrix.nonsparse_matrix)
+
+
+def test_normalize_on_row_cols2():
+
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
+    matrix = np.array([
+        [1, 10, 1, 1],
+        [10, 10, 10, 10],
+        [1, 10, 1, 1],
+        [1, 10, 1, 1]
+    ])
+
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    matrix.normalize_on_row_and_column_products()
+    print(matrix.nonsparse_matrix)

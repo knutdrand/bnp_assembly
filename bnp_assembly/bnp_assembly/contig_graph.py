@@ -53,7 +53,7 @@ class ContigPath:
         return [(self._node_names[node_id], strand) for node_id, strand in zip(self._node_ids, self._reverse_mask)]
 
     @classmethod
-    def from_directed_nodes(cls, directed_nodes: tp.List[DirectedNode]):
+    def from_directed_nodes(cls, directed_nodes: tp.List[DirectedNode]) -> 'ContigPathSides':
         node_sides = []
         for directed_node in directed_nodes:
             sides = 'lr' if directed_node.orientation == '+' else 'rl'
@@ -88,7 +88,7 @@ class ContigPathSides(ContigPath):
         return [DirectedNode(side_1.node_id, '+' if side_1.side=='l' else '-')
                 for side_1, _ in chunked(self._node_sides, 2)]
 
-    def split_on_edge(self, edge: Edge):
+    def split_on_edge(self, edge: Edge) -> 'ContigPathSides':
         cut_idx = (self.edges.index(edge)+1)*2
         return self.__class__(self._node_sides[:cut_idx]), self.__class__(self._node_sides[cut_idx:])
 

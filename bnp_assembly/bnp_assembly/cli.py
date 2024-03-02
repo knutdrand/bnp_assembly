@@ -7,6 +7,7 @@ import numpy as np
 
 import typer
 import bionumpy as bnp
+from matplotlib import pyplot as plt
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.contig_graph import DirectedNode
@@ -92,7 +93,10 @@ def make_interaction_matrix(contig_filename: str, read_filename: str, out_filena
 
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes(numeric_input_data.contig_dict, bin_size)
     matrix = SparseInteractionMatrix.from_reads(global_offset, numeric_input_data.location_pairs)
-    matrix.normalize()
+    matrix.assert_is_symmetric()
+    matrix.normalize_on_row_and_column_products()
+    plt.show()
+    matrix.assert_is_symmetric()
     to_file(matrix, out_filename)
     logging.info("Wrote interaction matrix to file %s" % out_filename)
 
@@ -100,10 +104,12 @@ def make_interaction_matrix(contig_filename: str, read_filename: str, out_filena
 @app.command()
 def plot_interaction_matrix(interaction_matrix_filename: str):
     matrix = from_file(interaction_matrix_filename)
+    matrix.plot_submatrix(0, matrix.n_contigs-1)
+    plt.show()
+    return
     nonsparse = matrix.nonsparse_matrix
     fig = px.imshow(np.log2(nonsparse+1))
     fig.show()
-    matrix.normalize()
     fig = px.imshow(np.log2(matrix.nonsparse_matrix+1), title='Normalized interaction matrix')
     fig.show()
 

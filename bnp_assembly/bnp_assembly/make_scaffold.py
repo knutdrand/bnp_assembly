@@ -1,9 +1,17 @@
+import pickle
 from dataclasses import dataclass
 from typing import List
 
 import numpy as np
 import pandas as pd
-from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix
+from matplotlib import pyplot as plt
+from shared_memory_wrapper import to_file
+
+from bnp_assembly.contig_path_optimization import PathOptimizer, TotalDistancePathOptimizer, \
+    flip_contigs_in_splitted_path, flip_contigs_in_splitted_path_path_optimizer, InteractionDistancesAndWeights, \
+    LogProbSumOfReadDistancesDynamicScores
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, average_element_distance, \
+    LogProbSumOfReadDistances, estimate_distance_pmf_from_sparse_matrix2
 from numpy.testing import assert_array_equal
 from scipy.stats import poisson
 
@@ -229,6 +237,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
                                    interaction_matrix_clipping: SparseInteractionMatrix=None,
                                    cumulative_distribution=None):
     """Joins based on dynamic heatmaps and splits using the same heatmaps"""
+    interaction_matrix.assert_is_symmetric()
     logging.info("Getting cumulative dist")
     if cumulative_distribution is None:
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
@@ -242,15 +251,50 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
                                                         interaction_matrix=interaction_matrix,
                                                         interaction_matrix_clipping=interaction_matrix_clipping
                                                         )
+    # note: interaction matrix is clipped inplace
     path = join_all_contigs(distance_matrix)
 
+    directed_nodes = path.directed_nodes
+    pickle.dump(directed_nodes, open("directed_nodes", "wb"))
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
+
+    distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
+    distance_func = lambda dist: -distance_pmf[dist]
+    path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
+    scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
+                                                    dists_weights, distance_func=distance_func)
+    #new_directed_nodes = scorer.optimize_flippings()
+    new_directed_nodes = scorer.optimize_positions()
+    new_directed_nodes = scorer.optimize_flippings()
+
+    logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
+    path = ContigPath.from_directed_nodes(new_directed_nodes)
+
+    if interaction_matrix.sparse_matrix.shape[1] < 1000000:
+        interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
+        new_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
+        new_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
+        plt.show()
+
+    interaction_matrix.assert_is_symmetric()
     # split this path based on the scores from distance matrix
     edge_scores = distance_matrix.to_edge_dict()
     # must get edge scores in the same order as the path has edges
     edge_scores = {edge: score for edge, score in edge_scores.items() if edge in path.edges}
     edge_scores = {edge: score for edge, score in sorted(edge_scores.items(), key=lambda x: path.edges.index(x[0]))}
     logger.info(f"Edge dict: {edge_scores}")
-    return split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=False)
+
+    #split_threshold = min(split_threshold, max(edge_scores.values())-1)
+    #logging.info(f"Adjusting split threshold to {split_threshold}")
+    splitted_paths = split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=False)
+
+    #distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
+    #logprobreaddist = LogProbSumOfReadDistances(distance_pmf)
+    #evaluation_function = lambda x: -logprobreaddist(x)
+    #splitted_paths = flip_contigs_in_splitted_path(interaction_matrix, splitted_paths)
+    #splitted_paths = flip_contigs_in_splitted_path_path_optimizer(interaction_matrix, splitted_paths, evaluation_function)
+    #to_file(interaction_matrix, "interaction_matrix_trimmed")
+    return splitted_paths
     # return path
 
 

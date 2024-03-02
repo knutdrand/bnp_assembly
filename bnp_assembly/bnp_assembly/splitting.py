@@ -1,5 +1,8 @@
+from typing import List
+
 import scipy.stats
 
+from .contig_graph import ContigPathSides
 from .location import LocationPair, Location
 from .contig_map import ScaffoldMap
 from .scaffold_splitting import count_possible_edge_pairs, count_edge_overlaps
@@ -16,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def split_on_scores(contig_path, edge_scores, threshold, keep_over=True):
+def split_on_scores(contig_path, edge_scores, threshold, keep_over=True) -> List[ContigPathSides]:
     px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores')
     if keep_over:
         edges = [edge for edge, score in edge_scores.items() if score < threshold]

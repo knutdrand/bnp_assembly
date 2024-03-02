@@ -88,6 +88,10 @@ class DistanceDistribution:
     def cut_at_distance(self):
         return self.__class__(self._log_probabilities[:self.max_distance])
 
+    @property
+    def array(self):
+        return self._log_probabilities
+
     def normalize(self):
         return self.__class__(self._log_probabilities - scipy.special.logsumexp(self._log_probabilities))
 
@@ -98,6 +102,20 @@ class DistanceDistribution:
     @classmethod
     def from_probabilities(cls, probabilities):
         return cls(np.log(probabilities))
+
+    def smooth(self):
+        base = self._log_probabilities
+        smoothed = scipy.ndimage.gaussian_filter1d(base, 100)
+        self._smoothed = smoothed
+        return
+        max_distance = len(self._log_probabilities)-1
+        px(name='joining').line(smoothed, title='smoothed')
+        smoothed[-1] = 0
+        for i in range(1, len(smoothed) // max_distance + 1):
+            s = slice(i * max_distance, (i + 1) * max_distance)
+            smoothed[s] = np.mean(smoothed[s])
+        smoothed = smoothed + 0.000001 / len(smoothed)
+        self._log_probabilities = smoothed / np.sum(smoothed)
 
     @classmethod
     def from_cumulative_distribution(cls, cumulative_distribution, max_distance=100000):

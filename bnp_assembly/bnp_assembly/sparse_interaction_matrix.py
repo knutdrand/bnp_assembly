@@ -1,18 +1,19 @@
 import logging
 from typing import Dict, Union, Tuple, List
 
-import bionumpy as bnp
+import matspy
 import scipy.sparse
 from bionumpy.genomic_data.global_offset import GlobalOffset
 import numpy as np
 
 from bnp_assembly.contig_graph import DirectedNode
+from bnp_assembly.distance_distribution import DistanceDistribution
 from bnp_assembly.graph_objects import Edge
-from bnp_assembly.interaction_matrix import InteractionMatrix
 from bnp_assembly.io import PairedReadStream
-from scipy.sparse import bsr_array, lil_matrix
+from scipy.sparse import lil_matrix
 from scipy.sparse import csr_matrix
 import sklearn
+import matplotlib.pyplot as plt
 
 
 class NumericGlobalOffset(GlobalOffset):
@@ -136,8 +137,10 @@ class BinnedNumericGlobalOffset:
     def contig_first_bin(self, contig_id):
         return self.from_local_coordinates(contig_id, 0)
 
-    def contig_last_bin(self, contig_id):
-        return self.from_local_coordinates(contig_id, self.contig_sizes[contig_id]-1)
+    def contig_last_bin(self, contig_id, inclusive=True):
+        if inclusive:
+            return self.from_local_coordinates(contig_id, self.contig_sizes[contig_id]-1)
+        return self.from_local_coordinates(contig_id, self.contig_sizes[contig_id]-1) + 1
 
 
 class NaiveSparseInteractionMatrix:
@@ -188,15 +191,26 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
     Only relies on a global offset class for translation of coordinates,
     Can then used BinnedGlobalOffset
     """
-    def __init__(self, data: np.ndarray, global_offset: Union[NumericGlobalOffset, BinnedNumericGlobalOffset]):
+    def __init__(self, data: np.ndarray, global_offset: Union[NumericGlobalOffset, BinnedNumericGlobalOffset],
+                 allow_nonsymmetric=False):
+        if not allow_nonsymmetric:
+            assert (data.T != data).nnz == 0, "Matrix must be symmetric"
         self._data = data
         self._global_offset = global_offset
 
+    @property
+    def n_contigs(self):
+        return len(self._global_offset.contig_sizes)
+
+    @property
+    def contig_n_bins(self):
+        return self._global_offset._contig_n_bins
+
     @classmethod
-    def empty(cls, global_offset: Union[NumericGlobalOffset, BinnedNumericGlobalOffset]):
+    def empty(cls, global_offset: Union[NumericGlobalOffset, BinnedNumericGlobalOffset], allow_nonsymmetric=False):
         size = global_offset.total_size()
         matrix = lil_matrix((size, size), dtype=float)
-        return cls(matrix, global_offset)
+        return cls(matrix, global_offset, allow_nonsymmetric=allow_nonsymmetric)
 
     def set_matrix(self, matrix):
         assert self._data.shape == matrix.shape
@@ -332,7 +346,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         new_global_offset = BinnedNumericGlobalOffset(np.array([x_size]),
                                                       np.array([x_bin_end-x_bin_start]),
                                                       np.array([0]))
-        return SparseInteractionMatrix(submatrix, new_global_offset)
+        return SparseInteractionMatrix(submatrix, new_global_offset, allow_nonsymmetric=True)
 
     def to_nonbinned(self, return_indexes_and_values=False):
         """
@@ -413,11 +427,25 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         self._global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
 
     def normalize(self):
+        """Note: This does not keep symmetry"""
         logging.info("Normalizing %s" % type(self._data))
         old_row_mean = np.sum(self._data) / self._data.shape[0]
         self._data = sklearn.preprocessing.normalize(self._data, axis=0, norm='l1')
         self._data = sklearn.preprocessing.normalize(self._data, axis=1, norm='l1')
         self._data *= old_row_mean
+
+    def normalize_on_row_and_column_products(self):
+        row_sums = np.array(self._data.sum(axis=1)).ravel()
+        column_sums = np.array(self._data.sum(axis=0)).ravel()
+        rows, cols = np.nonzero(self.sparse_matrix)
+        weights = row_sums[rows] + column_sums[cols]
+        #weights = np.maximum(row_sums[rows], column_sums[cols])
+        mean_weight = np.mean(weights)
+        weights = weights.astype(float)
+        weights /= float(mean_weight)
+        self._data = self._data.astype(float)
+        self._data.data /= weights
+        self.assert_is_symmetric()
 
     def average_read_pair_distance(self):
         read1, read2 = np.nonzero(self._data)
@@ -428,7 +456,13 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         weights = np.array(self._data[read1, read2]).ravel()
         return np.sum(distances*weights) / total
 
-    def get_matrix_for_path(self, contigs: List[DirectedNode]):
+    def assert_is_symmetric(self):
+        assert (self.sparse_matrix.T != self.sparse_matrix).nnz == 0
+
+    def get_matrix_for_path(self, contigs: List[DirectedNode], as_raw_matrix=True):
+        if np.all([contig.node_id for contig in contigs] == np.arange(len(contigs))) and all([contig.orientation == '+' for contig in contigs]):
+            # path is same as matrix, return as is
+            return self._data if as_raw_matrix else self
         rows = []
         for contig1 in contigs:
             columns_in_row = []
@@ -439,15 +473,195 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
 
             rows.append(scipy.sparse.hstack(columns_in_row))
         matrix = scipy.sparse.vstack(rows)
-        return matrix
+
+        # should be symmetric if everything went correctly
+        #mismatch = (matrix.T != matrix).nnz
+        #assert mismatch == 0, mismatch
+
+        if as_raw_matrix:
+            return matrix
+        else:
+            # return as SparseInteractionMatrix, need to make a new global offset
+            new_contigs = [contig.node_id for contig in contigs]
+            new_contig_sizes = np.array([self._global_offset.contig_sizes[contig] for contig in new_contigs])
+            new_contig_n_bins = np.array([self._global_offset._contig_n_bins[contig] for contig in new_contigs])
+            new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+            new_global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
+            return SparseInteractionMatrix(matrix, new_global_offset)
 
     def flip_contig(self, contig):
-        pass
+        logging.info("Flipping contig")
+        start = self._global_offset.contig_first_bin(contig)
+        end = self._global_offset.contig_last_bin(contig, inclusive=False)
+        self._data[start:end, :] = self._data[start:end, :][::-1, :]
+        self._data[:, start:end] = self._data[:, start:end][:, ::-1]
+        logging.info("Flipped contig")
+
+    def plot_submatrix(self, from_contig: int, to_contig: int):
+        start = self._global_offset.contig_first_bin(from_contig)
+        end = self._global_offset.contig_last_bin(to_contig, inclusive=False)
+        matrix = self._data[start:end, start:end]
+        logging.info(f"Total matrix size: {matrix.shape}")
+        names = [str(c) for c in range(from_contig, to_contig+1)]
+        offsets = [self._global_offset.contig_first_bin(c) - start for c in range(from_contig, to_contig+1)]
+        logging.info(f"Names and offsets: {names}, {offsets}")
+        """" 
+        fig = px.imshow(np.log2(matrix+1))
+        fig.update_layout(xaxis=dict(tickmode='array', tickvals=offsets, ticktext=names)),
+        fig.update_xaxes(
+            showgrid=True,
+            ticks="outside",
+            tickson="boundaries",
+            ticklen=20
+        )
+        fig.show()
+        """
+
+        fig, ax = matspy.spy_to_mpl(matrix, buckets=1000, figsize=10, shading='relative')
+        plt.vlines(offsets, 0, matrix.shape[0], color='b')
+        plt.hlines(offsets, 0, matrix.shape[0], color='b')
+        ax.set_xticks(offsets)
+        ax.set_xticklabels(names)
+        return fig, ax
+
+    def to_lil_matrix(self):
+        self._data = self._data.tolil()
+
+    def to_csr_matrix(self):
+        self._data = self._data.tocsr()
+
+    def get_subset_on_contigs(self, first_contig, last_contig):
+        start = self._global_offset.contig_first_bin(first_contig)
+        end = self._global_offset.contig_last_bin(last_contig, inclusive=False)
+        new_matrix = self._data[start:end, start:end]
+        new_contig_sizes = self._global_offset.contig_sizes[first_contig:last_contig+1]
+        new_contig_n_bins = self._global_offset._contig_n_bins[first_contig:last_contig+1]
+        new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+        new_global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
+        return SparseInteractionMatrix(new_matrix, new_global_offset)
+
+    def set_values_below_threshold_to_zero(self, threshold):
+        self._data.data[self._data.data < threshold] = 0
+        self._data.eliminate_zeros()
+
+    @classmethod
+    def from_np_matrix(cls, global_offset, matrix) -> 'SparseInteractionMatrix':
+        return cls(csr_matrix(matrix), global_offset)
+
+
+    def median_weight(self):
+        return np.median(np.array(self._data.data).ravel())
 
 
 def average_element_distance(sparse_matrix):
-    pos1, pos2 = np.nonzero(sparse_matrix)
+    value = total_element_distance(sparse_matrix)
     total = np.sum(sparse_matrix)
+    return value / total
+
+
+def total_element_distance(sparse_matrix, max_distance_to_consider: int=None):
+    pos1, pos2 = np.nonzero(sparse_matrix)
     distances = np.abs(pos1 - pos2)
+    if max_distance_to_consider is not None:
+        mask = distances <= max_distance_to_consider
+        distances = distances[mask]
+        pos1 = pos1[mask]
+        pos2 = pos2[mask]
+
     weights = np.array(sparse_matrix[pos1, pos2]).ravel()
-    return np.sum(distances * weights) / total
+    # divide by two since matrix contains each pair twice (below and above diagonal)
+    return np.sum(distances * weights) // 2
+
+
+
+class LogProbSumOfReadDistances:
+    def __init__(self, pmf: np.ndarray):
+        assert np.all(pmf) > 0
+        self._pmf = pmf
+
+    def __call__(self, interaction_matrix):
+        """
+        Finds the sum of the log of probabilities of observing the given (binned) read distances
+        distance_probabilities is a pmf array (with same binning)
+        """
+        assert len(self._pmf) > interaction_matrix.shape[0]
+        pos1, pos2 = np.nonzero(interaction_matrix)
+        distances = np.abs(pos1 - pos2)
+        weights = np.array(interaction_matrix[pos1, pos2]).ravel()
+        assert np.all(weights) > 0
+        probs = self._pmf[distances]
+        assert np.isnan(probs).sum() == 0
+        assert np.all(probs) > 0
+        result = np.sum(probs * weights)
+        assert np.isnan(result).sum() == 0
+        return result
+
+
+def estimate_distance_pmf_from_sparse_matrix(sparse_matrix: SparseInteractionMatrix) -> DistanceDistribution:
+    # use largestt contig to estimate
+    contig_sizes = sparse_matrix._global_offset._contig_n_bins
+    largest_contig = np.argmax(contig_sizes)
+    logging.info(f"Using contig {largest_contig} to estimate distance pmf")
+    submatrix = sparse_matrix.contig_submatrix(largest_contig)
+    pos1, pos2 = np.nonzero(submatrix)
+    distances = np.abs(pos1 - pos2)
+    weights = np.array(submatrix[pos1, pos2]).ravel()
+    pmf = np.bincount(distances, weights=weights)
+    pmf = pmf / np.sum(pmf)
+    dist = DistanceDistribution(pmf)
+    dist.smooth()
+    return dist
+
+def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMatrix) -> DistanceDistribution:
+    # find conigs that contribute to at least some percentage of the genome
+    percent_covered = 0.4
+    contig_sizes = sparse_matrix._global_offset._contig_n_bins
+    sorted = np.sort(list(contig_sizes))[::-1]
+    cumsum = np.cumsum(sorted)
+    total_size = cumsum[-1]
+    cutoff = np.searchsorted(cumsum, int(total_size) * percent_covered, side="right")
+    contigs_to_use = np.argsort(contig_sizes)[::-1][:cutoff]
+    logging.info(f"Using contigs {contigs_to_use} to estimate distance pmf")
+
+    max_distance = min([contig_sizes[contig] for contig in contigs_to_use])
+    logging.info(f"Max distance: {max_distance}")
+
+    pmf = np.zeros(max_distance)
+
+    for contig in contigs_to_use:
+        submatrix = sparse_matrix.contig_submatrix(contig)
+        pos1, pos2 = np.nonzero(submatrix)
+        distances = np.abs(pos1 - pos2)
+        mask = distances < max_distance
+        distances = distances[mask]
+        weights = np.array(submatrix[pos1, pos2]).ravel()[mask]
+        pmf += np.bincount(distances, weights=weights, minlength=max_distance)
+
+    # make distance max of previous cumulative to avoid zeros and remove noise
+    pmf[-1] = np.min(pmf[pmf > 0])
+    pmf = np.maximum.accumulate(pmf[::-1])[::-1]  # will make sure a value is never smaller than the next, avoiding zeros
+    assert np.all(pmf > 0)
+
+    # interpolate linearly to max genome size
+    genome_size = np.sum(contig_sizes)
+    logging.info("Genome size in bins is %d" % genome_size)
+    remaining_dist = genome_size+1 - len(pmf)
+
+    first_value = pmf[-1]
+    last_value = 0
+    remaining_dist = genome_size+1 - len(pmf)
+    rest = np.linspace(first_value, last_value, remaining_dist)
+    rest[-1] = rest[-2]
+
+    # flat prob outside
+    """
+    rest = np.zeros(remaining_dist) + pmf[-1] / 2
+    """
+    pmf = np.concatenate([pmf, rest])
+    pmf = pmf / np.sum(pmf)
+    assert np.all(pmf > 0)
+    dist = DistanceDistribution.from_probabilities(pmf)
+    #dist.smooth()
+    return dist
+
+
