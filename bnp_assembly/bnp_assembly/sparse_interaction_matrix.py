@@ -1,10 +1,11 @@
 import logging
 from typing import Dict, Union, Tuple, List
-
+import plotly.express as px
 import matspy
 import scipy.sparse
 from bionumpy.genomic_data.global_offset import GlobalOffset
 import numpy as np
+from scipy.ndimage import uniform_filter1d, median_filter
 
 from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.distance_distribution import DistanceDistribution
@@ -517,7 +518,8 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         fig.show()
         """
 
-        fig, ax = matspy.spy_to_mpl(matrix, buckets=1000, figsize=10, shading='relative')
+        buckets = min(1000, matrix.shape[0]//500)
+        fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
         plt.vlines(offsets, 0, matrix.shape[0], color='b')
         plt.hlines(offsets, 0, matrix.shape[0], color='b')
         ax.set_xticks(offsets)
@@ -551,6 +553,68 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
 
     def median_weight(self):
         return np.median(np.array(self._data.data).ravel())
+
+    def get_reads_crossing_all_positions(self, max_distance_between_reads=100000):
+        m = self.sparse_matrix
+        size = m.shape[0]
+        rows, cols = m.nonzero()
+        mask = np.abs(rows-cols) <= max_distance_between_reads
+        rows = rows[mask]
+        cols = cols[mask]
+
+        diagonal_index = rows + cols
+        diagonal_values = np.zeros(m.shape[0] * 2 - 1)
+        values = np.array(m[rows, cols]).ravel()
+        diagonal_values = np.bincount(diagonal_index, weights=values, minlength=diagonal_values.shape[0])
+        diagonal_size = np.concatenate([np.arange(1, size), [size], np.arange(size - 1, 0, -1)])
+        diagonal_values = diagonal_values #/ diagonal_size
+        return diagonal_values
+
+    def left_inter_matrix(self, contig, max_distance):
+        """Gives inter-matrix to the left of the contig to the max distance, and contig-distance to the right"""
+        contig_start = self._global_offset.contig_first_bin(contig)
+        contig_end = self._global_offset.contig_last_bin(contig, inclusive=False)
+
+    def edge_score(self, index, minimum_assumed_chromosome_size: int=1000, background_matrix: 'BackgroundMatrix' = None):
+        """Returns an edge score for splitting at the given index.
+        The scores is minimum of the score of a right window and left window.
+        For one window, we never look further than the previous contig sizes (in case we end up outside a chromosome)
+        For the other window, we never look further than the next contig size
+
+        If background_matrix is given, score is divided by score in same sized region in background matrix
+        """
+        assert index > 0
+        assert index < self.n_contigs
+        if background_matrix:
+            # never look longer than background matrix
+            minimum_assumed_chromosome_size = min(background_matrix.matrix.shape[1], minimum_assumed_chromosome_size)
+
+        prev_contig_end = self._global_offset.contig_last_bin(index-1, inclusive=False)
+        next_contig_start = self._global_offset.contig_first_bin(index)
+        ystart = max(0, prev_contig_end-minimum_assumed_chromosome_size)
+        yend = prev_contig_end
+        xstart = next_contig_start
+        xend = min(next_contig_start+minimum_assumed_chromosome_size, self.sparse_matrix.shape[1])
+        matrix = self.sparse_matrix[ystart:yend, xstart:xend]
+
+        prev_contig_size = self._global_offset.contig_sizes[index-1]
+        next_contig_size = self._global_offset.contig_sizes[index]
+        matrix1 = matrix[-prev_contig_size:, :]  # never go further back than the prev
+        matrix2 = matrix[:, :next_contig_size]  # never go further than the next
+
+        demominator1 = (matrix1.shape[1]*matrix1.shape[0])
+        demominator2 = (matrix2.shape[1]*matrix2.shape[0])
+        if background_matrix is not None:
+            demominator1 = background_matrix.get_score(matrix1.shape[0], matrix1.shape[1])
+            demominator2 = background_matrix.get_score(matrix2.shape[0], matrix2.shape[1])
+            assert demominator1 > 0
+            assert demominator2 > 0
+
+        score1 = np.sum(matrix1) / demominator1
+        score2 = np.sum(matrix2) / demominator2
+        return max(score1, score2)
+
+
 
 
 def average_element_distance(sparse_matrix):
@@ -614,13 +678,8 @@ def estimate_distance_pmf_from_sparse_matrix(sparse_matrix: SparseInteractionMat
 
 def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMatrix) -> DistanceDistribution:
     # find conigs that contribute to at least some percentage of the genome
-    percent_covered = 0.4
     contig_sizes = sparse_matrix._global_offset._contig_n_bins
-    sorted = np.sort(list(contig_sizes))[::-1]
-    cumsum = np.cumsum(sorted)
-    total_size = cumsum[-1]
-    cutoff = np.searchsorted(cumsum, int(total_size) * percent_covered, side="right")
-    contigs_to_use = np.argsort(contig_sizes)[::-1][:cutoff]
+    contigs_to_use = contigs_covering_percent_of_total(contig_sizes)
     logging.info(f"Using contigs {contigs_to_use} to estimate distance pmf")
 
     max_distance = min([contig_sizes[contig] for contig in contigs_to_use])
@@ -638,8 +697,14 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
         pmf += np.bincount(distances, weights=weights, minlength=max_distance)
 
     # make distance max of previous cumulative to avoid zeros and remove noise
+    px.line(pmf[0:30000]).show()
     pmf[-1] = np.min(pmf[pmf > 0])
-    pmf = np.maximum.accumulate(pmf[::-1])[::-1]  # will make sure a value is never smaller than the next, avoiding zeros
+    pmf = uniform_filter1d(pmf, size=20)
+    pmf[pmf == 0] = np.min(pmf[pmf != 0])
+    #pmf = np.maximum.accumulate(pmf[::-1])[::-1]  # will make sure a value is never smaller than the next, avoiding zeros
+    #pmf = median_filter(pmf, size=50)
+
+    #px.line(pmf[0:30000]).show()
     assert np.all(pmf > 0)
 
     # interpolate linearly to max genome size
@@ -647,21 +712,79 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
     logging.info("Genome size in bins is %d" % genome_size)
     remaining_dist = genome_size+1 - len(pmf)
 
+    """
     first_value = pmf[-1]
     last_value = 0
     remaining_dist = genome_size+1 - len(pmf)
     rest = np.linspace(first_value, last_value, remaining_dist)
     rest[-1] = rest[-2]
+    """
 
     # flat prob outside
-    """
     rest = np.zeros(remaining_dist) + pmf[-1] / 2
-    """
+
     pmf = np.concatenate([pmf, rest])
     pmf = pmf / np.sum(pmf)
     assert np.all(pmf > 0)
     dist = DistanceDistribution.from_probabilities(pmf)
     #dist.smooth()
     return dist
+
+
+def contigs_covering_percent_of_total(contig_sizes, percent_covered=0.4):
+    sorted = np.sort(list(contig_sizes))[::-1]
+    cumsum = np.cumsum(sorted)
+    total_size = cumsum[-1]
+    cutoff = np.searchsorted(cumsum, int(total_size) * percent_covered, side="right")
+    contigs_to_use = np.argsort(contig_sizes)[::-1][:cutoff]
+    return contigs_to_use
+
+
+class BackgroundMatrix:
+    """
+    Used to create and represent a background-matrix (from a sparse interaction matrix)
+    Can be used to get the sum of values in a given sized inter-matrix on the diagonal
+    """
+    def __init__(self, matrix: np.ndarray):
+        self.matrix = matrix
+
+    @classmethod
+    def from_sparse_interaction_matrix(cls, sparse_matrix: SparseInteractionMatrix):
+        contig_sizes = sparse_matrix._global_offset._contig_n_bins
+        contigs_to_use = contigs_covering_percent_of_total(contig_sizes, percent_covered=0.4)
+        logging.info(f"Using contigs {contigs_to_use} to estimate background matrix")
+        smallest = np.min(contig_sizes[contigs_to_use])
+
+        # sample from smaller matrices than smallest contig so we can sample
+        # multiple times from the same matrix
+        size = smallest // 2
+        size = min(10000, size)
+        logging.info(f"Using size {size} to estimate background matrix")
+        background = np.zeros((size, size))
+        n_sampled = 0
+        for contig in contigs_to_use:
+            sample_positions = np.linspace(size, contig_sizes[contig]-size, 4)
+            contig_start = sparse_matrix._global_offset.contig_first_bin(contig)
+            contig_end = sparse_matrix._global_offset.contig_last_bin(contig, inclusive=False)
+            for position in sample_positions:
+                logging.info(f"Contig {contig}, positoin {position}")
+                position = int(position)
+                start = contig_start + position
+                assert start > 0
+                assert contig_start + size < contig_end
+                submatrix = sparse_matrix.sparse_matrix[start-size:start, start:start+size].toarray()
+                background += submatrix
+                n_sampled += 1
+
+        background = background / n_sampled
+        background = csr_matrix(background)
+        return cls(background)
+
+    def get_score(self, y_size, x_size):
+        assert y_size <= self.matrix.shape[0]
+        assert x_size <= self.matrix.shape[1]
+        return np.sum(self.matrix[-y_size:, :x_size])
+
+
 
 

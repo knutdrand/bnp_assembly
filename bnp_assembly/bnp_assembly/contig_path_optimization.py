@@ -381,6 +381,7 @@ class LogProbSumOfReadDistancesDynamicScores:
         score = np.sum(self._distance_func(distances) * weights)
         self._score_matrix[i, j] = score
         self._score_matrix[j, i] = score
+        return score
 
     def _initialize_score_matrix(self):
         """

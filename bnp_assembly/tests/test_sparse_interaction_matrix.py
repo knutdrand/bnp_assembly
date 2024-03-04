@@ -350,3 +350,27 @@ def test_normalize_on_row_cols2():
     matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
     matrix.normalize_on_row_and_column_products()
     print(matrix.nonsparse_matrix)
+
+
+def test_get_reads_crossing_position():
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
+    matrix = np.array([
+        [1, 2, 3, 1],
+        [2, 0, 10, 10],
+        [3, 10, 1, 1],
+        [1, 10, 1, 1]
+    ])
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    r = matrix.get_reads_crossing_all_positions()
+    print(r)
+
+
+def test_get_edge_score():
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 1, 2: 2}, 1)
+    matrix = np.zeros((5, 5)) + 1
+    matrix[0:3, -2:] = 0
+    matrix[-2:, 0:3] = 0
+    matrix[np.arange(5), np.arange(5)] = 2
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    assert matrix.edge_score(1) == 1
+    assert matrix.edge_score(2) == 0

@@ -1,7 +1,7 @@
 import pickle
 from dataclasses import dataclass
 from typing import List
-
+import plotly.express as px
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -11,7 +11,7 @@ from bnp_assembly.contig_path_optimization import PathOptimizer, TotalDistancePa
     flip_contigs_in_splitted_path, flip_contigs_in_splitted_path_path_optimizer, InteractionDistancesAndWeights, \
     LogProbSumOfReadDistancesDynamicScores
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, average_element_distance, \
-    LogProbSumOfReadDistances, estimate_distance_pmf_from_sparse_matrix2
+    LogProbSumOfReadDistances, estimate_distance_pmf_from_sparse_matrix2, BackgroundMatrix
 from numpy.testing import assert_array_equal
 from scipy.stats import poisson
 
@@ -265,28 +265,41 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
                                                     dists_weights, distance_func=distance_func)
     #new_directed_nodes = scorer.optimize_flippings()
     new_directed_nodes = scorer.optimize_positions()
+    #new_directed_nodes = scorer.optimize_flippings()
+    #new_directed_nodes = scorer.optimize_positions()
+    #new_directed_nodes = scorer.optimize_positions()
     new_directed_nodes = scorer.optimize_flippings()
 
     logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
     path = ContigPath.from_directed_nodes(new_directed_nodes)
+    path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
 
-    if interaction_matrix.sparse_matrix.shape[1] < 1000000:
+    if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
-        new_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
-        new_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
+        path_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
         plt.show()
 
     interaction_matrix.assert_is_symmetric()
+
+    background = BackgroundMatrix.from_sparse_interaction_matrix(path_matrix)
+    minimum_assumed_chromosome_size_in_bins = interaction_matrix.sparse_matrix.shape[1]//300
+    #minimum_assumed_chromosome_size_in_bins = 200
+
+    logging.info("Minimum assumed chromosome size in bins: %d" % minimum_assumed_chromosome_size_in_bins)
+    edge_scores = {edge: path_matrix.edge_score(i+1, minimum_assumed_chromosome_size_in_bins, background_matrix=background) for i, edge in enumerate(path.edges)}
+    px.bar(x=np.arange(len(edge_scores)), y=list(edge_scores.values())).show()
+    split_threshold = 0.4
     # split this path based on the scores from distance matrix
-    edge_scores = distance_matrix.to_edge_dict()
+
+    #edge_scores = distance_matrix.to_edge_dict()
     # must get edge scores in the same order as the path has edges
-    edge_scores = {edge: score for edge, score in edge_scores.items() if edge in path.edges}
-    edge_scores = {edge: score for edge, score in sorted(edge_scores.items(), key=lambda x: path.edges.index(x[0]))}
+    #edge_scores = {edge: score for edge, score in edge_scores.items() if edge in path.edges}
+    #edge_scores = {edge: score for edge, score in sorted(edge_scores.items(), key=lambda x: path.edges.index(x[0]))}
     logger.info(f"Edge dict: {edge_scores}")
 
     #split_threshold = min(split_threshold, max(edge_scores.values())-1)
     #logging.info(f"Adjusting split threshold to {split_threshold}")
-    splitted_paths = split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=False)
+    splitted_paths = split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=True)
 
     #distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
     #logprobreaddist = LogProbSumOfReadDistances(distance_pmf)

@@ -1,6 +1,7 @@
 import logging
 
 from matplotlib import pyplot as plt
+from shared_memory_wrapper import from_file
 
 from bnp_assembly.graph_objects import Edge, NodeSide
 
@@ -247,6 +248,61 @@ def test_move_contig_right():
         score = scorer.score()
         scorer._initialize_score_matrix()
         assert scorer.score() == score
+
+
+def test_bug():
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 1, 2: 2}, 1)
+    matrix = np.zeros((5, 5)) + 1
+    for i in range(5):
+        for j in range(5):
+            matrix[i, j] = 4-abs(i-j)
+
+    matrix[1, 3] = 10
+    matrix[3, 1] = 10
+
+    print(matrix)
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+    path = [DirectedNode(contig, '+') for contig in range(3)]
+    scorer = LogProbSumOfReadDistancesDynamicScores(path, matrix.contig_n_bins, dists_weights, np.abs)
+    score = scorer.score()
+    score_matrix = scorer._score_matrix
+    print(score_matrix)
+
+    matrix.plot_submatrix(0, 2)
+    scorer.move_contig_right(0)
+    scorer.move_contig_right(0)
+    print(score_matrix)
+
+    matrix2 = matrix.get_matrix_for_path(scorer._path, as_raw_matrix=True)
+    print(scorer._path)
+    print(matrix2.toarray())
+
+
+def test_integration_real_case():
+    matrix = from_file("interaction_matrix_test.npz")
+    distance_pmf = np.load("distance_pmf.npy")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+    distance_func = lambda dist: -distance_pmf[dist]
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+
+    scorer.find_best_position_for_contig(0)
+    new_path = scorer._path
+    new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
+    new_matrix.plot_submatrix(0, n_contigs - 1)
+    plt.show()
+
+    logging.info(f"Old path: {testpath}")
+    logging.info(f"New path: {new_path}")
+
+    assert new_path == testpath
 
 
 if __name__ == "__main__":

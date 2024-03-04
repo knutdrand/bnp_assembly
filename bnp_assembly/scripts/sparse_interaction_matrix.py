@@ -2,12 +2,15 @@ import logging
 import pickle
 import time
 
+import matspy
+from scipy.ndimage import uniform_filter1d
 from matplotlib import pyplot as plt
 from shared_memory_wrapper import to_file, from_file
 
 from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.contig_path_optimization import TotalDistancePathOptimizer, PathOptimizer, \
     InteractionDistancesAndWeights, LogProbSumOfReadDistancesDynamicScores
+from bnp_assembly.graph_objects import NodeSide, Edge
 
 logging.basicConfig(level=logging.INFO)
 import bionumpy as bnp
@@ -16,7 +19,7 @@ from bnp_assembly.io import PairedReadStream
 from bnp_assembly.make_scaffold import get_numeric_input_data
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
     SparseInteractionMatrix, average_element_distance, total_element_distance, estimate_distance_pmf_from_sparse_matrix, \
-    estimate_distance_pmf_from_sparse_matrix2, LogProbSumOfReadDistances
+    estimate_distance_pmf_from_sparse_matrix2, LogProbSumOfReadDistances, BackgroundMatrix
 import sys
 import scipy
 import plotly.express as px
@@ -43,41 +46,83 @@ print(average_element_distance(matrix.sparse_matrix))
 #matrix = SparseInteractionMatrix(scipy.sparse.load_npz("testmatrix.npz"), global_offset)
 """
 testpath = pickle.load(open("directed_nodes", "rb"))
-testpath = testpath[:21]
 matrix = from_file("large_interaction_matrix_trimmed.npz")
 distance_pmf = estimate_distance_pmf_from_sparse_matrix2(matrix).array
+#px.line(distance_pmf[0:30000]).show()
+#sys.exit()
+
+matrix = matrix.get_subset_on_contigs(28, 33)
+matrix.plot_submatrix(0, matrix.n_contigs-1)
+to_file(matrix, "interaction_matrix_test")
+sys.exit()
+
+#testpath = testpath[25:28]
+print(testpath)
+#background = BackgroundMatrix.from_sparse_interaction_matrix(matrix)
+#matspy.spy(background.matrix)
+#px.imshow(background.matrix).show()
+#sys.exit()
+
+#sub = matrix  #matrix.get_subset_on_contigs(0, 10)
+#sub.plot_submatrix(4, 5)
+#plt.show()
+
+"""
+edge_scores = []
+smallest_assumed_chromosome = 1000
+for i in range(1, sub.n_contigs-1):
+    score = sub.edge_score(i, smallest_assumed_chromosome, background_matrix=background)
+    edge_scores.append(score)
+"""
+
+
+#testpath = testpath[:21]
+testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+np.save("distance_pmf", distance_pmf)
 distance_func = lambda dist: -distance_pmf[dist]
+dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
 
 #matrix = matrix.get_subset_on_contigs(0, 40)
-matrix = matrix.get_matrix_for_path(testpath, as_raw_matrix=False)
-testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
-matrix.plot_submatrix(0, 20)
+pathmatrix = matrix.get_matrix_for_path(testpath, as_raw_matrix=False)
+#testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+#matrix.plot_submatrix(0, 20)
 
 n_contigs = matrix.n_contigs
-#testpath = [DirectedNode(contig, '+') for contig in range(n_contigs)]
-contigs_n_bins = matrix._global_offset._contig_n_bins
-dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
-#to_file(dists_weights, "dists_weights")
-#dists_weights = from_file("dists_weights.npz")
+path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights, distance_func=distance_func)
 
-scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), contigs_n_bins, dists_weights, distance_func=distance_func)
 #px.imshow(scorer._score_matrix).show()
 #print("Score before", scorer.score())
 #scorer.move_contig_to_position(18, 4)
 #print("Score after", scorer.score())
 #px.imshow(scorer._score_matrix).show()
-new_path = scorer.optimize_positions()
-new_path = scorer.optimize_flippings()
-#scorer.find_best_position_for_contig(4)
+#new_path = scorer.optimize_positions()
+#new_path = scorer.optimize_flippings()
+print("Score before start", scorer.score())
+print("Score 0:2", scorer.compute_edge_score(2, 3))
+#to_file(dists_weights, "dists_weights_test")
+print(dists_weights.distances[Edge(NodeSide(0, 'r'), NodeSide(2, 'l'))])
+print(dists_weights.weights[Edge(NodeSide(0, 'r'), NodeSide(2, 'l'))])
+print(dists_weights.distances[Edge(NodeSide(2, 'r'), NodeSide(0, 'l'))])
+print(dists_weights.weights[Edge(NodeSide(2, 'r'), NodeSide(0, 'l'))])
+print(scorer._path)
+px.imshow(scorer._score_matrix).show()
+print("Dist before", scorer.distance_between_contigs_in_path(2, 3))
+scorer.find_best_position_for_contig(0)
+print(scorer._path)
+print("Dist after", scorer.distance_between_contigs_in_path(2, 3))
+print("Score 1:2", scorer.compute_edge_score(2, 3))
+px.imshow(scorer._score_matrix).show()
 #scorer.find_best_position_for_contig(5)
 #scorer.find_best_position_for_contig(11)
 #scorer.find_best_position_for_contig(18)
 #new_path = testpath
 new_path = scorer._path
+print("Old path", testpath)
 print("New path", new_path)
 
 new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
-new_matrix.plot_submatrix(0, 20)
+new_matrix.plot_submatrix(0, n_contigs-1)
 plt.show()
 
 logging.info(f"Old path: {testpath}")
