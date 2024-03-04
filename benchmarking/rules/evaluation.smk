@@ -46,6 +46,19 @@ rule make_heatmap:
         """
 
 
+rule make_heatmap2:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        agp = ScaffoldingResults.path() + "/scaffolds.agp",
+        interaction_matrix= ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_100.npz",
+    output:
+        ScaffoldingResults.path() + "/heatmap-{contig}.png"
+    shell:
+        """
+        bnp_assembly heatmap2 {input.contigs} {input.agp} {input.interaction_matrix} {output} --contig {wildcards.contig}
+        """
+
+
 rule debug:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",

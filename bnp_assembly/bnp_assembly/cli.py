@@ -14,7 +14,7 @@ from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
-from bnp_assembly.evaluation.visualization import show_contigs_heatmap
+from bnp_assembly.evaluation.visualization import visualize_from_agp
 from bnp_assembly.graph_objects import NodeSide
 from bnp_assembly.heatmap import create_heatmap_figure
 from bnp_assembly.input_data import FullInputData
@@ -172,6 +172,15 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
     fig.show()
     fig.write_image(out_file_name)
     interaction_matrix.normalize_matrix().plot().show()
+
+
+@app.command()
+def heatmap2(fasta_filename: str, agp_file: str, interaction_matrix_file_name: str, out_file_name: str, contig: str=None):
+    if contig == "all":
+        contig = None
+    fig = visualize_from_agp(fasta_filename, agp_file, interaction_matrix_file_name, contig)
+    plt.show()
+    plt.savefig(out_file_name)
 
 
 @app.command()

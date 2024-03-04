@@ -274,10 +274,6 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     path = ContigPath.from_directed_nodes(new_directed_nodes)
     path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
 
-    if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
-        interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
-        path_matrix.plot_submatrix(0, interaction_matrix.n_contigs-1)
-        plt.show()
 
     interaction_matrix.assert_is_symmetric()
 
@@ -307,6 +303,12 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     #splitted_paths = flip_contigs_in_splitted_path(interaction_matrix, splitted_paths)
     #splitted_paths = flip_contigs_in_splitted_path_path_optimizer(interaction_matrix, splitted_paths, evaluation_function)
     #to_file(interaction_matrix, "interaction_matrix_trimmed")
+
+    if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
+        interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
+        path_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
+        plt.show()
+
     return splitted_paths
     # return path
 

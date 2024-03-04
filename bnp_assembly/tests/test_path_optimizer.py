@@ -297,7 +297,7 @@ def test_integration_real_case():
     new_path = scorer._path
     new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
     new_matrix.plot_submatrix(0, n_contigs - 1)
-    plt.show()
+    #plt.show()
 
     logging.info(f"Old path: {testpath}")
     logging.info(f"New path: {new_path}")

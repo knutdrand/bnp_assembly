@@ -498,32 +498,24 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         self._data[:, start:end] = self._data[:, start:end][:, ::-1]
         logging.info("Flipped contig")
 
-    def plot_submatrix(self, from_contig: int, to_contig: int):
+    def plot(self, xaxis_names=None):
+        return self.plot_submatrix(0, self.n_contigs-1, xaxis_names=xaxis_names)
+
+    def plot_submatrix(self, from_contig: int, to_contig: int, xaxis_names=None):
         start = self._global_offset.contig_first_bin(from_contig)
         end = self._global_offset.contig_last_bin(to_contig, inclusive=False)
         matrix = self._data[start:end, start:end]
         logging.info(f"Total matrix size: {matrix.shape}")
-        names = [str(c) for c in range(from_contig, to_contig+1)]
+        if xaxis_names is None:
+            xaxis_names = [str(c) for c in range(from_contig, to_contig+1)]
         offsets = [self._global_offset.contig_first_bin(c) - start for c in range(from_contig, to_contig+1)]
-        logging.info(f"Names and offsets: {names}, {offsets}")
-        """" 
-        fig = px.imshow(np.log2(matrix+1))
-        fig.update_layout(xaxis=dict(tickmode='array', tickvals=offsets, ticktext=names)),
-        fig.update_xaxes(
-            showgrid=True,
-            ticks="outside",
-            tickson="boundaries",
-            ticklen=20
-        )
-        fig.show()
-        """
-
-        buckets = min(1000, matrix.shape[0]//500)
+        buckets = max(200, min(1000, matrix.shape[0]//500))
+        logging.info(f"Number of buckets: {buckets}")
         fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
         plt.vlines(offsets, 0, matrix.shape[0], color='b')
         plt.hlines(offsets, 0, matrix.shape[0], color='b')
         ax.set_xticks(offsets)
-        ax.set_xticklabels(names)
+        ax.set_xticklabels(xaxis_names)
         return fig, ax
 
     def to_lil_matrix(self):
@@ -697,7 +689,7 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
         pmf += np.bincount(distances, weights=weights, minlength=max_distance)
 
     # make distance max of previous cumulative to avoid zeros and remove noise
-    px.line(pmf[0:30000]).show()
+    #px.line(pmf[0:30000]).show()
     pmf[-1] = np.min(pmf[pmf > 0])
     pmf = uniform_filter1d(pmf, size=20)
     pmf[pmf == 0] = np.min(pmf[pmf != 0])
