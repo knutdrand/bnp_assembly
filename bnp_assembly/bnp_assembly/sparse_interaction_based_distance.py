@@ -20,7 +20,8 @@ def get_distance_matrix_from_sparse_interaction_matrix(interactions: SparseInter
 
         # limit to maximum size of background matrix
         edge_submatrix = edge_submatrix[:background.shape[0], :background.shape[1]]
-        score = edge_submatrix.sum() #/ background.sum()
+        x_size, y_size = edge_submatrix.shape
+        score = edge_submatrix.sum() / background[:x_size, :y_size].sum()
         distances[edge] = score
 
     return distances
