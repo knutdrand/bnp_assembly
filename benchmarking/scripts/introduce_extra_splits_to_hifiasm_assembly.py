@@ -27,8 +27,11 @@ agp = simulated.alignment
 agp.to_agp(snakemake.output.agp)
 
 
+# shuffle contigs so that they are not in correct order, in case any method defaults to the order given
+order = np.arange(0, len(new_fasta))
+np.random.shuffle(order)
 with bnp.open(snakemake.output[0], "w") as f:
-    f.write(new_fasta)
+    f.write(new_fasta[order])
 
 
 with open(snakemake.output[2], "wb") as f:

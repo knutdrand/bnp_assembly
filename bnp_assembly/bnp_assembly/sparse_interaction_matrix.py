@@ -1,11 +1,14 @@
 import logging
 from typing import Dict, Union, Tuple, List
+
+import pandas as pd
 import plotly.express as px
 import matspy
 import scipy.sparse
 from bionumpy.genomic_data.global_offset import GlobalOffset
 import numpy as np
 from scipy.ndimage import uniform_filter1d, median_filter
+from tqdm import tqdm
 
 from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.distance_distribution import DistanceDistribution
@@ -508,8 +511,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         logging.info(f"Total matrix size: {matrix.shape}")
         if xaxis_names is None:
             xaxis_names = [str(c) for c in range(from_contig, to_contig+1)]
+        xaxis_names = [x.replace("contig", "") for x in xaxis_names]
+
         offsets = [self._global_offset.contig_first_bin(c) - start for c in range(from_contig, to_contig+1)]
-        buckets = max(200, min(1000, matrix.shape[0]//500))
+        buckets = max(200, min(2000, matrix.shape[0]//500))
         logging.info(f"Number of buckets: {buckets}")
         fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
         plt.vlines(offsets, 0, matrix.shape[0], color='b')
@@ -689,10 +694,16 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
         pmf += np.bincount(distances, weights=weights, minlength=max_distance)
 
     # make distance max of previous cumulative to avoid zeros and remove noise
-    #px.line(pmf[0:30000]).show()
+    unfiltered = pmf.copy()
     pmf[-1] = np.min(pmf[pmf > 0])
-    pmf = uniform_filter1d(pmf, size=20)
+    filtered = uniform_filter1d(pmf, size=20)
+    pmf[20:] = filtered[20:]   # do not filter close signals, these have lots of data
     pmf[pmf == 0] = np.min(pmf[pmf != 0])
+    filtered = pmf.copy()
+    # plot filtered and unfiltered as lines using plotly, make a pd dataframe first
+    px.line(pd.DataFrame({"unfiltered": unfiltered[0:4000], "filtered": filtered[0:4000]})).show()
+
+
     #pmf = np.maximum.accumulate(pmf[::-1])[::-1]  # will make sure a value is never smaller than the next, avoiding zeros
     #pmf = median_filter(pmf, size=50)
 
@@ -717,6 +728,11 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
 
     pmf = np.concatenate([pmf, rest])
     pmf = pmf / np.sum(pmf)
+
+    # set everything except beginning to be the same
+    # we don't care about where read pairs are if they are far away, as we reach the backgrond noise
+    pmf[10000:] = np.mean(pmf[10000:])
+
     assert np.all(pmf > 0)
     dist = DistanceDistribution.from_probabilities(pmf)
     #dist.smooth()
@@ -754,12 +770,12 @@ class BackgroundMatrix:
         logging.info(f"Using size {size} to estimate background matrix")
         background = np.zeros((size, size))
         n_sampled = 0
-        for contig in contigs_to_use:
+        logging.info("Estimating background matrix")
+        for contig in tqdm(contigs_to_use):
             sample_positions = np.linspace(size, contig_sizes[contig]-size, 4)
             contig_start = sparse_matrix._global_offset.contig_first_bin(contig)
             contig_end = sparse_matrix._global_offset.contig_last_bin(contig, inclusive=False)
             for position in sample_positions:
-                logging.info(f"Contig {contig}, positoin {position}")
                 position = int(position)
                 start = contig_start + position
                 assert start > 0

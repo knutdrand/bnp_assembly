@@ -29,8 +29,8 @@ import numpy as np
 testpath = pickle.load(open("directed_nodes", "rb"))
 matrix = from_file("large_interaction_matrix_trimmed.npz")
 distance_pmf = estimate_distance_pmf_from_sparse_matrix2(matrix).array
-#px.line(distance_pmf[0:30000]).show()
-#sys.exit()
+px.line(distance_pmf[0:30000]).show()
+sys.exit()
 
 #matrix = matrix.get_subset_on_contigs(28, 33)
 matrix.plot_submatrix(0, matrix.n_contigs-1)

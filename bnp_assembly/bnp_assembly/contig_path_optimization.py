@@ -1,3 +1,4 @@
+import itertools
 import logging
 import time
 from typing import List, Dict, Literal
@@ -288,6 +289,27 @@ def flip_contigs_in_splitted_path_path_optimizer(interaction_matrix: SparseInter
     return new_paths
 
 
+def optimize_splitted_path(paths: List[ContigPathSides], interaction_matrix,
+                           distances_and_weights, distance_func) -> List[ContigPathSides]:
+    new_paths = []
+    for path in paths:
+        logging.info(f"Opimizing subpath: {path}")
+        directed_nodes = path.directed_nodes
+        path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
+        scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
+                                                    distances_and_weights, distance_func=distance_func)
+        if len(directed_nodes) > 5:
+            scorer.optimize_positions()
+            scorer.optimize_flippings()
+        else:
+            scorer.try_all_possible_paths()
+
+        new_path = ContigPath.from_directed_nodes(scorer._path)
+        new_paths.append(new_path)
+        logging.info(f"New path:         {new_path}")
+    return new_paths
+
+
 class InteractionDistancesAndWeights:
     """
     Represents the distances and weights of all bins for a given edge
@@ -439,6 +461,7 @@ class LogProbSumOfReadDistancesDynamicScores:
                 logging.info(f"Improved score from {current_score} to {new_score} by flipping node {node}")
                 current_score = new_score
             else:
+                logging.info(f"Flipping node {node} did not improve score, new score is {new_score}, best score is {current_score}")
                 self.flip_contig(node.node_id)
 
         return self._path
@@ -480,6 +503,31 @@ class LogProbSumOfReadDistancesDynamicScores:
             self.find_best_position_for_contig(node.node_id)
         logging.info(f"Score after optimizing positions: {self.score()}")
         return self._path
+
+    def try_all_possible_paths(self):
+        """
+        Tries all possible paths and returns the best one,
+        works when there are few contigs
+        """
+        n = len(self._path)
+        possible_nodes = [node.node_id for node in self._path]
+        possible_orientations = ['+', '-']
+        best_path = self._path
+        best_score = self.score()
+        all_possible_orientations = list(itertools.product(possible_orientations, repeat=n))
+        #all_possible_orientations = [["+" for _ in range(n)]]
+        for nodes in itertools.permutations(possible_nodes, len(possible_nodes)):
+            for orientations in all_possible_orientations:
+                self._path = [DirectedNode(node, orientation) for node, orientation in zip(nodes, orientations)]
+                self._initialize_score_matrix()
+                new_score = self.score()
+                if new_score < best_score:
+                    best_score = new_score
+                    best_path = self._path
+
+        logging.info(f"Found new path with score {best_score}: {best_path}")
+        self._path = best_path
+        self._initialize_score_matrix()
 
     def move_contig_to_position(self, contig, position):
         new_path = self._path.copy()

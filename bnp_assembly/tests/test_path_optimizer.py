@@ -1,9 +1,11 @@
 import logging
+import pickle
 
 from matplotlib import pyplot as plt
 from shared_memory_wrapper import from_file
 
 from bnp_assembly.graph_objects import Edge, NodeSide
+import plotly.express as px
 
 logging.basicConfig(level=logging.INFO)
 import numpy as np
@@ -305,12 +307,146 @@ def test_integration_real_case():
     assert new_path == testpath
 
 
+
+def test_integration_real_case2():
+    matrix = from_file("interaction_matrix_test2.npz")
+    distance_pmf = np.load("distance_pmf_test.npy")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+    distance_func = lambda dist: -distance_pmf[dist]
+    distance_pmf[10000:] = np.mean(distance_pmf[10000:])
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+
+    px.imshow(scorer._score_matrix).show()
+    #scorer.optimize_flippings()
+    score_before = scorer.score()
+    print("Score before", scorer.score())
+    scorer.flip_contig(0)
+    print("Score after", scorer.score())
+    assert scorer.score() > score_before, "Score should improve by flipping the first node"
+    px.imshow(scorer._score_matrix).show()
+    new_path = scorer._path
+    new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
+    new_matrix.plot_submatrix(0, n_contigs - 1)
+    plt.show()
+
+    logging.info(f"Old path: {testpath}")
+    logging.info(f"New path: {new_path}")
+
+
+def test_integration_real_case3():
+    matrix = from_file("interaction_matrix_test3.npz")
+    distance_pmf = np.load("distance_pmf_test.npy")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+    distance_pmf[10000:] = np.mean(distance_pmf[10000:])
+
+    distance_func = lambda dist: -distance_pmf[dist]
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+
+    px.imshow(scorer._score_matrix).show()
+    print("Score before", scorer.score())
+    scorer.optimize_flippings()
+    #scorer.flip_contig(2)
+    print("Score after", scorer.score())
+    px.imshow(scorer._score_matrix).show()
+    new_path = scorer._path
+    new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
+    new_matrix.plot_submatrix(0, n_contigs - 1)
+    plt.show()
+
+    logging.info(f"Old path: {testpath}")
+    logging.info(f"New path: {new_path}")
+
+    assert new_path[2].orientation == '-', "Should have flipped the last node"
+
+
+def test_integration_real_case4():
+    matrix = from_file("interaction_matrix_test4.npz")
+    matrix = matrix.get_subset_on_contigs(0, 4)
+    distance_pmf = np.load("distance_pmf_test.npy")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+    distance_pmf[10000:] = np.mean(distance_pmf[10000:])
+
+    distance_func = lambda dist: -distance_pmf[dist]
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+
+    px.imshow(scorer._score_matrix).show()
+    print("Score before", scorer.score())
+    #scorer.optimize_positions()
+    scorer.try_all_possible_paths()
+    #scorer.move_contig_to_position(0, 5)
+    #scorer.move_contig_to_position(1,5)
+    #scorer.flip_contig(2)
+    print("Score after", scorer.score())
+    px.imshow(scorer._score_matrix).show()
+    new_path = scorer._path
+    new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
+    new_matrix.plot_submatrix(0, n_contigs - 1)
+    plt.show()
+
+
+def test_integration_real_case5():
+    matrix = from_file("athalia_rosea_interaction_matrix.npz")
+    testpath = pickle.load("testpath5.pickle")
+    #matrix = matrix.get_subset_on_contigs(0, 4)
+    distance_pmf = np.load("distance_pmf_test5.npy")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+
+    distance_pmf[10000:] = np.mean(distance_pmf[10000:])
+
+    distance_func = lambda dist: -distance_pmf[dist]
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    #testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+    testpath = pickle.load(open("testpath5.pickle", "rb"))
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+
+    px.imshow(scorer._score_matrix).show()
+    print("Score before", scorer.score())
+
+    for i in range(3):
+        scorer.optimize_positions()
+        scorer.optimize_flippings()
+        new_matrix = matrix.get_matrix_for_path(scorer._path, as_raw_matrix=False)
+        new_matrix.plot_submatrix(0, n_contigs - 1)
+        new_path = scorer._path
+        pickle.dump(new_path, open(f"path_iteration_{i}", "wb"))
+        print("Score after", scorer.score())
+
+    plt.show()
+
+
 if __name__ == "__main__":
     #test_acceptance()
     #test_total_read_optimizer_acceptance()
     #test_total_read_optimizer_large_interaction_matrix()
     #test_logprob_dynamic_scores()
-    test_move_contig_right()
+    #test_move_contig_right()
+    test_integration_real_case5()
     print("done")
 
 

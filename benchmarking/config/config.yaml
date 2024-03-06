@@ -86,6 +86,16 @@ genomes:
       assembly_accession: GCA_905147785.2
       big:
         chromosomes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,mitochondrion,Z
+        
+  melitaea_cinxia:
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/002/ERR6054432/ERR6054432_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/002/ERR6054432/ERR6054432_2.fastq.gz
+      assembly_accession: GCA_905220565.1
+      big:
+        chromosomes: '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,mitochondrion,Z'
 
 
   # simulated genome sequence
@@ -134,4 +144,6 @@ yahs_parameters:
   pieris_rapae:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
   nymphalis_urticae:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  melitaea_cinxia:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"

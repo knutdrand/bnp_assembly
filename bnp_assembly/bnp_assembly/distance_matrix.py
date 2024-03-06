@@ -69,7 +69,7 @@ class DirectedDistanceMatrix:
                     table['orientation'].append(f'{dir_a}{dir_b}')
         self.px.line(table, x='from_node', y='score', line_shape='hv', color='orientation', title=f'Inversion plot-{name}')
 
-    def plot(self, level=logging.INFO, name='', dirs='rllr'):
+    def plot(self, level=logging.INFO, name='', dirs='rllr', px=None):
         n_nodes = len(self)//2
         new_matrix = np.empty((n_nodes, n_nodes))
         max_value = self.data.max()
@@ -87,7 +87,9 @@ class DirectedDistanceMatrix:
 
         #assert np.all(~np.isnan(new_matrix))
         #self.px.array(new_matrix, title="distance_matrix")
-        return self.px.imshow(new_matrix, zmax=0, title=name)
+        if px is None:
+            px = self.px
+        return px.imshow(new_matrix, zmax=0, title=name)
         # fig = px(level).imshow(new_matrix)
         #go = self._genome_context.global_offset
         #fig = px.imshow(self._transform(self._data))

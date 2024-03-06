@@ -9,7 +9,7 @@ from shared_memory_wrapper import to_file
 
 from bnp_assembly.contig_path_optimization import PathOptimizer, TotalDistancePathOptimizer, \
     flip_contigs_in_splitted_path, flip_contigs_in_splitted_path_path_optimizer, InteractionDistancesAndWeights, \
-    LogProbSumOfReadDistancesDynamicScores
+    LogProbSumOfReadDistancesDynamicScores, optimize_splitted_path
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, average_element_distance, \
     LogProbSumOfReadDistances, estimate_distance_pmf_from_sparse_matrix2, BackgroundMatrix
 from numpy.testing import assert_array_equal
@@ -251,6 +251,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
                                                         interaction_matrix=interaction_matrix,
                                                         interaction_matrix_clipping=interaction_matrix_clipping
                                                         )
+    #to_file(interaction_matrix, "interaction_matrix_trimmed")
     # note: interaction matrix is clipped inplace
     path = join_all_contigs(distance_matrix)
 
@@ -259,15 +260,17 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
 
     distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
+    np.save("distance_pmf", distance_pmf)
     distance_func = lambda dist: -distance_pmf[dist]
     path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
     scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
                                                     dists_weights, distance_func=distance_func)
     #new_directed_nodes = scorer.optimize_flippings()
     new_directed_nodes = scorer.optimize_positions()
-    #new_directed_nodes = scorer.optimize_flippings()
-    #new_directed_nodes = scorer.optimize_positions()
-    #new_directed_nodes = scorer.optimize_positions()
+    new_directed_nodes = scorer.optimize_flippings()
+    new_directed_nodes = scorer.optimize_positions()
+    new_directed_nodes = scorer.optimize_positions()
+    new_directed_nodes = scorer.optimize_positions()
     new_directed_nodes = scorer.optimize_flippings()
 
     logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
@@ -297,11 +300,9 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     #logging.info(f"Adjusting split threshold to {split_threshold}")
     splitted_paths = split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=True)
 
-    #distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
-    #logprobreaddist = LogProbSumOfReadDistances(distance_pmf)
-    #evaluation_function = lambda x: -logprobreaddist(x)
     #splitted_paths = flip_contigs_in_splitted_path(interaction_matrix, splitted_paths)
     #splitted_paths = flip_contigs_in_splitted_path_path_optimizer(interaction_matrix, splitted_paths, evaluation_function)
+    splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
     #to_file(interaction_matrix, "interaction_matrix_trimmed")
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:

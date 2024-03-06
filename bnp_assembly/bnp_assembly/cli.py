@@ -20,7 +20,8 @@ from bnp_assembly.heatmap import create_heatmap_figure
 from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
-from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix
+from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix
+from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix, BackgroundMatrix
 from shared_memory_wrapper import to_file, from_file
 
 from .io import get_genomic_read_pairs, PairedReadStream
@@ -178,9 +179,21 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
 def heatmap2(fasta_filename: str, agp_file: str, interaction_matrix_file_name: str, out_file_name: str, contig: str=None):
     if contig == "all":
         contig = None
-    fig = visualize_from_agp(fasta_filename, agp_file, interaction_matrix_file_name, contig)
-    plt.show()
+    fig, matrix = visualize_from_agp(fasta_filename, agp_file, interaction_matrix_file_name, contig)
     plt.savefig(out_file_name)
+    plt.show()
+    to_file(matrix, out_file_name + ".matrix")
+
+
+@app.command()
+def get_distance_matrix(interaction_matrix_file_name: str, out_file_name: str):
+    matrix = from_file(interaction_matrix_file_name)
+    background = BackgroundMatrix.from_sparse_interaction_matrix(matrix)
+    distance_matrix = get_distance_matrix_from_sparse_interaction_matrix(matrix, background)
+    distance_matrix.plot(px=px).show()
+    for edge, score in distance_matrix.items():
+        print(edge, score)
+    to_file(distance_matrix, out_file_name)
 
 
 @app.command()
