@@ -10,6 +10,8 @@ from shared_memory_wrapper import to_file
 from bnp_assembly.contig_path_optimization import PathOptimizer, TotalDistancePathOptimizer, \
     flip_contigs_in_splitted_path, flip_contigs_in_splitted_path_path_optimizer, InteractionDistancesAndWeights, \
     LogProbSumOfReadDistancesDynamicScores, optimize_splitted_path
+from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix, \
+    DistanceFinder
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, average_element_distance, \
     LogProbSumOfReadDistances, estimate_distance_pmf_from_sparse_matrix2, BackgroundMatrix
 from numpy.testing import assert_array_equal
@@ -243,44 +245,50 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
     logging.info("Cumulative dist done")
 
-    edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
-                                                      n_bins_heatmap_scoring)
+    #edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
+    #                                                  n_bins_heatmap_scoring)
+
+    edge_distance_finder = DistanceFinder()
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
                                                         edge_distance_finder,
                                                         use_clipping_to_adjust_distances=False,
                                                         interaction_matrix=interaction_matrix,
                                                         interaction_matrix_clipping=interaction_matrix_clipping
                                                         )
+
+
     #to_file(interaction_matrix, "interaction_matrix_trimmed")
     # note: interaction matrix is clipped inplace
     path = join_all_contigs(distance_matrix)
 
     directed_nodes = path.directed_nodes
     pickle.dump(directed_nodes, open("directed_nodes", "wb"))
-    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
 
-    distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
-    np.save("distance_pmf", distance_pmf)
-    distance_func = lambda dist: -distance_pmf[dist]
-    path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
-    scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
-                                                    dists_weights, distance_func=distance_func)
-    #new_directed_nodes = scorer.optimize_flippings()
-    new_directed_nodes = scorer.optimize_positions()
-    new_directed_nodes = scorer.optimize_flippings()
-    new_directed_nodes = scorer.optimize_positions()
-    new_directed_nodes = scorer.optimize_positions()
-    new_directed_nodes = scorer.optimize_positions()
-    new_directed_nodes = scorer.optimize_flippings()
+    if True:
+        dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
 
-    logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
-    path = ContigPath.from_directed_nodes(new_directed_nodes)
+        distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
+        np.save("distance_pmf", distance_pmf)
+        distance_func = lambda dist: -distance_pmf[dist]
+        path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
+        scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
+                                                        dists_weights, distance_func=distance_func)
+        for i in range(4):
+            new_directed_nodes = scorer.optimize_positions()
+            new_directed_nodes = scorer.optimize_flippings()
+
+        logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
+        path = ContigPath.from_directed_nodes(new_directed_nodes)
+    else:
+        new_directed_nodes = directed_nodes
+
     path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
+
+    background = BackgroundMatrix.from_sparse_interaction_matrix(path_matrix)
 
 
     interaction_matrix.assert_is_symmetric()
 
-    background = BackgroundMatrix.from_sparse_interaction_matrix(path_matrix)
     minimum_assumed_chromosome_size_in_bins = interaction_matrix.sparse_matrix.shape[1]//300
     #minimum_assumed_chromosome_size_in_bins = 200
 
@@ -300,10 +308,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     #logging.info(f"Adjusting split threshold to {split_threshold}")
     splitted_paths = split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=True)
 
-    #splitted_paths = flip_contigs_in_splitted_path(interaction_matrix, splitted_paths)
-    #splitted_paths = flip_contigs_in_splitted_path_path_optimizer(interaction_matrix, splitted_paths, evaluation_function)
     splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
-    #to_file(interaction_matrix, "interaction_matrix_trimmed")
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)

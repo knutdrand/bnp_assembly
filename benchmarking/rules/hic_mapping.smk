@@ -25,7 +25,7 @@ rule map_hic:
     params:
         out_dir = lambda wildcards, input, output: os.path.sep.join(output[0].split(os.path.sep)[:-1]),  # replace(wildcards.assembly + ".bam", ""),
         sra = lambda wildcards, input, output: output[0].split(os.path.sep)[-1].replace(".bam", "")  # lambda wildcards: wildcards.assembly.replace(os.path.sep, "_")
-    threads: 4
+    threads: 20
     shell:
     # samtools view -f 1 is important to discard reads that are not properly paired
         """

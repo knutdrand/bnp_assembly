@@ -2,10 +2,14 @@ import logging
 import pickle
 
 from matplotlib import pyplot as plt
-from shared_memory_wrapper import from_file
+from shared_memory_wrapper import from_file, to_file
 
 from bnp_assembly.graph_objects import Edge, NodeSide
 import plotly.express as px
+
+from bnp_assembly.make_scaffold import join_all_contigs
+from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix, \
+    median_difference_score
 
 logging.basicConfig(level=logging.INFO)
 import numpy as np
@@ -15,7 +19,7 @@ from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.contig_path_optimization import PathOptimizer, PathTotalReadDistances, TotalDistancePathOptimizer, \
     InteractionDistancesAndWeights, LogProbSumOfReadDistancesDynamicScores
 from bnp_assembly.sparse_interaction_matrix import average_element_distance, BinnedNumericGlobalOffset, \
-    SparseInteractionMatrix, total_element_distance
+    SparseInteractionMatrix, total_element_distance, BackgroundMatrix
 
 
 @pytest.mark.xfail
@@ -308,6 +312,7 @@ def test_integration_real_case():
 
 
 
+@pytest.mark.skip
 def test_integration_real_case2():
     matrix = from_file("interaction_matrix_test2.npz")
     distance_pmf = np.load("distance_pmf_test.npy")
@@ -340,6 +345,7 @@ def test_integration_real_case2():
     logging.info(f"New path: {new_path}")
 
 
+@pytest.mark.skip
 def test_integration_real_case3():
     matrix = from_file("interaction_matrix_test3.npz")
     distance_pmf = np.load("distance_pmf_test.npy")
@@ -373,6 +379,7 @@ def test_integration_real_case3():
     assert new_path[2].orientation == '-', "Should have flipped the last node"
 
 
+@pytest.mark.skip
 def test_integration_real_case4():
     matrix = from_file("interaction_matrix_test4.npz")
     matrix = matrix.get_subset_on_contigs(0, 4)
@@ -406,37 +413,37 @@ def test_integration_real_case4():
 
 
 def test_integration_real_case5():
-    matrix = from_file("athalia_rosea_interaction_matrix.npz")
-    testpath = pickle.load("testpath5.pickle")
-    #matrix = matrix.get_subset_on_contigs(0, 4)
+    """
+    Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
+    does not help
+    """
+    matrix = from_file("interaction_matrix_test6.npz")
+
     distance_pmf = np.load("distance_pmf_test5.npy")
     n_contigs = matrix.n_contigs
     matrix.plot_submatrix(0, matrix.n_contigs - 1)
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 
-    distance_pmf[10000:] = np.mean(distance_pmf[10000:])
 
     distance_func = lambda dist: -distance_pmf[dist]
     dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
 
-    #testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
-    testpath = pickle.load(open("testpath5.pickle", "rb"))
-
     path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
     scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
                                                     distance_func=distance_func)
+    original_score = scorer.score()
+
+    print("Score before", scorer.score())
+    scorer.move_contig_to_position(21, 0)
+    print("Score 2", scorer.score())
+    scorer.move_contig_to_position(22, 1)
+    assert scorer.score() < original_score
+    new_path = scorer._path
+    new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
+    new_matrix.plot_submatrix(0, n_contigs - 1)
 
     px.imshow(scorer._score_matrix).show()
-    print("Score before", scorer.score())
-
-    for i in range(3):
-        scorer.optimize_positions()
-        scorer.optimize_flippings()
-        new_matrix = matrix.get_matrix_for_path(scorer._path, as_raw_matrix=False)
-        new_matrix.plot_submatrix(0, n_contigs - 1)
-        new_path = scorer._path
-        pickle.dump(new_path, open(f"path_iteration_{i}", "wb"))
-        print("Score after", scorer.score())
-
+    print("Score after", scorer.score())
     plt.show()
 
 

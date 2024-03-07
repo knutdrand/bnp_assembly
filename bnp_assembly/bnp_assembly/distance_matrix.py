@@ -38,6 +38,9 @@ class DirectedDistanceMatrix:
     def data(self):
         return self._matrix
 
+    def invert(self):
+        self._matrix = -self._matrix
+
     def __len__(self):
         return len(self._matrix)
 

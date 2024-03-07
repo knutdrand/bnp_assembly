@@ -1,5 +1,7 @@
 import logging
 
+from tqdm import tqdm
+
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix
 
 logging.basicConfig(level=logging.INFO)
@@ -209,9 +211,8 @@ def find_contig_clips_from_interaction_matrix(contig_dict: Dict[str, int],
     #bins, bin_sizes = get_missing_region_counts_from_interaction_matrix(contig_dict, interaction_matrix)
     bins = {}
     bin_sizes = {}
-    for contig in contig_dict:
-        logging.info(f"Processing contig {contig}")
-        submatrix = interaction_matrix.contig_submatrix(contig).toarray()
+    for contig in tqdm(contig_dict, desc="Finding contig clips"):
+        #submatrix = interaction_matrix.contig_submatrix(contig).toarray()
         bins[contig] = interaction_matrix.get_contig_coverage_counts(contig).astype(int)
         bin_sizes[contig] = interaction_matrix.contig_bin_size(contig)
         #px(name="missing_data").imshow(np.log(submatrix+1), title=f"contig matrix {contig}")
