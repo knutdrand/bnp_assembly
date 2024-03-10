@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Union, Tuple, List
-
+import random
 import pandas as pd
 import plotly.express as px
 import matspy
@@ -514,7 +514,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         xaxis_names = [x.replace("contig", "") for x in xaxis_names]
 
         offsets = [self._global_offset.contig_first_bin(c) - start for c in range(from_contig, to_contig+1)]
-        buckets = max(200, min(2000, matrix.shape[0]//500))
+        buckets = max(500, min(2000, matrix.shape[0]//200))
         logging.info(f"Number of buckets: {buckets}")
         fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
         plt.vlines(offsets, 0, matrix.shape[0], color='b')
@@ -572,7 +572,19 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         contig_start = self._global_offset.contig_first_bin(contig)
         contig_end = self._global_offset.contig_last_bin(contig, inclusive=False)
 
-    def edge_score(self, index, minimum_assumed_chromosome_size: int=1000, background_matrix: 'BackgroundMatrix' = None):
+    def average_bin_value_outside_contigs(self):
+        n_bins = self.sparse_matrix.shape[0]**2
+        total = np.sum(self.sparse_matrix)
+        total_inside_contigs = sum(
+            np.sum(self.contig_submatrix(contig)) for contig in range(self.n_contigs)
+        )
+        n_bins_inside_contigs = sum(
+            self._global_offset._contig_n_bins[contig]**2 for contig in range(self.n_contigs)
+        )
+        return (total - total_inside_contigs) / (n_bins - n_bins_inside_contigs)
+
+    def edge_score(self, index, minimum_assumed_chromosome_size: int=1000, background_matrix: 'BackgroundMatrix' = None,
+                   return_matrices=False):
         """Returns an edge score for splitting at the given index.
         The scores is minimum of the score of a right window and left window.
         For one window, we never look further than the previous contig sizes (in case we end up outside a chromosome)
@@ -594,16 +606,25 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         xend = min(next_contig_start+minimum_assumed_chromosome_size, self.sparse_matrix.shape[1])
         matrix = self.sparse_matrix[ystart:yend, xstart:xend]
 
-        prev_contig_size = self._global_offset.contig_sizes[index-1]
-        next_contig_size = self._global_offset.contig_sizes[index]
+        prev_contig_size = self._global_offset._contig_n_bins[index-1]
+        next_contig_size = self._global_offset._contig_n_bins[index]
         matrix1 = matrix[-prev_contig_size:, :]  # never go further back than the prev
         matrix2 = matrix[:, :next_contig_size]  # never go further than the next
+        if return_matrices:
+            return matrix1, matrix2
 
         demominator1 = (matrix1.shape[1]*matrix1.shape[0])
         demominator2 = (matrix2.shape[1]*matrix2.shape[0])
         if background_matrix is not None:
             demominator1 = background_matrix.get_score(matrix1.shape[0], matrix1.shape[1])
             demominator2 = background_matrix.get_score(matrix2.shape[0], matrix2.shape[1])
+            if demominator1 == 0 or demominator2 == 0:
+                matspy.spy(background_matrix.matrix)
+                plt.show()
+                logging.error(matrix1.shape)
+                logging.error(matrix1.shape)
+                logging.error(matrix2.shape)
+
             assert demominator1 > 0
             assert demominator2 > 0
 
@@ -700,8 +721,7 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
     pmf[20:] = filtered[20:]   # do not filter close signals, these have lots of data
     pmf[pmf == 0] = np.min(pmf[pmf != 0])
     filtered = pmf.copy()
-    # plot filtered and unfiltered as lines using plotly, make a pd dataframe first
-    px.line(pd.DataFrame({"unfiltered": unfiltered[0:4000], "filtered": filtered[0:4000]})).show()
+    #px.line(pd.DataFrame({"unfiltered": unfiltered[0:4000], "filtered": filtered[0:4000]})).show()
 
 
     #pmf = np.maximum.accumulate(pmf[::-1])[::-1]  # will make sure a value is never smaller than the next, avoiding zeros
@@ -731,7 +751,7 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
 
     # set everything except beginning to be the same
     # we don't care about where read pairs are if they are far away, as we reach the backgrond noise
-    pmf[10000:] = np.mean(pmf[10000:])
+    pmf[1000:] = np.mean(pmf[1000:])
 
     assert np.all(pmf > 0)
     dist = DistanceDistribution.from_probabilities(pmf)
@@ -744,8 +764,25 @@ def contigs_covering_percent_of_total(contig_sizes, percent_covered=0.4):
     cumsum = np.cumsum(sorted)
     total_size = cumsum[-1]
     cutoff = np.searchsorted(cumsum, int(total_size) * percent_covered, side="right")
-    contigs_to_use = np.argsort(contig_sizes)[::-1][:cutoff]
+    logging.info(f"Using {cutoff}, sorted contigs: {np.argsort(contig_sizes)[::-1]}. Original sizes: {contig_sizes}")
+    contigs_to_use = np.argsort(contig_sizes)[::-1][:cutoff+1]
     return contigs_to_use
+
+
+class BackgroundMatrixInter:
+    def __init__(self, average_bin_value: float):
+        self._average_bin_value = average_bin_value
+
+    def matrix(self, size):
+        return np.ones((size, size)) * self._average_bin_value
+
+    @property
+    def average_value(self):
+        return self._average_bin_value
+
+    @classmethod
+    def from_sparse_interaction_matrix(cls, sparse_matrix: SparseInteractionMatrix):
+        return cls(sparse_matrix.average_bin_value_outside_contigs())
 
 
 class BackgroundMatrix:
@@ -772,6 +809,7 @@ class BackgroundMatrix:
         n_sampled = 0
         logging.info("Estimating background matrix")
         for contig in tqdm(contigs_to_use):
+            logging.info(f"Sampling from contig {contig} with size {contig_sizes[contig]}")
             sample_positions = np.linspace(size, contig_sizes[contig]-size, 4)
             contig_start = sparse_matrix._global_offset.contig_first_bin(contig)
             contig_end = sparse_matrix._global_offset.contig_last_bin(contig, inclusive=False)
@@ -794,5 +832,56 @@ class BackgroundMatrix:
         return np.sum(self.matrix[-y_size:, :x_size])
 
 
+class BackgroundInterMatrices:
+    """
+    Represents many sampled background-matrices from what is assumed areas between chromosomes,
+    can be used to get a distribution of the sum
+    inside a given sized background-matrix
+    """
+    def __init__(self, matrices: np.ndarray):
+        self.matrices = matrices
 
+    def get_sums(self, y_size, x_size):
+        """Returns sums sorted ascending"""
+        return np.sort(np.sum(self.matrices[:, :y_size, :x_size], axis=(1, 2)))
+
+    def get_percentile(self, y_size, x_size, observed_value):
+        sums = self.get_sums(y_size, x_size)
+        index = np.searchsorted(sums, observed_value, side="left")
+        return (len(sums) - index) / len(sums)
+
+    def get_percentile2(self, y_size, x_size, observed_value):
+        sums = self.get_sums(y_size, x_size)
+        mean = np.mean(sums)
+        std = np.std(sums)
+        perc = 1 - scipy.stats.norm.cdf(observed_value, loc=mean, scale=std)
+        print(f"Mean: {mean}, std: {std}, perc: {perc}")
+        return perc
+
+    @classmethod
+    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix, assumed_largest_chromosome_ratio_of_genome=1/30, n_samples=50):
+        """
+        Samples outside what is assumed to be largest chromosomes reach
+        """
+        distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
+        logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
+        size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 5)
+        lowest_x_start = distance_from_diagonal + size
+        highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
+
+        matrices = np.zeros((n_samples, size, size))
+        for i in range(n_samples):
+            xstart = random.randint(lowest_x_start, highest_x_start)
+            lowest_y_start = 0
+            highest_y_start = xstart - size - distance_from_diagonal
+            assert highest_y_start > 0
+            ystart = random.randint(lowest_y_start, highest_y_start)
+            assert abs((ystart+size) - xstart) >= distance_from_diagonal
+            #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size}")
+
+            submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size].toarray()
+            assert submatrix.shape[0] == size and submatrix.shape[1] == size
+            matrices[i] = submatrix
+
+        return cls(matrices)
 

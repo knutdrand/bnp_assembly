@@ -1,50 +1,45 @@
 import pickle
 from dataclasses import dataclass
+import random
 from typing import List
-import plotly.express as px
 import numpy as np
 import pandas as pd
+from bnp_assembly.sparse_interaction_based_distance import DistanceFinder
 from matplotlib import pyplot as plt
-from shared_memory_wrapper import to_file
 
-from bnp_assembly.contig_path_optimization import PathOptimizer, TotalDistancePathOptimizer, \
-    flip_contigs_in_splitted_path, flip_contigs_in_splitted_path_path_optimizer, InteractionDistancesAndWeights, \
-    LogProbSumOfReadDistancesDynamicScores, optimize_splitted_path
-from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix, \
-    DistanceFinder
-from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, average_element_distance, \
-    LogProbSumOfReadDistances, estimate_distance_pmf_from_sparse_matrix2, BackgroundMatrix
-from numpy.testing import assert_array_equal
+from bnp_assembly.contig_path_optimization import InteractionDistancesAndWeights, \
+    LogProbSumOfReadDistancesDynamicScores, split_using_interaction_matrix
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, estimate_distance_pmf_from_sparse_matrix2
 from scipy.stats import poisson
 
-from bnp_assembly.clip_mapper import ClipMapper
 from bnp_assembly.clustering import cluster_split
-from bnp_assembly.contig_graph import ContigPath
+from bnp_assembly.contig_graph import ContigPath, DirectedNode
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
-from bnp_assembly.forbes_distance_calculation import ForbesDistanceFinder
-from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts, CumulativeDistribution
-from bnp_assembly.forbes_score import get_pair_counts, get_node_side_counts, get_forbes_matrix
+from bnp_assembly.expected_edge_counts import ExpectedEdgeCounts
 from bnp_assembly.input_data import FullInputData, NumericInputData
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.max_distance import estimate_max_distance2
-from bnp_assembly.missing_data import find_contig_clips, find_contig_clips_from_interaction_matrix
-from bnp_assembly.orientation_weighted_counter import OrientationWeightedCounter, OrientationWeightedCountesWithMissing
-from bnp_assembly.hic_distance_matrix import calculate_distance_matrices
+from bnp_assembly.missing_data import find_contig_clips_from_interaction_matrix
 from bnp_assembly.interface import SplitterInterface
 from bnp_assembly.iterative_join import create_merged_graph
 from bnp_assembly.networkx_wrapper import PathFinder as nxPathFinder
 from bnp_assembly.noise_distribution import NoiseDistribution
 from bnp_assembly.plotting import px as px_func
 from bnp_assembly.pre_sampled_dynamic_heatmap_comparison import DynamicHeatmapDistanceFinder, \
-    get_dynamic_heatmap_config_with_even_bins, get_dynamic_heatmap_config_with_uniform_bin_sizes
+    get_dynamic_heatmap_config_with_even_bins
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.scaffold_splitting.binned_bayes import NewSplitter
 from bnp_assembly.splitting import YahsSplitter, split_on_scores
+from shared_memory_wrapper import to_file
+from .sparse_interaction_matrix import BackgroundInterMatrices
+
+from .contig_path_optimization import optimize_splitted_path, split_using_inter_distribution
 import logging
 
 from bnp_assembly.logprobsum_splitter import squares_split
+import plotly.express as px
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +188,7 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     #contig_clips = find_contig_clips(bin_size, contig_dict, read_pairs)
     contig_clips = find_contig_clips_from_interaction_matrix(contig_dict, interaction_matrix_clipping, window_size=100)
     interaction_matrix.trim_with_clips(contig_clips)
+    return None
 
     logger.info(f'contig_clips: {contig_clips}')
     new_contig_dict = {contig_id: end - start for contig_id, (start, end) in contig_clips.items()}
@@ -200,8 +196,6 @@ def create_distance_matrix_from_reads(numeric_input_data: NumericInputData, edge
     assert all(v > 0 for v in new_contig_dict.values()), new_contig_dict
     del contig_dict
 
-    #clip_mapper = ClipMapper(contig_clips)
-    #new_read_stream = PairedReadStream((clip_mapper.map_maybe_stream(s) for s in read_pairs))
     distance_matrix = edge_distance_finder(interaction_matrix, effective_contig_sizes=new_contig_dict)
 
     distance_matrix.plot(name="dynamic_heatmap_scores").show()
@@ -256,13 +250,17 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
                                                         interaction_matrix_clipping=interaction_matrix_clipping
                                                         )
 
+    #path = join_all_contigs(distance_matrix)
+    #directed_nodes = path.directed_nodes
+
+    directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
+    random.seed(0)
+    random.shuffle(directed_nodes)
+
 
     #to_file(interaction_matrix, "interaction_matrix_trimmed")
+    #pickle.dump(directed_nodes, open("directed_nodes", "wb"))
     # note: interaction matrix is clipped inplace
-    path = join_all_contigs(distance_matrix)
-
-    directed_nodes = path.directed_nodes
-    pickle.dump(directed_nodes, open("directed_nodes", "wb"))
 
     if True:
         dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
@@ -273,9 +271,10 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
         path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
         scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
                                                         dists_weights, distance_func=distance_func)
-        for i in range(4):
+        for i in range(2):
             new_directed_nodes = scorer.optimize_positions()
             new_directed_nodes = scorer.optimize_flippings()
+            new_directed_nodes = scorer.optimize_by_moving_subpaths(interaction_matrix)
 
         logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
         path = ContigPath.from_directed_nodes(new_directed_nodes)
@@ -284,30 +283,17 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
 
     path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
 
-    background = BackgroundMatrix.from_sparse_interaction_matrix(path_matrix)
-
+    #to_file(path_matrix, "unsplitted_path_matrix")
+    #assert False
 
     interaction_matrix.assert_is_symmetric()
 
-    minimum_assumed_chromosome_size_in_bins = interaction_matrix.sparse_matrix.shape[1]//300
-    #minimum_assumed_chromosome_size_in_bins = 200
+    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
+    sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
+    px.histogram(sums).show()
+    splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
 
-    logging.info("Minimum assumed chromosome size in bins: %d" % minimum_assumed_chromosome_size_in_bins)
-    edge_scores = {edge: path_matrix.edge_score(i+1, minimum_assumed_chromosome_size_in_bins, background_matrix=background) for i, edge in enumerate(path.edges)}
-    px.bar(x=np.arange(len(edge_scores)), y=list(edge_scores.values())).show()
-    split_threshold = 0.4
-    # split this path based on the scores from distance matrix
-
-    #edge_scores = distance_matrix.to_edge_dict()
-    # must get edge scores in the same order as the path has edges
-    #edge_scores = {edge: score for edge, score in edge_scores.items() if edge in path.edges}
-    #edge_scores = {edge: score for edge, score in sorted(edge_scores.items(), key=lambda x: path.edges.index(x[0]))}
-    logger.info(f"Edge dict: {edge_scores}")
-
-    #split_threshold = min(split_threshold, max(edge_scores.values())-1)
-    #logging.info(f"Adjusting split threshold to {split_threshold}")
-    splitted_paths = split_on_scores(path, edge_scores, threshold=split_threshold, keep_over=True)
-
+    #splitted_paths = split_using_interaction_matrix(path, path_matrix, 0.4)
     splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:

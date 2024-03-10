@@ -1,5 +1,7 @@
 import logging
 import pickle
+import random
+import time
 
 from matplotlib import pyplot as plt
 from shared_memory_wrapper import from_file, to_file
@@ -15,11 +17,12 @@ logging.basicConfig(level=logging.INFO)
 import numpy as np
 import scipy
 import pytest
-from bnp_assembly.contig_graph import DirectedNode
+from bnp_assembly.contig_graph import DirectedNode, ContigPath
 from bnp_assembly.contig_path_optimization import PathOptimizer, PathTotalReadDistances, TotalDistancePathOptimizer, \
-    InteractionDistancesAndWeights, LogProbSumOfReadDistancesDynamicScores
+    InteractionDistancesAndWeights, LogProbSumOfReadDistancesDynamicScores, split_using_interaction_matrix, \
+    split_using_inter_distribution, get_splitting_edge_scores
 from bnp_assembly.sparse_interaction_matrix import average_element_distance, BinnedNumericGlobalOffset, \
-    SparseInteractionMatrix, total_element_distance, BackgroundMatrix
+    SparseInteractionMatrix, total_element_distance, BackgroundMatrix, BackgroundInterMatrices
 
 
 @pytest.mark.xfail
@@ -412,6 +415,7 @@ def test_integration_real_case4():
     plt.show()
 
 
+# slow, but working
 def test_integration_real_case5():
     """
     Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
@@ -421,9 +425,31 @@ def test_integration_real_case5():
 
     distance_pmf = np.load("distance_pmf_test5.npy")
     n_contigs = matrix.n_contigs
-    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+    #matrix.plot_submatrix(0, matrix.n_contigs - 1)
     testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 
+    distance_func = lambda dist: -distance_pmf[dist]
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+    original_score = scorer.score()
+    new_path = scorer.optimize_by_moving_subpaths(matrix)
+    assert scorer.score() < original_score
+
+
+def test_integration_real_case7():
+    """
+    Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
+    does not help
+    """
+    matrix = from_file("interaction_matrix_test8.npz")
+    distance_pmf = np.load("distance_pmf_test7.npy")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+    testpath = pickle.load(open("testpath8.pickle", "rb"))
+    #testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 
     distance_func = lambda dist: -distance_pmf[dist]
     dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
@@ -433,11 +459,6 @@ def test_integration_real_case5():
                                                     distance_func=distance_func)
     original_score = scorer.score()
 
-    print("Score before", scorer.score())
-    scorer.move_contig_to_position(21, 0)
-    print("Score 2", scorer.score())
-    scorer.move_contig_to_position(22, 1)
-    assert scorer.score() < original_score
     new_path = scorer._path
     new_matrix = matrix.get_matrix_for_path(new_path, as_raw_matrix=False)
     new_matrix.plot_submatrix(0, n_contigs - 1)
@@ -447,13 +468,67 @@ def test_integration_real_case5():
     plt.show()
 
 
+def test_integration_splitting2():
+    random.seed(0)
+    matrix = from_file("interaction_matrix_1000_melitaea.npz")
+    n_contigs = matrix.n_contigs
+    matrix.plot_submatrix(0, matrix.n_contigs - 1)
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+    plt.show()
+    path = ContigPath.from_directed_nodes(testpath)
+
+    # splitted_paths = split_using_interaction_matrix(path, matrix, 0.4)
+    background = BackgroundInterMatrices.from_sparse_interaction_matrix(matrix, n_samples=10)
+    sums = background.get_sums(5000, 5000)
+    px.histogram(sums).show()
+    print(background.get_percentile(5000, 4976, 1065.117))
+    print(background.get_percentile2(5000, 5000, 1065))
+    #new_path = split_using_inter_distribution(matrix, background, path)
+    scores = get_splitting_edge_scores(matrix, background, ContigPath.from_directed_nodes(testpath))
+    px.bar(x=[str(e) for e in scores.keys()], y=list(scores.values())).show()
+    score_values = list(scores.values())
+    print(score_values)
+
+    should_split = [1, 6, 19, 20, 24, 27, 30, 34, 38, 44, 49, 52, 54, 56, 64, 67, 69, 74, 76, 80, 84, 89, 98, 100, 104]
+
+    for i, (edge, score) in enumerate(scores.items()):
+        if edge.from_node_side.node_id in should_split:
+            assert score > 0.001, f"Edge {edge} should be split, score {score}"
+
+
+def test_caching():
+    """
+    Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
+    does not help
+    """
+    matrix = from_file("interaction_matrix_test6.npz")
+    distance_pmf = np.load("distance_pmf_test5.npy")
+    testpath = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+
+    distance_func = lambda dist: -distance_pmf[dist]
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(matrix)
+
+    path_contig_sizes = np.array([matrix.contig_n_bins[contig.node_id] for contig in testpath])
+    scorer = LogProbSumOfReadDistancesDynamicScores(testpath.copy(), path_contig_sizes, dists_weights,
+                                                    distance_func=distance_func)
+    original_score = scorer.score()
+
+    t0 = time.perf_counter()
+    scorer._initialize_score_matrix()
+    print("Time to initialize", time.perf_counter() - t0)
+
+    t0 = time.perf_counter()
+    scorer._initialize_score_matrix()
+    print("Time to initialize", time.perf_counter() - t0)
+
+
 if __name__ == "__main__":
     #test_acceptance()
     #test_total_read_optimizer_acceptance()
     #test_total_read_optimizer_large_interaction_matrix()
     #test_logprob_dynamic_scores()
     #test_move_contig_right()
-    test_integration_real_case5()
+    test_caching()
     print("done")
 
 

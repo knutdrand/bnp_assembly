@@ -4,12 +4,15 @@ import time
 from typing import List, Dict, Literal
 import plotly.express as px
 import numpy as np
+from bnp_assembly.splitting import split_on_scores
 from matplotlib import pyplot as plt
+from plotly import express as px
 from tqdm import tqdm
 
 from bnp_assembly.contig_graph import DirectedNode, ContigPathSides, ContigPath
 from bnp_assembly.graph_objects import Edge
-from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, total_element_distance
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, total_element_distance, BackgroundMatrix, \
+    BackgroundInterMatrices
 from bnp_assembly.util import get_all_possible_edges
 
 
@@ -359,6 +362,7 @@ class LogProbSumOfReadDistancesDynamicScores:
         self.n_contigs = len(contig_sizes)
         self._distances_and_weights = distances_and_weights
         self._score_matrix = np.zeros((self.n_contigs, self.n_contigs))
+        self._edge_score_cache = {}
         self._initialize_score_matrix()
         self._current_score = None
 
@@ -393,14 +397,16 @@ class LogProbSumOfReadDistancesDynamicScores:
         contig1, contig2 = self._path[i], self._path[j]
         edge = Edge(contig1.right_side, contig2.left_side)
         distance_between_contigs = self.distance_between_contigs_in_path(contig1.node_id, contig2.node_id)
-        intra_distances = self._distances_and_weights.distances[edge]
-        contig_sizes = self._contig_sizes_dict
-        node1_size = contig_sizes[contig1.node_id]
-        node2_size = contig_sizes[contig2.node_id]
-        assert np.all(intra_distances < node1_size + node2_size)
-        distances = self._distances_and_weights.distances[edge] + distance_between_contigs
-        weights = self._distances_and_weights.weights[edge]
-        score = np.sum(self._distance_func(distances) * weights)
+
+        cache_id = (edge, distance_between_contigs)
+        if cache_id in self._edge_score_cache:
+            score = self._edge_score_cache[cache_id]
+        else:
+            distances = self._distances_and_weights.distances[edge] + distance_between_contigs
+            weights = self._distances_and_weights.weights[edge]
+            score = np.sum(self._distance_func(distances) * weights)
+            self._edge_score_cache[cache_id] = score
+
         self._score_matrix[i, j] = score
         self._score_matrix[j, i] = score
         return score
@@ -409,11 +415,13 @@ class LogProbSumOfReadDistancesDynamicScores:
         """
         Fills a score matrix for the given path. The sum of the matrix will be the score
         """
+        t0 = time.perf_counter()
         self._score_matrix = np.zeros((self.n_contigs, self.n_contigs))
         for i in range(self.n_contigs):
             for j in range(self.n_contigs):
                 if j > i:
                     self.compute_edge_score(i, j)
+        #logging.info(f"Initialized score matrix in {time.perf_counter()-t0} seconds")
 
     def update_scores_affected_by_contig(self, contig):
         index = self.contig_index_in_path(contig)
@@ -454,14 +462,13 @@ class LogProbSumOfReadDistancesDynamicScores:
     def optimize_flippings(self):
         current_score = self.score()
         for i, node in enumerate(self._path):
-            logging.info(node)
             self.flip_contig(node.node_id)
             new_score = self.score()
             if new_score < current_score:
-                logging.info(f"Improved score from {current_score} to {new_score} by flipping node {node}")
+                #logging.info(f"Improved score from {current_score} to {new_score} by flipping node {node}")
                 current_score = new_score
             else:
-                logging.info(f"Flipping node {node} did not improve score, new score is {new_score}, best score is {current_score}")
+                #logging.info(f"Flipping node {node} did not improve score, new score is {new_score}, best score is {current_score}")
                 self.flip_contig(node.node_id)
 
         return self._path
@@ -487,14 +494,14 @@ class LogProbSumOfReadDistancesDynamicScores:
 
             all_scores.append(new_score)
 
-        logging.info(f"Best position for contig {contig} is {best_position} with score {best_score}. Original pos was {index}")
+        #logging.info(f"Best position for contig {contig} is {best_position} with score {best_score}. Original pos was {index}")
         #px.line(x=np.arange(len(all_scores)), y=all_scores, title=f"Contig {contig}").show()
         # remove from end where contig is now and insert at pos
         contig = self._path.pop()
         self._path.insert(best_position, contig)
         # reinitialze
         self._initialize_score_matrix()
-        logging.info(f"Score after reinitializing is {self.score()}")
+        #logging.info(f"Score after reinitializing is {self.score()}")
 
     def optimize_positions(self):
         current_score = self.score()
@@ -502,6 +509,61 @@ class LogProbSumOfReadDistancesDynamicScores:
         for i, node in enumerate(self._path.copy()):
             self.find_best_position_for_contig(node.node_id)
         logging.info(f"Score after optimizing positions: {self.score()}")
+        return self._path
+
+    def optimize_by_moving_subpaths(self, raw_interaction_matrix: SparseInteractionMatrix):
+        # Splits, moves parts between splitting
+        # Idea is to split with strict threshold, keeping what is likely meant to be together together
+        # and moving these things around to try to reach a better score
+        t0 = time.perf_counter()
+        path = ContigPath.from_directed_nodes(self._path)
+        path_matrix = raw_interaction_matrix.get_matrix_for_path(path.directed_nodes, as_raw_matrix=False)
+        inter_distribution = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
+        #splitted_paths = split_using_interaction_matrix(path, path_matrix, threshold=0.5)
+        splitted_paths = split_using_inter_distribution(path_matrix, inter_distribution, path, threshold=0.0005)
+        splitted_paths_lengths = [len(subpath.directed_nodes) for subpath in splitted_paths]
+        indexes_with_splitting = np.insert(np.cumsum(splitted_paths_lengths), 0, 0)
+        logging.info(f"Splitted paths lengths: {splitted_paths_lengths}")
+        indexes_next_to_multicontig_subpaths = []
+        prev_length = 0
+        for i, length in enumerate(splitted_paths_lengths):
+            if length > 1 or prev_length > 1:
+                indexes_next_to_multicontig_subpaths.append(indexes_with_splitting[i])
+            prev_length = length
+        logging.info(f"Will move multi-contig paths to {indexes_next_to_multicontig_subpaths}")
+
+        for subpath in splitted_paths:
+            directed_nodes = subpath.directed_nodes
+            #logging.info(f"Trying to move subpath {directed_nodes}")
+            if len(directed_nodes) == 1:
+                # single contig, no point in trying to move
+                continue
+            # try all possible positions for the subpath
+            best_path = self._path.copy()
+            best_score = self.score()
+            # remove from the original path
+            for node in directed_nodes:
+                self._path.remove(node)
+            path_without_nodes = self._path.copy()
+            #for i in range(len(self._path)):
+            for i in indexes_next_to_multicontig_subpaths:
+                for dir in range(2):
+                    # reset
+                    self._path = path_without_nodes
+                    if dir == 0:
+                        self._path = self._path[:i] + directed_nodes + self._path[i:]
+                    else:
+                        self._path = self._path[:i] + [n.reverse() for n in directed_nodes[::-1]] + self._path[i:]
+                    self._initialize_score_matrix()
+                    new_score = self.score()
+                    if new_score < best_score:
+                        best_score = new_score
+                        best_path = self._path.copy()
+                        #logging.info(f"   Found new path with score {best_score}: {best_path} by moving {directed_nodes} to position {i}")
+
+            self._path = best_path
+            self._initialize_score_matrix()
+        logging.info(f"Optimized by moving subpaths in {time.perf_counter()-t0} seconds")
         return self._path
 
     def try_all_possible_paths(self):
@@ -537,3 +599,53 @@ class LogProbSumOfReadDistancesDynamicScores:
         del new_path[new_path.index("delete")]
         self._path = new_path
         self._initialize_score_matrix()
+
+
+def split_using_interaction_matrix(path, path_matrix, threshold=0.1):
+    background = BackgroundMatrix.from_sparse_interaction_matrix(path_matrix)
+    minimum_assumed_chromosome_size_in_bins = path_matrix.sparse_matrix.shape[1] // 300
+    logging.info("Minimum assumed chromosome size in bins: %d" % minimum_assumed_chromosome_size_in_bins)
+    edge_scores = {
+        edge: path_matrix.edge_score(i + 1, minimum_assumed_chromosome_size_in_bins, background_matrix=background) for
+        i, edge in enumerate(path.edges)}
+    px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
+    # split this path based on the scores from distance matrix
+    logging.info(f"Edge dict: {edge_scores}")
+    logging.info(f"Path before splitting {path.directed_nodes}")
+    splitted_paths = split_on_scores(path, edge_scores, threshold=threshold, keep_over=True)
+    return splitted_paths
+
+
+def get_splitting_edge_scores(path_matrix, background_inter_matrices: BackgroundInterMatrices, path: ContigPathSides,
+                                   threshold=0.05):
+
+    minimum_assumed_chromosome_size_in_bins = path_matrix.sparse_matrix.shape[1] // 50
+
+    edge_scores = {}
+    max_size = background_inter_matrices.matrices.shape[1]
+    for i, edge in enumerate(path.edges):
+        matrix1, matrix2 = path_matrix.edge_score(i + 1, minimum_assumed_chromosome_size_in_bins, return_matrices=True)
+        # matrices have direction directly from the main matrix, i.e. not
+        # oriented according to edge, nearest interaction is bottom left
+        matrix1 = matrix1[-max_size:, :max_size]
+        matrix2 = matrix2[-max_size:, :max_size]
+        percentile1 = background_inter_matrices.get_percentile2(matrix1.shape[0], matrix1.shape[1], matrix1.sum())
+        percentile2 = background_inter_matrices.get_percentile2(matrix2.shape[0], matrix2.shape[1], matrix2.sum())
+        # percentile is ratio of background with larger sum, low percentile indicates high counts and one should not split
+        # we care about the lowest percentile when looking both directions
+        edge_scores[edge] = min(percentile1, percentile2)
+        print(f"Edge {edge} has score {edge_scores[edge]}. Percentile1: {percentile1}, percentile2: {percentile2}.")
+        print(f"  Shape/sum1: {matrix1.shape}, {matrix1.sum()}")
+        print(f"  Shape/sum2: {matrix2.shape}, {matrix2.sum()}")
+
+    return edge_scores
+
+
+def split_using_inter_distribution(path_matrix, background_inter_matrices: BackgroundInterMatrices, path: ContigPathSides,
+                                   threshold=0.05):
+    edge_scores = get_splitting_edge_scores(path_matrix, background_inter_matrices, path, threshold=threshold)
+    px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
+    logging.info(f"Edge dict: {edge_scores}")
+    logging.info(f"Path before splitting {path.directed_nodes}")
+    splitted_paths = split_on_scores(path, edge_scores, threshold=threshold, keep_over=False)
+    return splitted_paths

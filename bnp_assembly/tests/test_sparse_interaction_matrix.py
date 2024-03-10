@@ -8,7 +8,7 @@ from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
-    SparseInteractionMatrix
+    SparseInteractionMatrix, contigs_covering_percent_of_total
 import numpy as np
 from numpy.testing import assert_array_equal
 
@@ -374,3 +374,13 @@ def test_get_edge_score():
     matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
     assert matrix.edge_score(1) == 1
     assert matrix.edge_score(2) == 0
+
+
+def test_contigs_covering_percent():
+    contig_sizes = [10, 100, 1, 1]
+    contigs = contigs_covering_percent_of_total(contig_sizes, 0.5)
+    assert np.all(contigs == [1])
+
+    contig_sizes = [50, 50, 20, 10, 10, 1]
+    contigs = contigs_covering_percent_of_total(contig_sizes, 0.4)
+    assert np.all(contigs == [1, 0])

@@ -73,6 +73,9 @@ class Edge:
     def __repr__(self):
         return f'E({self.from_node_side}--{self.to_node_side})'
 
+    def __str__(self):
+        return f'{self.from_node_side}--{self.to_node_side})'
+
     @classmethod
     def from_string(cls, s):
         t = s.strip()[2:-1].split('--')

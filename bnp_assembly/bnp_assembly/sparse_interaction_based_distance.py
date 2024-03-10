@@ -11,7 +11,7 @@ from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundMatrix
 from bnp_assembly.util import get_all_possible_edges
-
+from .plotting import px
 
 def default_score_func(foreground_matrix, background_matrix):
     a = foreground_matrix.sum()
@@ -25,7 +25,10 @@ def median_difference_score(foreground_matrix, background_matrix):
     return np.median(scores)
 
 
-def get_distance_matrix_from_sparse_interaction_matrix(interactions: SparseInteractionMatrix, background_interactions: BackgroundMatrix, score_func: callable = None) -> DirectedDistanceMatrix:
+def get_distance_matrix_from_sparse_interaction_matrix(interactions: SparseInteractionMatrix,
+                                                       background_interactions: BackgroundMatrix,
+                                                       score_func: callable = None,
+                                                       use_clipping_information=None) -> DirectedDistanceMatrix:
     all_edges = get_all_possible_edges(interactions.n_contigs)
     distances = DirectedDistanceMatrix(interactions.n_contigs)
     background = background_interactions.matrix
@@ -43,26 +46,37 @@ def get_distance_matrix_from_sparse_interaction_matrix(interactions: SparseInter
         if score_func is None:
             score_func = default_score_func
 
-        maxdist = 10000
+        maxdist = 20
         maxdist = min(maxdist, background.shape[0])
         x_size, y_size = edge_submatrix.shape
-        x_size = min(x_size, maxdist)
-        y_size = min(y_size, maxdist)
+        x_size = min(x_size//2, maxdist)
+        y_size = min(y_size//2, maxdist)
         background_to_use = background[:x_size, :y_size]
         foreground = edge_submatrix[:x_size, :y_size]
+
+        if use_clipping_information:
+            # check if any of the nodesides are clipped, offset part of background we use to match clipping
+            pass
+
         assert background_to_use.shape == foreground.shape
         score = score_func(foreground, background_to_use)
         distances[edge] = score
+
+        if edge.to_node_side.node_id == edge.from_node_side.node_id + 1:
+            px(name='distance').imshow(foreground.toarray(), title=f'Foreground {edge}')
+            px(name='distance').imshow(background_to_use.toarray(), title=f'Background {edge}')
 
     return distances
 
 
 class DistanceFinder(EdgeDistanceFinder):
-    def __init__(self, score_func: callable = None):
+    def __init__(self, score_func: callable = None, contig_clips=None):
         self.score_func = score_func
+        self.contig_clips = contig_clips
 
     def __call__(self, interactions: SparseInteractionMatrix, effective_contig_sizes=None) -> DirectedDistanceMatrix:
         background = BackgroundMatrix.from_sparse_interaction_matrix(interactions)
-        dists = get_distance_matrix_from_sparse_interaction_matrix(interactions, background, self.score_func)
+        dists = get_distance_matrix_from_sparse_interaction_matrix(interactions, background, self.score_func,
+                                                                   use_clipping_information=self.contig_clips)
         dists.invert()
         return dists

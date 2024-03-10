@@ -160,6 +160,7 @@ def register_logging(logging_folder):
     plotting.register(splitting=plotting.ResultFolder(logging_folder + '/splitting'))
     plotting.register(joining=plotting.ResultFolder(logging_folder + '/joining'))
     plotting.register(dynamic_heatmaps=plotting.ResultFolder(logging_folder + '/dynamic_heatmaps'))
+    plotting.register(distance=plotting.ResultFolder(logging_folder + '/distance'))
     plotting.register(missing_data=plotting.ResultFolder(logging_folder + '/missing_data'))
 
 
