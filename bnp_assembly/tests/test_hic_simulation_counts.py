@@ -144,6 +144,7 @@ def test_hic_simulation_acceptance():
     assert len(data) == 100
     # simulate_raw(contigs, 200, 100, 20, 0.5)
 
+
 def test_simulate():
     contigs = bnp.as_encoded_array(['A'*1000, 'B'*500, 'C'*700])
     contigs= Dummy(contigs)
