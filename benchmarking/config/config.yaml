@@ -54,6 +54,7 @@ genomes:
   athalia_rosea:
     real:
       simulated: True
+      assembly_accession: GCA_917208135.1
       hic_data:
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/001/ERR6054981/ERR6054981_1.fastq.gz
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/001/ERR6054981/ERR6054981_2.fastq.gz
@@ -63,6 +64,7 @@ genomes:
   nymphalis_urticae:
     real:
       simulated: True
+      assembly_accession: GCA_905147175.2
       hic_data:
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/000/ERR6002570/ERR6002570_1.fastq.gz
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/000/ERR6002570/ERR6002570_2.fastq.gz
@@ -111,7 +113,21 @@ genomes:
       big:
         chromosomes: '1,2,3,4,5,6,7,8,9,10,11,12,13,14,mitochondrion'
 
+  malachius_bipustulatus:
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/006/ERR6054776/ERR6054776_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/006/ERR6054776/ERR6054776_2.fastq.gz
+      assembly_accession: GCA_910589415.1
 
+  harmonia_haxyridis:
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/004/ERR6054994/ERR6054994_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/004/ERR6054994/ERR6054994_1.fastq.gz
+      assembly_accession: GCA_914767665
 
   # simulated genome sequence
   simulated1:

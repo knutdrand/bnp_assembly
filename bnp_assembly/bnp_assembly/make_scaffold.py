@@ -342,7 +342,6 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     ContigPath]:
     assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
 
-    n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
     return path_optimization_join_and_split(numeric_input_data,
                                           interaction_matrix=distance_kwargs.get("interaction_matrix", None),
                                           interaction_matrix_clipping=distance_kwargs.get("interaction_matrix_clipping", None),

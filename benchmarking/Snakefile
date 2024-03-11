@@ -128,59 +128,13 @@ include: "rules/tests.smk"
 include: "rules/real_data.smk"
 include: "rules/salsa2.smk"
 
-ruleorder: download_athalia_rosea_reference > convert_reference_genome_to_fasta
-ruleorder: download_nymphalis_urticae_reference > convert_reference_genome_to_fasta
-ruleorder: download_athalia_rosea_reference > download_reference_with_accession
-ruleorder: download_nymphalis_urticae_reference > download_reference_with_accession
 ruleorder: download_reference_with_accession > convert_reference_genome_to_fasta
 
-rule download_athalia_rosea_reference_tmp:
-    output:
-        "data/athalia_rosea/reference.fa.tmp"
-    shell:
-        """
-        wget -O {output} 'https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_917208135.1?download=true'
-        """
 
-
-rule download_athalia_rosea_reference:
-    input:
-        "data/athalia_rosea/reference.fa.tmp"
-    output:
-        "data/athalia_rosea/reference.fa"
-    shell:
-        """
-        python scripts/rename_athalia_rosea_contigs.py {input} > {output}
-        """
-
-
-rule download_nymphalis_urticae_reference_tmp:
-    output:
-        "data/nymphalis_urticae/reference.fa.tmp"
-    shell:
-        """
-        wget -O {output} 'https://www.ebi.ac.uk/ena/browser/api/fasta/GCA_905147175.2?download=true'
-        """
-
-
-rule download_nymphalis_urticae_reference:
-    input:
-        "data/nymphalis_urticae/reference.fa.tmp"
-    output:
-        "data/nymphalis_urticae/reference.fa"
-    shell:
-        """
-        python scripts/rename_athalia_rosea_contigs.py {input} > {output}
-        """
-
-
-
-# this rule can in future be used instead of the rules above by adding accessions to config
-# can be conflicting with the other rules for downloading references
-# should be rewritten to a single rule that checks what is in config
+# downloads every reference except saccer3 which is downloaded from ucsc
 rule download_reference_with_accession:
     output:
-        "data/{species_name,thyatira_batis|melitaea_cinxia|entomortierella_parvispora}/reference.fa"
+        "data/{species_name, ((?!sacCer3).)*}/reference.fa"
     params:
         accession = lambda wildcards: config["genomes"][wildcards.species_name]["real"]["assembly_accession"]
     shell:
@@ -188,3 +142,21 @@ rule download_reference_with_accession:
         wget -O {output}.tmp 'https://www.ebi.ac.uk/ena/browser/api/fasta/{params.accession}?download=true' && 
         python scripts/rename_athalia_rosea_contigs.py {output}.tmp > {output}
         """
+
+
+"""
+Rule that overrides make_haplotype_sequence_for_simulation. Does no simulation of variants,
+justs copies the reference sequence.
+"""
+ruleorder: make_unsimulated_haplotype_sequence > make_haplotype_sequence_for_simulation
+
+rule make_unsimulated_haplotype_sequence:
+    input:
+        "data/{genome_build}/reference.fa",
+    output:
+        "data/{genome_build}/real/big/haplotype{haplotype}.fa",
+    shell:
+        """
+        cp {input} {output}
+        """
+
