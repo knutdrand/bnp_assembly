@@ -50,7 +50,7 @@ rule make_heatmap2:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         agp = ScaffoldingResults.path() + "/scaffolds.agp",
-        interaction_matrix= ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_100.npz",
+        interaction_matrix= ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.npz",
     output:
         ScaffoldingResults.path() + "/heatmap-{contig}.png"
     shell:
