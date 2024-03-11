@@ -180,7 +180,7 @@ rule download_nymphalis_urticae_reference:
 # should be rewritten to a single rule that checks what is in config
 rule download_reference_with_accession:
     output:
-        "data/{species_name,thyatira_batis|melitaea_cinxia}/reference.fa"
+        "data/{species_name,thyatira_batis|melitaea_cinxia|entomortierella_parvispora}/reference.fa"
     params:
         accession = lambda wildcards: config["genomes"][wildcards.species_name]["real"]["assembly_accession"]
     shell:

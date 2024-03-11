@@ -295,3 +295,22 @@ rule test_debug_report:
         ).file_path() + "/debug/report.html"
     output:
         touch("test_debug_report")
+
+
+
+
+rule entomortierella:
+    input:
+        HifiasmResults.from_flat_params(
+            genome_build="entomortierella_parvispora",
+            individual="simulated",  # refers to an individual in config.yaml, means a diploid individual is simulated from the true reference
+            dataset_size="small",  # big refers to a set of chromosomes in config.yaml
+            depth="10",  # aveage coverage of simulated hifi reads
+            n_reads="1000000",  # number of hic reads
+            seed=123,
+            source="assembled_from_hifi",   # will run hifiasm, can be set to "not_assembled" to just simulate contigs from the individual instead
+            extra_splits=20,  # extra splits if simulating contigs
+            split_on_n_ns=0,  # if not 0, will simulate contigs by splitting on n's in the true assembly
+        ).file_path() + "/hifiasm.hic.p_ctg.fa"
+    output:
+        touch("entomortierlla")

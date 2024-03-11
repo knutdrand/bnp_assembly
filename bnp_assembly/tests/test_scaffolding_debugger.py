@@ -28,7 +28,7 @@ def test_scaffolding_debugger():
     )
 
 
-@pytest.mark.skip  
+@pytest.mark.skip
 def test_analyse_missing_data():
     dir = "../example_data/yeast_small/"
     genome = bnp.Genome.from_file(dir + "hifiasm.hic.p_ctg.fa")
