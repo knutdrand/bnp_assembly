@@ -290,7 +290,7 @@ rule test_debug_report:
             seed=123,
             source="not_assembled",
             extra_splits=20,
-            split_on_n_ns=0
+            split_on_n_ns=0,
             scaffolder="bnp_scaffolding",
         ).file_path() + "/debug/report.html"
     output:
