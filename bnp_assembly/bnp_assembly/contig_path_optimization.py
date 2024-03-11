@@ -600,6 +600,9 @@ class LogProbSumOfReadDistancesDynamicScores:
         self._path = new_path
         self._initialize_score_matrix()
 
+    def get_path(self):
+        return self._path
+
 
 def split_using_interaction_matrix(path, path_matrix, threshold=0.1):
     background = BackgroundMatrix.from_sparse_interaction_matrix(path_matrix)
@@ -608,7 +611,8 @@ def split_using_interaction_matrix(path, path_matrix, threshold=0.1):
     edge_scores = {
         edge: path_matrix.edge_score(i + 1, minimum_assumed_chromosome_size_in_bins, background_matrix=background) for
         i, edge in enumerate(path.edges)}
-    px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
+    # todo, save plot to logs instead:
+    #px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
     # split this path based on the scores from distance matrix
     logging.info(f"Edge dict: {edge_scores}")
     logging.info(f"Path before splitting {path.directed_nodes}")
@@ -644,7 +648,8 @@ def get_splitting_edge_scores(path_matrix, background_inter_matrices: Background
 def split_using_inter_distribution(path_matrix, background_inter_matrices: BackgroundInterMatrices, path: ContigPathSides,
                                    threshold=0.05):
     edge_scores = get_splitting_edge_scores(path_matrix, background_inter_matrices, path, threshold=threshold)
-    px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
+    # todo, plot to logging instead
+    #px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
     logging.info(f"Edge dict: {edge_scores}")
     logging.info(f"Path before splitting {path.directed_nodes}")
     splitted_paths = split_on_scores(path, edge_scores, threshold=threshold, keep_over=False)

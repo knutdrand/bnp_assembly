@@ -228,21 +228,75 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
+def path_optimization_join_and_split(numeric_input_data: NumericInputData,
+                                   interaction_matrix: SparseInteractionMatrix = None,
+                                   interaction_matrix_clipping: SparseInteractionMatrix = None):
+    """The path optimiztion method, tries to find optimal paths by sum of logprobs of read distances"""
+
+    interaction_matrix.assert_is_symmetric()
+    # start with some random order of contigs
+    directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
+    random.seed(0)
+    random.shuffle(directed_nodes)
+
+    # trim contigs, interaction matrix is clipped inplace
+    contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
+    interaction_matrix.trim_with_clips(contig_clips)
+
+    dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
+    distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
+    distance_func = lambda dist: -distance_pmf[dist]
+    # todo: log beginning of distance pmf
+
+    path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
+    scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
+                                                    dists_weights, distance_func=distance_func)
+    for i in range(2):
+        scorer.optimize_positions()
+        scorer.optimize_flippings()
+        scorer.optimize_by_moving_subpaths(interaction_matrix)
+
+    new_directed_nodes = scorer.get_path()
+
+    logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
+    path = ContigPath.from_directed_nodes(new_directed_nodes)
+
+    path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
+
+    # splitting
+    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
+    sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
+    # todo: write to log
+    #px.histogram(sums).show()
+    splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
+
+    # optimize the splited paths in the end
+    splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
+
+    # debug plots, todo: write to log
+    if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
+        interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
+        path_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
+        plt.show()
+
+    return splitted_paths
+
+
 def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20,
                                    split_threshold: float=10.0, interaction_matrix: SparseInteractionMatrix=None,
                                    interaction_matrix_clipping: SparseInteractionMatrix=None,
                                    cumulative_distribution=None):
-    """Joins based on dynamic heatmaps and splits using the same heatmaps"""
+    """Joins based on dynamic heatmaps and splits using the same heatmaps
+    Thi method is outdated, kept for reference."""
     interaction_matrix.assert_is_symmetric()
     logging.info("Getting cumulative dist")
     if cumulative_distribution is None:
         cumulative_distribution = distance_dist(next(numeric_input_data.location_pairs), numeric_input_data.contig_dict)
     logging.info("Cumulative dist done")
 
-    #edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
-    #                                                  n_bins_heatmap_scoring)
+    edge_distance_finder = get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution,
+                                                      n_bins_heatmap_scoring)
 
-    edge_distance_finder = DistanceFinder()
     distance_matrix = create_distance_matrix_from_reads(numeric_input_data,
                                                         edge_distance_finder,
                                                         use_clipping_to_adjust_distances=False,
@@ -250,51 +304,17 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
                                                         interaction_matrix_clipping=interaction_matrix_clipping
                                                         )
 
-    #path = join_all_contigs(distance_matrix)
-    #directed_nodes = path.directed_nodes
+    path = join_all_contigs(distance_matrix)
+    directed_nodes = path.directed_nodes
 
-    directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
-    random.seed(0)
-    random.shuffle(directed_nodes)
-
-
-    #to_file(interaction_matrix, "interaction_matrix_trimmed")
-    #pickle.dump(directed_nodes, open("directed_nodes", "wb"))
     # note: interaction matrix is clipped inplace
 
-    if True:
-        dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
-
-        distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
-        np.save("distance_pmf", distance_pmf)
-        distance_func = lambda dist: -distance_pmf[dist]
-        path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
-        scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
-                                                        dists_weights, distance_func=distance_func)
-        for i in range(2):
-            new_directed_nodes = scorer.optimize_positions()
-            new_directed_nodes = scorer.optimize_flippings()
-            new_directed_nodes = scorer.optimize_by_moving_subpaths(interaction_matrix)
-
-        logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
-        path = ContigPath.from_directed_nodes(new_directed_nodes)
-    else:
-        new_directed_nodes = directed_nodes
-
-    path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
-
-    #to_file(path_matrix, "unsplitted_path_matrix")
-    #assert False
+    path_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
 
     interaction_matrix.assert_is_symmetric()
 
     inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
-    sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
-    px.histogram(sums).show()
     splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
-
-    #splitted_paths = split_using_interaction_matrix(path, path_matrix, 0.4)
-    splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
@@ -323,12 +343,9 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
 
     n_bins_heatmap_scoring = distance_kwargs["n_bins_heatmap_scoring"]
-    return dynamic_heatmap_join_and_split(numeric_input_data,
-                                          n_bins_heatmap_scoring=n_bins_heatmap_scoring,
-                                          split_threshold=threshold,
+    return path_optimization_join_and_split(numeric_input_data,
                                           interaction_matrix=distance_kwargs.get("interaction_matrix", None),
                                           interaction_matrix_clipping=distance_kwargs.get("interaction_matrix_clipping", None),
-                                          cumulative_distribution=distance_kwargs.get("cumulative_distribution", None),
                                           )
 
 

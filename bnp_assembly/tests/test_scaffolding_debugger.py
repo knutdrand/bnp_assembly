@@ -7,6 +7,7 @@ from bnp_assembly.io import PairedReadStream
 from bnp_assembly.scaffolds import Scaffolds
 
 
+@pytest.mark.skip  # debugger noe used anoymore, better to just use snakemake plot setup
 def test_scaffolding_debugger():
     dir = "../example_data/yeast_small/"
     genome = bnp.Genome.from_file(dir + "hifiasm.hic.p_ctg.fa")
@@ -27,6 +28,7 @@ def test_scaffolding_debugger():
     )
 
 
+@pytest.mark.skip  
 def test_analyse_missing_data():
     dir = "../example_data/yeast_small/"
     genome = bnp.Genome.from_file(dir + "hifiasm.hic.p_ctg.fa")
