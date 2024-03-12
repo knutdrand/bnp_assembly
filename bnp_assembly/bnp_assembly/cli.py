@@ -84,6 +84,9 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     with bnp.open(out_file_name, "w") as f:
         f.write(sequence_entries)
 
+    report_file = plotting.px(name="main").write_report()
+    logging.info(f"Report written to {report_file}")
+
 
 @app.command()
 def make_interaction_matrix(contig_filename: str, read_filename: str, out_filename: str, bin_size: int=50):
@@ -157,6 +160,7 @@ def set_max_distance(bin_size, genome, max_distance):
 
 
 def register_logging(logging_folder):
+    plotting.register(main=plotting.ResultFolder(logging_folder + '/main'))
     plotting.register(splitting=plotting.ResultFolder(logging_folder + '/splitting'))
     plotting.register(joining=plotting.ResultFolder(logging_folder + '/joining'))
     plotting.register(dynamic_heatmaps=plotting.ResultFolder(logging_folder + '/dynamic_heatmaps'))

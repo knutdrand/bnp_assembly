@@ -228,56 +228,62 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
-def path_optimization_join_and_split(numeric_input_data: NumericInputData,
-                                   interaction_matrix: SparseInteractionMatrix = None,
-                                   interaction_matrix_clipping: SparseInteractionMatrix = None):
+def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix = None,
+                                     n_optimization_iterations=5,
+                                     start_by_shuffling=True):
     """The path optimiztion method, tries to find optimal paths by sum of logprobs of read distances"""
 
     interaction_matrix.assert_is_symmetric()
     # start with some random order of contigs
     directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
-    random.seed(0)
-    random.shuffle(directed_nodes)
-
-    # trim contigs, interaction matrix is clipped inplace
-    contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
-    interaction_matrix.trim_with_clips(contig_clips)
+    if start_by_shuffling:
+        random.seed(0)
+        random.shuffle(directed_nodes)
 
     dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
     distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
     distance_func = lambda dist: -distance_pmf[dist]
-    # todo: log beginning of distance pmf
 
     path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
     scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
                                                     dists_weights, distance_func=distance_func)
-    for i in range(2):
+    prev_score = scorer.score()
+    logging.info(f"Will try to optimize path with {n_optimization_iterations} iterations")
+    for i in range(n_optimization_iterations):
+        scorer.optimize_by_moving_subpaths(interaction_matrix)
         scorer.optimize_positions()
         scorer.optimize_flippings()
-        scorer.optimize_by_moving_subpaths(interaction_matrix)
+        new_directed_nodes = scorer.get_path()
+        logging.info(f"Path after iteration {i}: {new_directed_nodes}")
 
-    new_directed_nodes = scorer.get_path()
+        path = ContigPath.from_directed_nodes(new_directed_nodes)
+        path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
+        path_matrix.plot()
+        px_func(name="main").matplotlib_figure(f"Interaction heatmap after {i+1} iterations")
+        logging.info(f"Score after iteration: {scorer.score()}")
+        if scorer.score() == prev_score:
+            logging.info("No improvement in score after iteration %d, not trying more" % i)
+            break
+        prev_score = scorer.score()
 
     logging.info(f"Optimized path:\nOld: {directed_nodes}\nNew: {new_directed_nodes}")
     path = ContigPath.from_directed_nodes(new_directed_nodes)
-
     path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
 
     # splitting
     inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
     sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
-    # todo: write to log
-    #px.histogram(sums).show()
+    px_func(name='main').histogram(sums, title='Histogram of inter-contig sums')
     splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
 
     # optimize the splited paths in the end
     splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
 
-    # debug plots, todo: write to log
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
         path_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
-        plt.show()
+        px_func(name="main").matplotlib_figure("final_scaffold_heatmap")
+        #plt.show()
 
     return splitted_paths
 
@@ -342,10 +348,14 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     ContigPath]:
     assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
 
-    return path_optimization_join_and_split(numeric_input_data,
-                                          interaction_matrix=distance_kwargs.get("interaction_matrix", None),
-                                          interaction_matrix_clipping=distance_kwargs.get("interaction_matrix_clipping", None),
-                                          )
+    # trim contigs, interaction matrix is clipped inplace
+    interaction_matrix = distance_kwargs.get("interaction_matrix", None)
+    interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
+    contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
+
+    interaction_matrix.trim_with_clips(contig_clips)
+
+    return path_optimization_join_and_split(interaction_matrix=interaction_matrix, n_optimization_iterations=5)
 
 
 

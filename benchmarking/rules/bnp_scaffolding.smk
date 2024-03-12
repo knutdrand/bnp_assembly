@@ -64,7 +64,6 @@ rule run_bnp:
         "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 20000000000000 "
         "--bin-size 5000  --logging-folder {params.log_folder} --distance-measure dynamic_heatmap --n-bins-heatmap-scoring 10 "
         "--interaction-matrix {input.interaction_matrix} --interaction-matrix-big {input.interaction_matrix_big}  "
-        "--cumulative-distribution {input.cumulative_distribution}  "
 
 
 

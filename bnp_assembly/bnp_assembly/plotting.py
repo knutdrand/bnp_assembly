@@ -9,6 +9,7 @@ from pathlib import PurePath
 import re
 from typing import List, Iterable
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as _px
@@ -124,6 +125,13 @@ class FolderSaver:
         self._file_names.append(f"{title}.txt")
         return text
 
+    def matplotlib_figure(self, title):
+        name = title.replace(' ', '_')
+        filename = f'{self._folder_name}/{name}.png'
+        plt.savefig(filename)
+        self._file_names.append(f"./{name}.png")
+        self.write_report()
+
     def decorator(self, func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -149,6 +157,7 @@ class FolderSaver:
         file_name = f'{self._folder_name}/report.html'
         with open(file_name, 'w') as f:
             f.write(self.generate_html())
+        return file_name
 
     def generate_html(self):
         html = html_string
@@ -188,7 +197,7 @@ html_string = '''
         <br><br>
         {{subloggers}}
         <br><br>
-        <iframe width="1000" height="550" name="plot" frameborder="0" seamless="seamless" scrolling="no" \
+        <iframe width="1500" height="1000" name="plot" frameborder="0" seamless="seamless" scrolling="no" \
 src="{{plot_url}}"></iframe>
 
     </body>

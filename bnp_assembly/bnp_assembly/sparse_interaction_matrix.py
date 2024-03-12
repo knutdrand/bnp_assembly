@@ -18,6 +18,7 @@ from scipy.sparse import lil_matrix
 from scipy.sparse import csr_matrix
 import sklearn
 import matplotlib.pyplot as plt
+from .plotting import px as px_func
 
 
 class NumericGlobalOffset(GlobalOffset):
@@ -721,7 +722,10 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
     pmf[20:] = filtered[20:]   # do not filter close signals, these have lots of data
     pmf[pmf == 0] = np.min(pmf[pmf != 0])
     filtered = pmf.copy()
-    #px.line(pd.DataFrame({"unfiltered": unfiltered[0:4000], "filtered": filtered[0:4000]})).show()
+    for cutoff in [50, 500, 5000]:
+        px_func(name='main').line(
+            pd.DataFrame({"unfiltered": unfiltered[0:cutoff], "filtered": filtered[0:cutoff]}),
+            title=f'Distance pmf, first {cutoff} bins')
 
 
     #pmf = np.maximum.accumulate(pmf[::-1])[::-1]  # will make sure a value is never smaller than the next, avoiding zeros
@@ -855,7 +859,6 @@ class BackgroundInterMatrices:
         mean = np.mean(sums)
         std = np.std(sums)
         perc = 1 - scipy.stats.norm.cdf(observed_value, loc=mean, scale=std)
-        print(f"Mean: {mean}, std: {std}, perc: {perc}")
         return perc
 
     @classmethod

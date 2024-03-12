@@ -14,6 +14,7 @@ from bnp_assembly.graph_objects import Edge
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, total_element_distance, BackgroundMatrix, \
     BackgroundInterMatrices
 from bnp_assembly.util import get_all_possible_edges
+from .plotting import px as px_func
 
 
 class PathInteractionMatrix:
@@ -614,7 +615,6 @@ def split_using_interaction_matrix(path, path_matrix, threshold=0.1):
     # todo, save plot to logs instead:
     #px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
     # split this path based on the scores from distance matrix
-    logging.info(f"Edge dict: {edge_scores}")
     logging.info(f"Path before splitting {path.directed_nodes}")
     splitted_paths = split_on_scores(path, edge_scores, threshold=threshold, keep_over=True)
     return splitted_paths
@@ -638,9 +638,9 @@ def get_splitting_edge_scores(path_matrix, background_inter_matrices: Background
         # percentile is ratio of background with larger sum, low percentile indicates high counts and one should not split
         # we care about the lowest percentile when looking both directions
         edge_scores[edge] = min(percentile1, percentile2)
-        print(f"Edge {edge} has score {edge_scores[edge]}. Percentile1: {percentile1}, percentile2: {percentile2}.")
-        print(f"  Shape/sum1: {matrix1.shape}, {matrix1.sum()}")
-        print(f"  Shape/sum2: {matrix2.shape}, {matrix2.sum()}")
+        #print(f"Edge {edge} has score {edge_scores[edge]}. Percentile1: {percentile1}, percentile2: {percentile2}.")
+        #print(f"  Shape/sum1: {matrix1.shape}, {matrix1.sum()}")
+        #print(f"  Shape/sum2: {matrix2.shape}, {matrix2.sum()}")
 
     return edge_scores
 
@@ -648,9 +648,7 @@ def get_splitting_edge_scores(path_matrix, background_inter_matrices: Background
 def split_using_inter_distribution(path_matrix, background_inter_matrices: BackgroundInterMatrices, path: ContigPathSides,
                                    threshold=0.05):
     edge_scores = get_splitting_edge_scores(path_matrix, background_inter_matrices, path, threshold=threshold)
-    # todo, plot to logging instead
-    #px.bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values())).show()
-    logging.info(f"Edge dict: {edge_scores}")
+    #px_func(name="main").bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values()), title="Splitting scores")
     logging.info(f"Path before splitting {path.directed_nodes}")
     splitted_paths = split_on_scores(path, edge_scores, threshold=threshold, keep_over=False)
     return splitted_paths

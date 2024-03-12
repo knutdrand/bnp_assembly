@@ -2,14 +2,18 @@ import logging
 import pickle
 import random
 import time
-
+import bionumpy as bnp
+from bnp_assembly.agp import ScaffoldAlignments
+from bnp_assembly.evaluation.visualization import get_directed_nodes_from_scaffold_alignments
+from bnp_assembly.missing_data import find_contig_clips_from_interaction_matrix
 from matplotlib import pyplot as plt
 from shared_memory_wrapper import from_file, to_file
 
 from bnp_assembly.graph_objects import Edge, NodeSide
 import plotly.express as px
 
-from bnp_assembly.make_scaffold import join_all_contigs
+from bnp_assembly.make_scaffold import join_all_contigs, get_numeric_contig_name_translation, \
+    path_optimization_join_and_split
 from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix, \
     median_difference_score
 
@@ -424,6 +428,16 @@ def test_caching():
     print("Time to initialize", time.perf_counter() - t0)
 
 
+@pytest.mark.skip  # requires large data
+def test_malachius_case():
+    interaction_matrix = from_file("malachius_test_data/path_matrix_1000_trimmed.npz")
+    interaction_matrix.plot()
+    plt.show()
+
+    path_optimization_join_and_split(interaction_matrix, n_optimization_iterations=3, start_by_shuffling=False)
+
+
+
 if __name__ == "__main__":
     #test_acceptance()
     #test_total_read_optimizer_acceptance()
@@ -431,6 +445,7 @@ if __name__ == "__main__":
     #test_logprob_dynamic_scores()
     #test_move_contig_right()
     #test_caching()
+    test_malachius_case()
     print("done")
 
 
