@@ -128,6 +128,14 @@ genomes:
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/004/ERR6054994/ERR6054994_1.fastq.gz
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/004/ERR6054994/ERR6054994_1.fastq.gz
       assembly_accession: GCA_914767665
+      
+  bufo_bufo:
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/007/ERR6002767/ERR6002767_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/007/ERR6002767/ERR6002767_2.fastq.gz
+      assembly_accession: GCA_905171765.1
 
   # simulated genome sequence
   simulated1:
@@ -177,4 +185,8 @@ yahs_parameters:
   nymphalis_urticae:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
   melitaea_cinxia:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  malachius_bipustulatus:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  harmonia_haxyridis:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"

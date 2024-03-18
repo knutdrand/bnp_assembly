@@ -36,6 +36,22 @@ rule download_real_hic_data:
 
 
 
+ruleorder: download_real_hic_data_no_subsampling > download_real_hic_data
+
+rule download_real_hic_data_no_subsampling:
+    output:
+        #RawRealHicReads.path(individual="real") + "/reads{pair}.fq.gz",
+        HiCReads.path(individual="real", n_reads=0) + "/reads{pair}.fq.gz",
+    params:
+        url = lambda wildcards: config["genomes"][wildcards.genome_build]["real"]["hic_data"][int(wildcards.pair)-1],
+    shell:
+        "wget {params.url} -O {output}"
+
+
+
+
+
+
 """
 rule subsample_real_hic_data:
     input:

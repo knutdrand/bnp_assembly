@@ -114,7 +114,7 @@ rule test_accuracy:
             source="not_assembled",
             extra_splits=20,
             split_on_n_ns=0,
-            scaffolder="bnp_scaffolding_dynamic_heatmaps",
+            scaffolder="bnp1k",
         ).file_path() + "/accuracy.txt" for size, n_reads in [('small', 40000), ('medium', 100000)]][-1]
     output:
         touch("test_accuracy")
@@ -137,7 +137,7 @@ rule test_accuracy_big:
             source="not_assembled",
             extra_splits=20,
             split_on_n_ns=0,
-            scaffolder="bnp_scaffolding_dynamic_heatmaps",
+            scaffolder="bnp1k",
         ).file_path() + "/accuracy.txt"
     output:
         touch("test_accuracy_big")
@@ -164,7 +164,7 @@ rule test_accuracy_with_missing:
             mean_low_mappability_size=4000,
             missing_region_mappability=missing_region_mappability,
             ratio_small_contigs=0.0,
-            scaffolder="bnp_scaffolding_dynamic_heatmaps"
+            scaffolder="bnp1k"
         ).file_path() + "/accuracy.txt" for missing_region_mappability in [0.0, 0.5, 0.7]]
     output:
         touch("test_accuracy_with_missing")

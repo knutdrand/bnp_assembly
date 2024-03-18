@@ -78,7 +78,7 @@ class HifiasmResultsWithExtraSplits:
 @parameters
 class ScaffoldingResults:
     assembly_graph: HifiasmResultsWithExtraSplits
-    scaffolder: Literal["yahs", "salsa2", "custom", "bnp_scaffolding_nosplit", "bnp_scaffolding", "bnp_scaffolding_dynamic_heatmaps", "true_scaffolder"] = "bnp_scaffolding"
+    scaffolder: Literal["yahs", "salsa2", "custom", "bnp_scaffolding_nosplit", "bnp_scaffolding", "bnp_scaffolding_dynamic_heatmaps", "true_scaffolder", "bnp1k", "bnp10k"] = "bnp_scaffolding"
 
 
 @result
@@ -139,7 +139,7 @@ rule download_reference_with_accession:
         accession = lambda wildcards: config["genomes"][wildcards.species_name]["real"]["assembly_accession"]
     shell:
         """
-        wget -O {output}.tmp 'https://www.ebi.ac.uk/ena/browser/api/fasta/{params.accession}?download=true' && 
+        wget -O {output}.tmp 'https://www.ebi.ac.uk/ena/browser/api/fasta/{params.accession}?download=true&gzip=false' && 
         python scripts/rename_athalia_rosea_contigs.py {output}.tmp > {output}
         """
 

@@ -379,6 +379,9 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
     def contig_bin_size(self, contig):
         return self._global_offset.contig_sizes[contig] / self._global_offset._contig_n_bins[contig]
 
+    def approx_global_bin_size(self):
+        return sum(self._global_offset.contig_sizes) / self._data.shape[0]
+
     def get_contig_coverage_counts(self, contig):
         submatrix = self.contig_submatrix(contig)
         return np.array(np.sum(submatrix, axis=0))[0]
@@ -695,7 +698,8 @@ def estimate_distance_pmf_from_sparse_matrix(sparse_matrix: SparseInteractionMat
     dist.smooth()
     return dist
 
-def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMatrix) -> DistanceDistribution:
+
+def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMatrix, set_to_flat_after_n_bins=1000) -> DistanceDistribution:
     # find conigs that contribute to at least some percentage of the genome
     contig_sizes = sparse_matrix._global_offset._contig_n_bins
     contigs_to_use = contigs_covering_percent_of_total(contig_sizes)
@@ -755,7 +759,8 @@ def estimate_distance_pmf_from_sparse_matrix2(sparse_matrix: SparseInteractionMa
 
     # set everything except beginning to be the same
     # we don't care about where read pairs are if they are far away, as we reach the backgrond noise
-    pmf[1000:] = np.mean(pmf[1000:])
+    logging.info(f"Setting pmf to flat after {set_to_flat_after_n_bins} bins")
+    pmf[set_to_flat_after_n_bins:] = np.mean(pmf[set_to_flat_after_n_bins:])
 
     assert np.all(pmf > 0)
     dist = DistanceDistribution.from_probabilities(pmf)
@@ -849,6 +854,10 @@ class BackgroundInterMatrices:
         """Returns sums sorted ascending"""
         return np.sort(np.sum(self.matrices[:, :y_size, :x_size], axis=(1, 2)))
 
+    def plot(self):
+        means = np.mean(self.matrices, axis=0)
+        px.imshow(means).show()
+
     def get_percentile(self, y_size, x_size, observed_value):
         sums = self.get_sums(y_size, x_size)
         index = np.searchsorted(sums, observed_value, side="left")
@@ -858,7 +867,13 @@ class BackgroundInterMatrices:
         sums = self.get_sums(y_size, x_size)
         mean = np.mean(sums)
         std = np.std(sums)
+        if mean == 0 and std == 0:
+            return 1
+        assert mean > 0, f"{y_size}, {x_size}, std: {std}, sums: {sums}"
+        assert std > 0, f"{y_size}, {x_size}, std: {std}, sums: {sums}"
         perc = 1 - scipy.stats.norm.cdf(observed_value, loc=mean, scale=std)
+
+        assert not np.isnan(perc) and perc >= 0, (mean, std, observed_value)
         return perc
 
     @classmethod
@@ -869,15 +884,16 @@ class BackgroundInterMatrices:
         distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
         logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
         size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 5)
+        logging.info(f"Making background matrices of size {size}")
         lowest_x_start = distance_from_diagonal + size
         highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
 
         matrices = np.zeros((n_samples, size, size))
-        for i in range(n_samples):
+        for i in tqdm(range(n_samples), desc="Sampling from background", total=n_samples):
             xstart = random.randint(lowest_x_start, highest_x_start)
             lowest_y_start = 0
             highest_y_start = xstart - size - distance_from_diagonal
-            assert highest_y_start > 0
+            assert highest_y_start >= 0
             ystart = random.randint(lowest_y_start, highest_y_start)
             assert abs((ystart+size) - xstart) >= distance_from_diagonal
             #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size}")

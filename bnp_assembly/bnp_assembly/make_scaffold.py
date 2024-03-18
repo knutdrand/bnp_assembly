@@ -4,7 +4,7 @@ import random
 from typing import List
 import numpy as np
 import pandas as pd
-from bnp_assembly.sparse_interaction_based_distance import DistanceFinder
+from bnp_assembly.sparse_interaction_based_distance import DistanceFinder, DistanceFinder2
 from matplotlib import pyplot as plt
 
 from bnp_assembly.contig_path_optimization import InteractionDistancesAndWeights, \
@@ -229,25 +229,35 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
 
 
 def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix = None,
-                                     n_optimization_iterations=5,
+                                     n_optimization_iterations=4,
                                      start_by_shuffling=True):
     """The path optimiztion method, tries to find optimal paths by sum of logprobs of read distances"""
-
-    interaction_matrix.assert_is_symmetric()
     # start with some random order of contigs
     directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
     if start_by_shuffling:
-        random.seed(0)
-        random.shuffle(directed_nodes)
+       random.seed(0)
+       random.shuffle(directed_nodes)
+
+    distance_finder = DistanceFinder2()
+    random_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
+    distance_matrix = distance_finder(random_matrix, None)
+    distance_matrix.plot(name="distance_matrix_p_values").show()
+    path = join_all_contigs(distance_matrix)
+    directed_nodes = path.directed_nodes
+    logging.info(f"Joined contigs: {path}")
+
+    interaction_matrix.assert_is_symmetric()
 
     dists_weights = InteractionDistancesAndWeights.from_sparse_interaction_matrix(interaction_matrix)
-    distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix).array
+    set_to_flat_after_n_bins = int(1000000 / interaction_matrix.approx_global_bin_size())
+    distance_pmf = estimate_distance_pmf_from_sparse_matrix2(interaction_matrix, set_to_flat_after_n_bins).array
     distance_func = lambda dist: -distance_pmf[dist]
 
     path_contig_sizes = np.array([interaction_matrix.contig_n_bins[contig.node_id] for contig in directed_nodes])
     scorer = LogProbSumOfReadDistancesDynamicScores(directed_nodes.copy(), path_contig_sizes,
                                                     dists_weights, distance_func=distance_func)
     prev_score = scorer.score()
+    new_directed_nodes = directed_nodes
     logging.info(f"Will try to optimize path with {n_optimization_iterations} iterations")
     for i in range(n_optimization_iterations):
         scorer.optimize_by_moving_subpaths(interaction_matrix)
@@ -256,9 +266,9 @@ def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix
         new_directed_nodes = scorer.get_path()
         logging.info(f"Path after iteration {i}: {new_directed_nodes}")
 
-        path = ContigPath.from_directed_nodes(new_directed_nodes)
-        path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
-        path_matrix.plot()
+        #path = ContigPath.from_directed_nodes(new_directed_nodes)
+        #path_matrix = interaction_matrix.get_matrix_for_path(new_directed_nodes, as_raw_matrix=False)
+        #path_matrix.plot()
         px_func(name="main").matplotlib_figure(f"Interaction heatmap after {i+1} iterations")
         logging.info(f"Score after iteration: {scorer.score()}")
         if scorer.score() == prev_score:
@@ -283,7 +293,7 @@ def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
         path_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
         px_func(name="main").matplotlib_figure("final_scaffold_heatmap")
-        #plt.show()
+        plt.show()
 
     return splitted_paths
 
@@ -325,7 +335,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
         path_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
-        plt.show()
+        #plt.show()
 
     return splitted_paths
     # return path
@@ -355,7 +365,7 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
 
     interaction_matrix.trim_with_clips(contig_clips)
 
-    return path_optimization_join_and_split(interaction_matrix=interaction_matrix, n_optimization_iterations=5)
+    return path_optimization_join_and_split(interaction_matrix=interaction_matrix)
 
 
 

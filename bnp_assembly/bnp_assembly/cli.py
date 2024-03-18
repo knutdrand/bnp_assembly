@@ -8,6 +8,8 @@ import numpy as np
 import typer
 import bionumpy as bnp
 from matplotlib import pyplot as plt
+import matplotlib
+#matplotlib.use('Agg')
 
 from bnp_assembly.agp import ScaffoldAlignments
 from bnp_assembly.contig_graph import DirectedNode
@@ -43,7 +45,9 @@ def estimate_max_distance(contig_sizes: Iterable[int]):
 @app.command()
 def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
              logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None,
-             distance_measure: str = "forbes3", n_bins_heatmap_scoring: int=10, interaction_matrix: str = None, cumulative_distribution: str = None, interaction_matrix_big: str = None):
+             distance_measure: str = "forbes3", n_bins_heatmap_scoring: int=10, interaction_matrix: str = None, cumulative_distribution: str = None, interaction_matrix_big: str = None,
+
+             ):
     logging.info(f"Using threshold {threshold}")
 
     if interaction_matrix is not None:

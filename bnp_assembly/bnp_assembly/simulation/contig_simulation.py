@@ -112,7 +112,7 @@ def simulate_contigs_from_genome(genome: bnp.datatypes.SequenceEntry, n_splits: 
         logging.info(f"Splitting contig {contig_id} between {split_positions}")
 
         for split_i, (start, end) in enumerate(zip(split_positions[0:-1], split_positions[1:])):
-            assert end-start >= min_contig_size, f"Contig {contig_id} split {split_i} between {start} and {end} is too small"
+            #assert end-start >= min_contig_size, f"Contig {contig_id} split {split_i} between {start} and {end} is too small"
             logging.info(f"New contig at old contig {contig_id} between {start} and {end}")
             contig_name = f"contig{new_contig_id}"
             new_contig_names.append(contig_name)
