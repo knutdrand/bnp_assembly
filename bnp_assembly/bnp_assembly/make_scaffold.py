@@ -4,7 +4,8 @@ import random
 from typing import List
 import numpy as np
 import pandas as pd
-from bnp_assembly.sparse_interaction_based_distance import DistanceFinder, DistanceFinder2
+from bnp_assembly.sparse_interaction_based_distance import DistanceFinder, DistanceFinder2, DistanceFinder3, \
+    get_edge_counts_with_max_distance, get_prob_given_intra_background_for_edges, get_bayesian_edge_probs
 from matplotlib import pyplot as plt
 
 from bnp_assembly.contig_path_optimization import InteractionDistancesAndWeights, \
@@ -229,19 +230,32 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
 
 
 def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix = None,
-                                     n_optimization_iterations=4,
+                                     n_optimization_iterations=0,
                                      start_by_shuffling=True):
     """The path optimiztion method, tries to find optimal paths by sum of logprobs of read distances"""
     # start with some random order of contigs
     directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
-    if start_by_shuffling:
-       random.seed(0)
-       random.shuffle(directed_nodes)
+    #if start_by_shuffling:
+    #   random.seed(0)
+    #   random.shuffle(directed_nodes)
+    #distance_matrix_counts = get_edge_counts_with_max_distance(interaction_matrix, 100)
+    #distance_matrix_counts.plot(name="distance_matrix_counts").show()
 
-    distance_finder = DistanceFinder2()
-    random_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
-    distance_matrix = distance_finder(random_matrix, None)
+    #distance_matrix = get_prob_given_intra_background_for_edges(interaction_matrix)
+
+    distance_matrix = get_bayesian_edge_probs(interaction_matrix)
+    #plt.imshow(distance_matrix.data)
+    #distance_matrix.set_worst_edges_to_zero(keep_n_best=5)
+    #plt.figure()
+    #plt.imshow(distance_matrix.data)
+    #distance_matrix.plot(name="intra_pvalues").show()
+    #plt.show()
+
+    #distance_finder = DistanceFinder3()
+    #random_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
+    #distance_matrix = distance_finder(interaction_matrix, None)
     distance_matrix.plot(name="distance_matrix_p_values").show()
+    distance_matrix.plot(name="distance_matrix_p_values_rrll", dirs='rrll').show()
     path = join_all_contigs(distance_matrix)
     directed_nodes = path.directed_nodes
     logging.info(f"Joined contigs: {path}")
@@ -287,7 +301,8 @@ def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix
     splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
 
     # optimize the splited paths in the end
-    splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
+    if n_optimization_iterations > 0:
+        splitted_paths = optimize_splitted_path(splitted_paths, interaction_matrix, dists_weights, distance_func)
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
         interaction_matrix.plot_submatrix(0, interaction_matrix.n_contigs - 1)
@@ -326,6 +341,8 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
     # note: interaction matrix is clipped inplace
 
     path_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
+    path_matrix.plot("Before splitting")
+    plt.show()
 
     interaction_matrix.assert_is_symmetric()
 
@@ -361,8 +378,8 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     # trim contigs, interaction matrix is clipped inplace
     interaction_matrix = distance_kwargs.get("interaction_matrix", None)
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
-    contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
 
+    contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
     interaction_matrix.trim_with_clips(contig_clips)
 
     return path_optimization_join_and_split(interaction_matrix=interaction_matrix)

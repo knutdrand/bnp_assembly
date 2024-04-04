@@ -2,14 +2,19 @@
 Distance estimation between contig sides based on sparse interactiono matrix data
 """
 import logging
+from typing import Tuple, Literal, Union
 
+import matplotlib.pyplot as plt
 import matspy
 import plotly.express as px
 import numpy as np
+import scipy
 from tqdm import tqdm
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
-from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundMatrix, BackgroundInterMatrices
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundMatrix, BackgroundInterMatrices, \
+    BackgroundInterMatricesSingleBin, get_number_of_reads_between_all_contigs, \
+    BackgroundInterMatricesMultipleBinsBackend
 from bnp_assembly.util import get_all_possible_edges
 from .plotting import px
 
@@ -81,10 +86,12 @@ def get_distance_matrix_from_sparse_interaction_matrix_as_p_values(interactions:
         if edge.from_node_side.node_id == edge.to_node_side.node_id:
             continue
         edge_submatrix = interactions.get_edge_interaction_matrix(edge, orient_according_to_nearest_interaction=True)
+        continue
+
 
         # limit to maximum size of background matrix
-        maxdist = 200
-        maxdist = min(maxdist, background.matrices.shape[1])
+        maxdist = 20000
+        maxdist = min(maxdist, background.maxdist)
 
         x_size, y_size = edge_submatrix.shape
         x_size = min(x_size // 2, maxdist)
@@ -92,9 +99,12 @@ def get_distance_matrix_from_sparse_interaction_matrix_as_p_values(interactions:
         foreground = edge_submatrix[:x_size, :y_size]
 
         foreground_sum = np.sum(foreground)
-        score = background.get_percentile2(y_size, x_size, foreground_sum)
+        #score = foreground_sum
+        #score = background.get_percentile2(y_size, x_size, foreground_sum)
+        score = background.cdf(y_size, x_size, foreground_sum)
         assert score >= 0, score
-        score = np.log(score + 0.0001)
+        assert not np.isnan(score), score
+        score = np.log(1-score + 0.0000001)
         distances[edge] = score
 
     return distances
@@ -118,8 +128,278 @@ class DistanceFinder2(EdgeDistanceFinder):
         pass
 
     def __call__(self, interactions: SparseInteractionMatrix, effective_contig_sizes=None) -> DirectedDistanceMatrix:
-        background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions)
+
+        foreground = get_number_of_reads_between_all_contigs(interactions)
+        plt.imshow(foreground)
+        plt.show()
+
+        #background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions)
+        background = BackgroundInterMatricesSingleBin.from_sparse_interaction_matrix(interactions)
         #background.plot()
         dists = get_distance_matrix_from_sparse_interaction_matrix_as_p_values(interactions, background)
         #dists.invert()
         return dists
+
+
+class DistanceFinder3(EdgeDistanceFinder):
+    def __init__(self):
+        pass
+
+    def __call__(self, interactions: SparseInteractionMatrix, effective_contig_sizes=None) -> DirectedDistanceMatrix:
+
+        """
+        Computes p-valies of observed efficiently by looking at all reads between contigs
+        """
+        return get_prob_of_reads_given_not_edge(interactions, "cdf")
+
+
+def get_prob_of_reads_given_not_edge(interactions, prob_func: Literal["cdf", "pmf", "logcdf", "logpdf"]="logcdf"):
+    background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=500)
+    background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
+    return get_prob_of_edge_counts(background_sums, interactions)
+
+    foreground = get_number_of_reads_between_all_contigs(interactions)
+    # plt.imshow(foreground)
+    # plt.show()
+    #background = BackgroundInterMatricesSingleBin.from_sparse_interaction_matrix(interactions)
+    contig_sizes = interactions.contig_n_bins
+    biggest_size = np.max(contig_sizes)
+
+    #background = BackgroundInterMatricesMultipleBinsBackend.from_sparse_interaction_matrix(interactions)
+
+    if isinstance(background, BackgroundInterMatrices):
+        matrices = background.matrices
+        background_sums = matrices.cumsum(axis=1).cumsum(axis=2)
+
+        n_contigs = interactions.n_contigs
+        #sizes = np.maximum(1, contig_sizes[:, None] * contig_sizes)
+        sizes1 = np.repeat(contig_sizes, n_contigs)  # sizes of first node side in each edge
+        sizes2 = np.tile(contig_sizes, n_contigs)  # sizes of second node side in each edge
+
+        px(name="joining").histogram(background_sums[:, 100, 100], title="inter sums").show()
+        means = np.mean(background_sums, axis=0)
+        stds = np.std(background_sums, axis=0)
+
+        means = means[sizes1-1, sizes2-1]
+        stds = stds[sizes1-1, sizes2-1]
+        probs = scipy.stats.norm.logcdf(foreground, loc=means.reshape((n_contigs, n_contigs)), scale=stds.reshape((n_contigs, n_contigs)))
+        p_values = probs
+
+    elif isinstance(background, BackgroundInterMatricesSingleBin):
+        # get size of each inter-matrix
+        sizes = np.maximum(1, contig_sizes[:, None] * contig_sizes)
+        px(name="joining").histogram(sizes.ravel(), title="inter sizes").show()
+        logging.info(f"Biggest inter size: {np.max(sizes)}")
+        assert prob_func == "logpdf"
+
+        bin_samples = background._bin_values
+        random_sample_indexes = np.random.randint(0, len(bin_samples), size=(200, np.max(sizes)+1)).astype(int)
+        logging.info("Made random sample indexes")
+        samples = bin_samples[random_sample_indexes]
+        sums = np.cumsum(samples, axis=1)  # each row contains sum of bin values from random "inter-matrices" with total size from 0 to row length
+        px(name="joining").histogram(sums[:, 10000], title="inter sums").show()
+
+        all_means = np.mean(sums, axis=0)
+        all_stds = np.std(sums, axis=0)
+        means = all_means[sizes]
+        stds = all_stds[sizes]
+        probs = scipy.stats.norm.logpdf(foreground, loc=means, scale=stds)
+        p_values  = probs
+
+    """ 
+    means = background._single_bin_mean * sizes
+    variances = np.sqrt(background._single_bin_variance * sizes)
+    # get p-values
+    logging.info("Calculating p-values")
+
+    if prob_func == "logcdf":
+        cdfs = scipy.stats.norm.cdf(foreground, loc=means, scale=variances)
+        np.save('cdfs.npy', cdfs)
+        assert np.all(~np.isnan(cdfs))
+        assert np.all(cdfs >= 0)
+        p_values = np.log(1 - cdfs + 0.000001)
+    elif prob_func == "logpdf":
+        assert np.all(variances > 0)
+        single_n, single_p = get_negative_binom_params(background._single_bin_mean, background._single_bin_variance)
+        n = single_n * sizes
+        p = single_p
+        logging.info(f"n: {n}, p: {p}")
+        #p_values = scipy.stats.norm.logpdf(foreground, loc=means, scale=variances)
+        px(name="joining").imshow(n, title="negative binom n").show()
+        p_values = scipy.stats.nbinom.logpmf(foreground.astype(int), n, p)
+        print(p_values)
+    elif prob_func == "cdf":
+        p_values = scipy.stats.norm.cdf(foreground, loc=means, scale=variances)
+    else:
+        p_values = scipy.stats.norm.pdf(foreground, loc=means, scale=variances)
+    """
+
+    all_edges = get_all_possible_edges(interactions.n_contigs)
+    distances = DirectedDistanceMatrix(interactions.n_contigs, fill_infs=False)
+    logging.info(f"Calculating distance matrix for all edges")
+    for edge in tqdm(all_edges, total=len(distances) ** 2):
+        if edge.from_node_side.node_id == edge.to_node_side.node_id:
+            continue
+        distances[edge] = p_values[edge.from_node_side.node_id, edge.to_node_side.node_id]
+    return distances
+
+
+def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max_distance: int) ->\
+        Tuple[DirectedDistanceMatrix, np.ndarray]:
+    """
+    Returns a DistanceMatrix that represents the number of reads between all edges up to max_distance
+    """
+
+    # trick is to make a lookup array of a position to an node sidej, where bins further than max
+    # distance are masked out
+
+    logging.info("Making lookup")
+    lookup = np.zeros(interactions.sparse_matrix.shape[0]) - 1
+    n_nodesides = interactions.n_contigs * 2
+    nodeside_sizes = np.zeros(n_nodesides, dtype=int)
+
+    for contig in range(interactions.n_contigs):
+        contig_start = interactions._global_offset.contig_first_bin(contig)
+        contig_end = interactions._global_offset.contig_last_bin(contig, inclusive=False)
+        local_max = min((contig_end - contig_start)//2, max_distance)
+        nodeside_start = contig*2
+        nodeside_end = nodeside_start + 1
+        lookup[contig_start:contig_start+local_max] = nodeside_start
+        lookup[contig_end-local_max:contig_end] = nodeside_end
+
+        nodeside_sizes[nodeside_start] = local_max
+        nodeside_sizes[nodeside_end] = local_max
+
+
+    logging.info("Calculating matrix")
+    rows, columns = interactions.sparse_matrix.nonzero()
+    values = np.array(interactions.sparse_matrix[rows, columns]).ravel()
+
+    contig1 = lookup[rows]
+    contig2 = lookup[columns]
+
+    mask = np.zeros_like(contig1, dtype=bool)
+    mask[contig1 == -1] = True
+    mask[contig2 == -1] = True
+    contig1 = contig1[~mask].astype(int)
+    contig2 = contig2[~mask].astype(int)
+    values = values[~mask]
+
+    indexes = contig1*n_nodesides + contig2
+    indexes = indexes.astype(int)
+    logging.info("Doing bincount")
+    out = np.bincount(indexes, weights=values, minlength=n_nodesides*n_nodesides).reshape(n_nodesides, n_nodesides)
+
+    logging.info("Making distance matrix")
+    matrix = DirectedDistanceMatrix(interactions.n_contigs)
+    matrix._matrix = out
+    return matrix, nodeside_sizes
+
+
+def get_prob_given_intra_background_for_edges(interaction_matrix: SparseInteractionMatrix):
+    background_sums = get_intra_background_sums(interaction_matrix)
+    return get_prob_of_edge_counts(background_sums, interaction_matrix)
+
+
+def get_prob_of_edge_counts(background: np.ndarray, interaction_matrix: SparseInteractionMatrix):
+    # get background of intra counts
+
+    background_sums = background
+    maxdist = background_sums.shape[1] - 1
+
+    # get counts for all edges up to maxdist
+    edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(interaction_matrix, maxdist)
+    #edge_counts.plot(name="edge_counts").show()
+    px(name="joining").imshow(edge_counts.data, title="edge_counts").show()
+
+    logging.info("Getting means and stds")
+    np.save('background_sums.npy', background_sums)
+    #plt.hist(background_sums[:, 4, 4])
+    means = np.mean(background_sums, axis=0)
+    #plt.show()
+    stds = np.std(background_sums, axis=0)
+    px(name="joining").imshow(means, title="means").show()
+    px(name="joining").imshow(stds, title="stds").show()
+    n_nodesides = interaction_matrix.n_contigs * 2
+
+    sizes1 = np.repeat(nodeside_sizes, n_nodesides)  # sizes of first node side in each edge
+    sizes2 = np.tile(nodeside_sizes, n_nodesides)  # sizes of second node side in each edge
+
+    edge_means = means[sizes1-1, sizes2-1]
+    edge_stds = stds[sizes1-1, sizes2-1]
+
+    n = n_nodesides
+    #px(name="joining").imshow(edge_means.reshape((n, n)), title="edge mean_nodesides").show()
+    #px(name="joining").imshow(edge_stds.reshape((n, n)), title="edgestds").show()
+
+    # get p-values
+    logging.info("Calculating p-values")
+    edge_scores = edge_counts.data.ravel()
+    assert len(edge_scores) == len(edge_means), (len(edge_scores), len(edge_means))
+    pmfs = scipy.stats.norm.logpdf(edge_scores, loc=edge_means, scale=edge_stds).reshape((n_nodesides, n_nodesides))
+    px(name="joining").imshow(pmfs, title="pmfs").show()
+
+    return DirectedDistanceMatrix.from_matrix(pmfs)
+
+
+def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix):
+    """
+    Computes prob of in a bayesian way by looking both at prob of reads given edge and not edge
+    """
+    prob_reads_given_edge = get_prob_given_intra_background_for_edges(interaction_matrix)
+    prob_reads_given_edge.plot(name="prob_reads_given_edge").show()
+    prob_reads_given_not_edge = get_prob_of_reads_given_not_edge(interaction_matrix, "logpdf")
+    prob_reads_given_not_edge.plot(name="prob_reads_given_not_edge").show()
+
+    prob_reads_given_edge = prob_reads_given_edge.data
+    prob_reads_given_not_edge = prob_reads_given_not_edge.data
+    #prob_reads_given_not_edge = 1-prob_reads_given_not_edge.data
+
+
+    plt.imshow(prob_reads_given_edge)
+    plt.figure()
+    plt.imshow(prob_reads_given_not_edge)
+    #plt.show()
+
+    prior_edge = np.log(0.05)
+    prior_not_edge = np.log(1-0.05)
+
+    prob_observed_and_edge = prior_edge + prob_reads_given_edge
+    prob_edge = (prob_observed_and_edge -
+                 np.logaddexp(prob_observed_and_edge, prior_not_edge + prob_reads_given_not_edge))
+    #prob_edge = prob_edge.reshape(prob_reads_given_edge.shape)
+
+    #plt.figure()
+    #plt.imshow(prob_edge)
+    #plt.show()
+
+    #prob_edge = -np.log(prob_edge)
+    prob_edge = -prob_edge
+
+    m = DirectedDistanceMatrix.from_matrix(prob_edge)
+    m.fill_infs()
+    return m
+
+
+
+def get_intra_background_sums(interaction_matrix):
+    background = BackgroundMatrix.from_sparse_interaction_matrix(interaction_matrix, create_stack=True, n_per_contig=5, max_contigs=10)
+    # get sum of background for all possible shapes
+    background = background.matrix[:, ::-1, :]  # flip because oriented towards diagonal originallyj
+    background_sums = background.cumsum(axis=1).cumsum(axis=2)
+    return background_sums
+
+
+def get_negative_binom_params(mean, variance):
+    n = mean**2 / (variance - mean)
+    p = mean / variance
+    return n, p
+    #p = variance / mean
+    #r = mean / p
+    #return r, p
+
+def get_negative_binomial_distribution(mean, variance):
+    from scipy.stats import nbinom
+    n, p = get_negative_binom_params(mean, variance)
+    return nbinom(n, p)
+

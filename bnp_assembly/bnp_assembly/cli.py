@@ -321,6 +321,16 @@ def sanitize_paired_end_bam(bam_file_name: str, out_file_name: str):
         chunk_size = len(chunk)
         out.write(chunk[keep[offset:offset + chunk_size]])
         offset += chunk_size
+    out.close()
+    file.close()
+
+
+@app.command()
+def background_matrix(interaction_matrix: str, out_file: str):
+    matrix = from_file(interaction_matrix)
+    background = BackgroundMatrix.from_sparse_interaction_matrix(matrix, create_stack=True)
+    logging.info("Saving")
+    to_file(background, out_file)
 
 
 def main():

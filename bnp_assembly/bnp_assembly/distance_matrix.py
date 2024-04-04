@@ -1,5 +1,7 @@
 from typing import Dict, Tuple
 
+from tqdm import tqdm
+
 from .graph_objects import NodeSide, Edge
 import numpy as np
 from .plotting import px, DummyPlot, level_dict
@@ -8,13 +10,14 @@ from .plotting import px as px_func
 
 
 class DirectedDistanceMatrix:
-    def __init__(self, n_nodes):
+    def __init__(self, n_nodes, fill_infs=True):
         self.px = px_func(name='joining')
         n_sides = n_nodes*2
         self._matrix = np.zeros((n_sides, n_sides))
-        self._fill_infs()
+        if fill_infs:
+            self.fill_infs()
 
-    def _fill_infs(self):
+    def fill_infs(self):
         np.fill_diagonal(self._matrix, np.inf)
         for i in range(len(self._matrix)):
             node_side = NodeSide.from_numeric_index(i)
@@ -125,3 +128,30 @@ class DirectedDistanceMatrix:
                     elif end_clip > 0 and edge.to_node_side.side == 'r':
                         logging.info(f'Adjusting edge {edge} with end clip {end_clip} at to node. Clip: {node_id, start, end, start_clip, end_clip}')
                         self[edge] = max(0, self[edge]-end_clip)
+
+    @classmethod
+    def from_matrix(cls, matrix):
+        new = cls(len(matrix)//2)
+        new._matrix = matrix
+        return new
+
+    def set_worst_edges_to_zero(self, keep_n_best=10):
+        # set all but the best keep_n_best to zero for each nodeside
+        for nodeside_id in tqdm(range(self._matrix.shape[0]), total=self._matrix.shape[0], desc='Setting worst edges to zero'):
+            row = self._matrix[nodeside_id]
+            sorted_indices = np.argsort(row)
+            discard = sorted_indices[keep_n_best:]
+            for d in discard:
+                self._matrix[nodeside_id, d] = np.inf
+
+        return
+
+        # same with columns
+        for nodeside_id in tqdm(range(self._matrix.shape[1]), total=self._matrix.shape[1], desc='Setting worst edges to zero'):
+            row = self._matrix[:, nodeside_id]
+            sorted_indices = np.argsort(row)
+            discard = sorted_indices[keep_n_best:]
+            for d in discard:
+                self._matrix[d, nodeside_id] = np.inf
+
+

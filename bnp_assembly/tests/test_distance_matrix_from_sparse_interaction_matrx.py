@@ -1,4 +1,6 @@
 import random
+
+import numpy as np
 from shared_memory_wrapper import from_file
 import matplotlib.pyplot as plt
 
@@ -31,6 +33,9 @@ def test_integration_real_case5():
     path = path.directed_nodes
     new_matrix = matrix.get_matrix_for_path(path, as_raw_matrix=False)
     new_matrix.plot_submatrix(0, n_contigs - 1)
+
+
+
 
 
 if __name__ == "__main__":

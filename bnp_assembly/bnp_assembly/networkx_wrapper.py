@@ -1,3 +1,5 @@
+import logging
+
 import networkx as nx
 
 from .distance_matrix import DirectedDistanceMatrix
@@ -13,7 +15,11 @@ class NetworkXContigGraph:
         g = nx.Graph()
         data = distance_matrix.data
         assert np.all(~np.isnan(data))
-        data_points = [(i, j, -d) for i, row in enumerate(data) for j, d in enumerate(row)]
+        data_points = [(i, j, -d) for i, row in enumerate(data) for j, d in enumerate(row) if not np.isinf(d)]
+        #print(data_points)
+        #data_points = [(i, j, -d) for i, row in enumerate(data) for j, d in enumerate(row)]
+        logging.info(f'Adding {len(data_points)} edges to NetworkXContigGraph..')
+        assert len(data_points) >= 0
         assert all(~np.isnan(dp[2]) for dp in data_points)
         g.add_weighted_edges_from(data_points)
         return g
@@ -26,8 +32,14 @@ class PathFinder:
 
     def get_side_dict(self):
         max_matching = nx.max_weight_matching(self._graph, maxcardinality=True)
-        return {NodeSide.from_numeric_index(i): NodeSide.from_numeric_index(j)
+        print("Max matching:")
+        edges = {NodeSide.from_numeric_index(i): NodeSide.from_numeric_index(j)
                 for pair in max_matching for i, j in (pair, pair[::-1])}
+        # sort by node id
+        edges = {n1: n2 for n1, n2 in sorted(edges.items(), key=lambda x: x[0].node_id)}
+        for n1, n2 in edges.items():
+            print(f"{n1} -> {n2}")
+        return edges
 
     def find_one_contig(self, side_dict):
         first_side, cur_side = side_dict.popitem()
@@ -58,6 +70,7 @@ class PathFinder:
             if any(node_side in seen_sides for node_side in path):
                 continue
             path = self.split_path(path)
+            print("Split path: ", path)
             final_paths.append(path)
             seen_sides.add(path[0])
         return final_paths
@@ -66,6 +79,8 @@ class PathFinder:
         side_dict = self.get_side_dict()
         paths = []
         while len(side_dict):
-            paths.append(self.find_one_contig(side_dict))
+            new_path = self.find_one_contig(side_dict)
+            paths.append(new_path)
+            print(f"Found path: {new_path}")
         paths = self.prune_paths(paths)
         return [ContigPath.from_node_sides(path) for path in paths]

@@ -3,15 +3,18 @@ import pytest
 import scipy
 from bionumpy.genomic_data.global_offset import GlobalOffset
 
+from bnp_assembly.cli import register_logging
 from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
+from bnp_assembly.sparse_interaction_based_distance import get_edge_counts_with_max_distance, get_intra_background_sums, \
+    get_prob_given_intra_background_for_edges
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
-    SparseInteractionMatrix, contigs_covering_percent_of_total
+    SparseInteractionMatrix, contigs_covering_percent_of_total, get_number_of_reads_between_all_contigs
 import numpy as np
 from numpy.testing import assert_array_equal
-
+import plotly.express as px
 
 @pytest.fixture
 def read_pairs3():
@@ -384,3 +387,79 @@ def test_contigs_covering_percent():
     contig_sizes = [50, 50, 20, 10, 10, 1]
     contigs = contigs_covering_percent_of_total(contig_sizes, 0.4)
     assert np.all(contigs == [1, 0])
+
+
+@pytest.fixture()
+def matrix():
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
+    matrix = np.array([
+        [1, 2, 3, 1],
+        [2, 0, 10, 10],
+        [3, 10, 1, 1],
+        [1, 10, 1, 1]
+    ])
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    return matrix
+
+
+def test_get_number_of_reads_between_contigs(matrix):
+
+    m = get_number_of_reads_between_all_contigs(matrix)
+
+    correct = np.array([
+        [5, 24],
+        [24, 4]
+        ])
+
+    assert_array_equal(m, correct)
+
+    print(m)
+
+
+def test_get_edge_counts_with_max_distance(matrix):
+    d, sizes = get_edge_counts_with_max_distance(matrix, max_distance=10)
+    assert d[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == 10
+    assert d[Edge(NodeSide(0, 'l'), NodeSide(1, 'l'))] == 3
+    assert d[Edge(NodeSide(0, 'l'), NodeSide(1, 'r'))] == 1
+    assert d[Edge(NodeSide(1, 'r'), NodeSide(0, 'l'))] == 1
+    assert np.all(sizes == 1)
+
+
+
+@pytest.fixture
+def matrix():
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 10, 1: 10}, 1)
+    matrix = np.zeros((20, 20))
+    for i in range(20):
+        for j in range(20):
+            matrix[i, j] = 20 - abs(i-j)
+
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    return matrix
+
+
+def test_get_intra_background_sums(matrix):
+    print(matrix.nonsparse_matrix)
+    sums = get_intra_background_sums(matrix)
+    means = np.mean(sums, axis=0)
+    print(means)
+
+
+def test_get_prob_given_intra_background_for_edges():
+    register_logging("logging")
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 10, 1: 10}, 1)
+    matrix = np.zeros((20, 20))
+    for i in range(20):
+        for j in range(20):
+            matrix[i, j] = 20 - abs(i - j) + np.random.random()
+
+    px.imshow(matrix, title="interaction matrix").show()
+    # make symmetric
+    matrix = np.maximum(matrix, matrix.T)
+
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+    print(matrix)
+
+    probs = get_prob_given_intra_background_for_edges(matrix)
+
+    print(probs)

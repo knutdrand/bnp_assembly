@@ -57,6 +57,10 @@ class BinnedNumericGlobalOffset:
     def contig_sizes(self):
         return self._contig_sizes
 
+    @property
+    def contig_offsets(self):
+        return self._contig_bin_offset
+
     @classmethod
     def from_contig_sizes(cls, contig_sizes: Dict[int, int], approx_bin_size: int):
         assert np.all(list(contig_sizes.keys()) == np.arange(len(contig_sizes)))
@@ -68,7 +72,7 @@ class BinnedNumericGlobalOffset:
         for contig_id, size in contig_sizes.items():
             extended_size = (size + approx_bin_size-1)
             extended_size -= extended_size % approx_bin_size
-            n_bins = extended_size // approx_bin_size
+            n_bins = max(1, extended_size // approx_bin_size)  # never less than one bin
             contig_n_bins[contig_id] = n_bins
             contig_bin_offset[contig_id] = offset
             offset += n_bins
@@ -505,10 +509,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         self._data[:, start:end] = self._data[:, start:end][:, ::-1]
         logging.info("Flipped contig")
 
-    def plot(self, xaxis_names=None):
-        return self.plot_submatrix(0, self.n_contigs-1, xaxis_names=xaxis_names)
+    def plot(self, xaxis_names=None, title=""):
+        return self.plot_submatrix(0, self.n_contigs-1, xaxis_names=xaxis_names, title=title)
 
-    def plot_submatrix(self, from_contig: int, to_contig: int, xaxis_names=None):
+    def plot_submatrix(self, from_contig: int, to_contig: int, xaxis_names=None, title=""):
         start = self._global_offset.contig_first_bin(from_contig)
         end = self._global_offset.contig_last_bin(to_contig, inclusive=False)
         matrix = self._data[start:end, start:end]
@@ -521,6 +525,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         buckets = max(500, min(2000, matrix.shape[0]//200))
         logging.info(f"Number of buckets: {buckets}")
         fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
+        plt.title(title)
         plt.vlines(offsets, 0, matrix.shape[0], color='b')
         plt.hlines(offsets, 0, matrix.shape[0], color='b')
         ax.set_xticks(offsets)
@@ -802,34 +807,53 @@ class BackgroundMatrix:
     def __init__(self, matrix: np.ndarray):
         self.matrix = matrix
 
+    @property
+    def matrices(self):
+        return self.matrix
+
     @classmethod
-    def from_sparse_interaction_matrix(cls, sparse_matrix: SparseInteractionMatrix):
+    def from_sparse_interaction_matrix(cls, sparse_matrix: SparseInteractionMatrix, create_stack=False, max_contigs=10, n_per_contig=4):
+        """
+        If create_stack is True, will keep all matrices as a 3d matrix, not take mean of them
+        """
         contig_sizes = sparse_matrix._global_offset._contig_n_bins
-        contigs_to_use = contigs_covering_percent_of_total(contig_sizes, percent_covered=0.4)
+        contigs_to_use = contigs_covering_percent_of_total(contig_sizes, percent_covered=0.1)
+        contigs_to_use = contigs_to_use[:max_contigs]
         logging.info(f"Using contigs {contigs_to_use} to estimate background matrix")
         smallest = np.min(contig_sizes[contigs_to_use])
 
         # sample from smaller matrices than smallest contig so we can sample
         # multiple times from the same matrix
-        size = smallest // 2
-        size = min(10000, size)
+        size = smallest // 3  # divide by three to make sure we can sample from multiple positions
+        size = min(2000, size)  # divide by three to make sure we can sample from multiple positions
         logging.info(f"Using size {size} to estimate background matrix")
         background = np.zeros((size, size))
+        all_backgrounds = np.zeros((n_per_contig*len(contigs_to_use), size, size))
+
         n_sampled = 0
         logging.info("Estimating background matrix")
         for contig in tqdm(contigs_to_use):
-            logging.info(f"Sampling from contig {contig} with size {contig_sizes[contig]}")
-            sample_positions = np.linspace(size, contig_sizes[contig]-size, 4)
+            #logging.info(f"Sampling from contig {contig} with size {contig_sizes[contig]}")
+            sample_positions = np.linspace(size, contig_sizes[contig]-size, n_per_contig)
             contig_start = sparse_matrix._global_offset.contig_first_bin(contig)
             contig_end = sparse_matrix._global_offset.contig_last_bin(contig, inclusive=False)
+            logging.info(f"Sampling positions: {sample_positions}")
             for position in sample_positions:
                 position = int(position)
                 start = contig_start + position
                 assert start > 0
                 assert contig_start + size < contig_end
+                logging.info(f"Sampling from {start-size} to {start} and {start} to {start+size}")
                 submatrix = sparse_matrix.sparse_matrix[start-size:start, start:start+size].toarray()
-                background += submatrix
+                if create_stack:
+                    all_backgrounds[n_sampled] = submatrix
+                    #all_backgrounds.append(submatrix)
+                else:
+                    background += submatrix
                 n_sampled += 1
+
+        if create_stack:
+            return cls(all_backgrounds)
 
         background = background / n_sampled
         background = csr_matrix(background)
@@ -840,6 +864,14 @@ class BackgroundMatrix:
         assert x_size <= self.matrix.shape[1]
         return np.sum(self.matrix[-y_size:, :x_size])
 
+    def to_file(self, filename):
+        np.save(filename, self.matrix)
+
+    @classmethod
+    def from_file(cls, filename):
+        matrix = np.load(filename)
+        return cls(matrix)
+
 
 class BackgroundInterMatrices:
     """
@@ -849,6 +881,10 @@ class BackgroundInterMatrices:
     """
     def __init__(self, matrices: np.ndarray):
         self.matrices = matrices
+
+    @property
+    def maxdist(self):
+        return self.matrices.shape[1]
 
     def get_sums(self, y_size, x_size):
         """Returns sums sorted ascending"""
@@ -876,6 +912,18 @@ class BackgroundInterMatrices:
         assert not np.isnan(perc) and perc >= 0, (mean, std, observed_value)
         return perc
 
+    def logpdf(self, y_size, x_size, observed_value):
+        sums = self.get_sums(y_size, x_size)
+        mean = np.mean(sums)
+        std = np.std(sums)
+        return scipy.stats.norm.logpdf(observed_value, loc=mean, scale=std)
+
+    def logcdf(self, y_size, x_size, observed_value):
+        sums = self.get_sums(y_size, x_size)
+        mean = np.mean(sums)
+        std = np.std(sums)
+        return scipy.stats.norm.logcdf(observed_value, loc=mean, scale=std)
+
     @classmethod
     def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix, assumed_largest_chromosome_ratio_of_genome=1/30, n_samples=50):
         """
@@ -883,7 +931,9 @@ class BackgroundInterMatrices:
         """
         distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
         logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
-        size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 5)
+        largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
+        #size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
+        size = largest_contig
         logging.info(f"Making background matrices of size {size}")
         lowest_x_start = distance_from_diagonal + size
         highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
@@ -904,3 +954,117 @@ class BackgroundInterMatrices:
 
         return cls(matrices)
 
+
+class BackgroundInterMatricesSingleBin:
+    """
+    Computes prob of a sum by only storing information about single bin mean/variance
+    """
+    def __init__(self, single_bin_mean:float, single_bin_variance: float):
+        self._single_bin_mean = single_bin_mean
+        self._single_bin_variance = single_bin_variance
+        self.maxdist = 1000000
+
+    def get_percentile2(self, y_size, x_size, observed_value):
+        mean = y_size * x_size * self._single_bin_mean
+        std = np.sqrt(y_size * x_size * self._single_bin_variance)
+        perc = 1 - scipy.stats.norm.cdf(observed_value, loc=mean, scale=std)
+        return perc
+
+    def logpdf(self, y_size, x_size, observed_value):
+        mean = y_size * x_size * self._single_bin_mean
+        std = np.sqrt(y_size * x_size * self._single_bin_variance)
+        return scipy.stats.norm.logpdf(observed_value, loc=mean, scale=std)
+
+    def logcdf(self, y_size, x_size, observed_value):
+        mean = y_size * x_size * self._single_bin_mean
+        std = np.sqrt(y_size * x_size * self._single_bin_variance)
+        return scipy.stats.norm.logcdf(observed_value, loc=mean, scale=std)
+
+    def cdf(self, y_size, x_size, observed_value):
+        y_size = max(1, y_size)
+        x_size = max(1, x_size)
+        mean = y_size * x_size * self._single_bin_mean
+        std = np.sqrt(y_size * x_size * self._single_bin_variance)
+        cdf = scipy.stats.norm.cdf(observed_value, loc=mean, scale=std)
+
+        assert not np.isnan(cdf) and cdf >= 0, (mean, std, observed_value, y_size, x_size)
+
+        return cdf
+
+    @classmethod
+    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix,
+                                   assumed_largest_chromosome_ratio_of_genome=1 / 10, n_samples=1000000):
+        distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
+        samples = []
+
+        while len(samples) < n_samples:
+            i = np.random.randint(0, interaction_matrix.sparse_matrix.shape[1])
+            j = np.random.randint(0, interaction_matrix.sparse_matrix.shape[1])
+            #if abs(i-j) < distance_from_diagonal:
+            #    continue
+
+            value = float(interaction_matrix.sparse_matrix[i, j])
+            samples.append(value)
+
+        px.histogram(samples).show()
+        mean = np.mean(samples)
+        variance = np.var(samples)
+        assert mean > 0
+        assert variance > 0
+        logging.info(f"Mean: {mean}, variance: {variance}")
+        return cls(mean, variance)
+
+
+class BackgroundInterMatricesMultipleBinsBackend:
+    """Stores multiple bins in the backend, computes probs by sampling from them"""
+    def __init__(self, bin_values: np.ndarray):
+        self._bin_values = bin_values
+
+    @classmethod
+    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix,
+                                       assumed_largest_chromosome_ratio_of_genome=1 / 10, n_samples=1000000):
+
+        distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
+        samples = []
+
+        while len(samples) < n_samples:
+            i = np.random.randint(0, interaction_matrix.sparse_matrix.shape[1])
+            j = np.random.randint(0, interaction_matrix.sparse_matrix.shape[1])
+
+            if abs(i-j) < distance_from_diagonal:
+                continue
+
+            value = float(interaction_matrix.sparse_matrix[i, j])
+            samples.append(value)
+
+        return cls(np.array(samples))
+
+    def logpdf(self, size, observed_value):
+        n_values = len(self._bin_values)
+        n_samples = 100
+        indexes = np.random.randint(0, n_values, (n_samples, size))
+        samples = self._bin_values[indexes].sum(axis=1)
+        mean = np.mean(samples)
+        std = np.std(samples)
+        return scipy.stats.norm.logpdf(observed_value, loc=mean, scale=std)
+
+
+def get_number_of_reads_between_all_contigs(sparse_matrix: SparseInteractionMatrix):
+    logging.info("Getting number of reads between all contigs")
+
+    contig_offsets = sparse_matrix._global_offset.contig_offsets
+    rows, cols = np.nonzero(sparse_matrix.sparse_matrix)
+    values = np.array(sparse_matrix.sparse_matrix[rows, cols]).ravel()
+
+    logging.info("Doing searchsorted")
+    contig1 = np.searchsorted(contig_offsets, rows, side="right") - 1
+    contig2 = np.searchsorted(contig_offsets, cols, side="right") - 1
+
+    n_contigs = sparse_matrix.n_contigs
+    out = np.zeros(n_contigs*n_contigs)
+    indexes = contig1*n_contigs + contig2
+    out = np.bincount(indexes, weights=values, minlength=n_contigs*n_contigs).reshape(n_contigs, n_contigs)
+
+    # set diagonal to zero
+    np.fill_diagonal(out, 0)
+    return out
