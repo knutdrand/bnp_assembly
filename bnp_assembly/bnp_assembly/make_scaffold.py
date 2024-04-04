@@ -230,10 +230,14 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
 
 
 def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix = None,
-                                     n_optimization_iterations=0,
+                                     n_optimization_iterations=2,
                                      start_by_shuffling=True):
     """The path optimiztion method, tries to find optimal paths by sum of logprobs of read distances"""
     # start with some random order of contigs
+    if interaction_matrix.n_contigs > 500:
+        logging.info(f"Setting n optimization rounds to zero because too many contigs")
+        n_optimization_iterations = 0
+
     directed_nodes = [DirectedNode(node_id, "+") for node_id in range(interaction_matrix.n_contigs)]
     #if start_by_shuffling:
     #   random.seed(0)
@@ -244,16 +248,7 @@ def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix
     #distance_matrix = get_prob_given_intra_background_for_edges(interaction_matrix)
 
     distance_matrix = get_bayesian_edge_probs(interaction_matrix)
-    #plt.imshow(distance_matrix.data)
-    #distance_matrix.set_worst_edges_to_zero(keep_n_best=5)
-    #plt.figure()
-    #plt.imshow(distance_matrix.data)
-    #distance_matrix.plot(name="intra_pvalues").show()
-    #plt.show()
-
-    #distance_finder = DistanceFinder3()
-    #random_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
-    #distance_matrix = distance_finder(interaction_matrix, None)
+    px_func(name="main").array(distance_matrix.data, "bayesian_edge_probs")
     distance_matrix.plot(name="distance_matrix_p_values").show()
     distance_matrix.plot(name="distance_matrix_p_values_rrll", dirs='rrll').show()
     path = join_all_contigs(distance_matrix)
@@ -297,7 +292,8 @@ def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix
     # splitting
     inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
     sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
-    px_func(name='main').histogram(sums, title='Histogram of inter-contig sums')
+    px_func(name='splitting').histogram(sums, title='Histogram of inter-contig sums').show()
+    #px_funx(name='splitting').histogram(np.sum(inter_background.matrices[:, :500, :500], axis=(1, 2)), title='inter matrices sums').show()
     splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
 
     # optimize the splited paths in the end
@@ -346,7 +342,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
 
     interaction_matrix.assert_is_symmetric()
 
-    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
+    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, n_samples=1000)
     splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
@@ -380,6 +376,7 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
 
     contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
+    logging.info("Trimming interaction matrix with clips")
     interaction_matrix.trim_with_clips(contig_clips)
 
     return path_optimization_join_and_split(interaction_matrix=interaction_matrix)
@@ -388,7 +385,8 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure
 
 def join_all_contigs(distance_matrix) -> ContigPath:
     mapping = None
-    for _ in range(len(distance_matrix) // 2):
+    for i in range(len(distance_matrix) // 2):
+        print("Iteration ", i)
         paths = PathFinder(distance_matrix).run()
         print([path.directed_nodes for path in paths])
         distance_matrix, mapping = create_merged_graph(paths, distance_matrix, mapping)

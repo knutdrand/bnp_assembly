@@ -888,6 +888,8 @@ class BackgroundInterMatrices:
 
     def get_sums(self, y_size, x_size):
         """Returns sums sorted ascending"""
+        assert y_size <= self.matrices.shape[1]
+        assert x_size <= self.matrices.shape[2]
         return np.sort(np.sum(self.matrices[:, :y_size, :x_size], axis=(1, 2)))
 
     def plot(self):
@@ -933,7 +935,7 @@ class BackgroundInterMatrices:
         logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
         largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
         #size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
-        size = largest_contig
+        size = min(2500, largest_contig)  # many bins is not necessary, and leads to large memory usage
         logging.info(f"Making background matrices of size {size}")
         lowest_x_start = distance_from_diagonal + size
         highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size

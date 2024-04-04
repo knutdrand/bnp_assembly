@@ -225,7 +225,11 @@ def find_contig_clips_from_interaction_matrix(contig_dict: Dict[str, int],
     #assert isinstance(mean_coverage, float), mean_coverage
     #logging.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
     # logger.info(f"Mean coverage: {mean_coverage}, bin_size: {bin_sizes}")
-    clip_ids = {contig_id: find_clips(counts) for contig_id, counts in bins.items()}
+    clip_ids = {}
+    for contig_id, counts in tqdm(bins.items(), desc="Finding clips"):
+        clip_ids[contig_id] = find_clips(counts, window_size=window_size)
+
+    #clip_ids = {contig_id: find_clips(counts) for contig_id, counts in bins.items()}
     logger.info(f"Found clips: {clip_ids}")
     clips = {contig_id: (start_id * bin_sizes[contig_id], contig_dict[contig_id] - end_id * bin_sizes[contig_id]) for
              contig_id, (start_id, end_id) in clip_ids.items()}
