@@ -215,6 +215,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
     def contig_n_bins(self):
         return self._global_offset._contig_n_bins
 
+    @property
+    def contig_sizes(self):
+        return self._global_offset.contig_sizes
+
     @classmethod
     def empty(cls, global_offset: Union[NumericGlobalOffset, BinnedNumericGlobalOffset], allow_nonsymmetric=False):
         size = global_offset.total_size()
@@ -437,6 +441,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         assert self._data.shape[0] == self._data.shape[1]
         new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
         self._global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
+        logging.info("Done trimming")
 
     def normalize(self):
         """Note: This does not keep symmetry"""
@@ -472,6 +477,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         assert (self.sparse_matrix.T != self.sparse_matrix).nnz == 0
 
     def get_matrix_for_path(self, contigs: List[DirectedNode], as_raw_matrix=True):
+        logging.info(f"Getting matrix for path")
         if np.all([contig.node_id for contig in contigs] == np.arange(len(contigs))) and all([contig.orientation == '+' for contig in contigs]):
             # path is same as matrix, return as is
             return self._data if as_raw_matrix else self
@@ -641,6 +647,37 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         score2 = np.sum(matrix2) / demominator2
         return max(score1, score2)
 
+    def merge_edges(self, edges):
+        """Returns a new matrix where the two nodes in each of the edges have been merged
+        and placed at the beginning of the matrix"""
+        new_path = []
+        picked_nodes = set()
+        contig_n_bins = []
+        new_contig_sizes = []
+        for edge in edges:
+            new_path.append(edge[0])
+            new_path.append(edge[1])
+            picked_nodes.add(edge[0].node_id)
+            picked_nodes.add(edge[1].node_id)
+            n_bins = self.contig_n_bins[edge[0].node_id] + self.contig_n_bins[edge[1].node_id]
+            contig_n_bins.append(n_bins)
+            new_contig_sizes.append(self.contig_sizes[edge[0].node_id] + self.contig_sizes[edge[1].node_id])
+
+        # add the rest of the old nodes
+        for node in range(self.n_contigs):
+            if node not in picked_nodes:
+                new_path.append(DirectedNode(node, '+'))
+                contig_n_bins.append(self.contig_n_bins[node])
+                new_contig_sizes.append(self.contig_sizes[node])
+
+        new_contig_offsets = np.insert(np.cumsum(contig_n_bins), 0, 0)
+        new_global_offset = BinnedNumericGlobalOffset(
+            np.array(new_contig_sizes),
+            np.array(contig_n_bins),
+            new_contig_offsets)
+        new_matrix = self.get_matrix_for_path(new_path)
+
+        return SparseInteractionMatrix(new_matrix, new_global_offset)
 
 
 
@@ -812,12 +849,12 @@ class BackgroundMatrix:
         return self.matrix
 
     @classmethod
-    def from_sparse_interaction_matrix(cls, sparse_matrix: SparseInteractionMatrix, create_stack=False, max_contigs=10, n_per_contig=4):
+    def from_sparse_interaction_matrix(cls, sparse_matrix: SparseInteractionMatrix, create_stack=False, max_contigs=10, n_per_contig=20):
         """
         If create_stack is True, will keep all matrices as a 3d matrix, not take mean of them
         """
         contig_sizes = sparse_matrix._global_offset._contig_n_bins
-        contigs_to_use = contigs_covering_percent_of_total(contig_sizes, percent_covered=0.1)
+        contigs_to_use = contigs_covering_percent_of_total(contig_sizes, percent_covered=0.5)
         contigs_to_use = contigs_to_use[:max_contigs]
         logging.info(f"Using contigs {contigs_to_use} to estimate background matrix")
         smallest = np.min(contig_sizes[contigs_to_use])
@@ -837,13 +874,13 @@ class BackgroundMatrix:
             sample_positions = np.linspace(size, contig_sizes[contig]-size, n_per_contig)
             contig_start = sparse_matrix._global_offset.contig_first_bin(contig)
             contig_end = sparse_matrix._global_offset.contig_last_bin(contig, inclusive=False)
-            logging.info(f"Sampling positions: {sample_positions}")
+            #logging.info(f"Sampling positions: {sample_positions}")
             for position in sample_positions:
                 position = int(position)
                 start = contig_start + position
                 assert start > 0
                 assert contig_start + size < contig_end
-                logging.info(f"Sampling from {start-size} to {start} and {start} to {start+size}")
+                #logging.info(f"Sampling from {start-size} to {start} and {start} to {start+size}")
                 submatrix = sparse_matrix.sparse_matrix[start-size:start, start:start+size].toarray()
                 if create_stack:
                     all_backgrounds[n_sampled] = submatrix
@@ -935,7 +972,7 @@ class BackgroundInterMatrices:
         logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
         largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
         #size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
-        size = min(2500, largest_contig)  # many bins is not necessary, and leads to large memory usage
+        size = min(1000, largest_contig)  # many bins is not necessary, and leads to large memory usage
         logging.info(f"Making background matrices of size {size}")
         lowest_x_start = distance_from_diagonal + size
         highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size

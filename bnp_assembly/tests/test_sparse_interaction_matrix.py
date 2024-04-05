@@ -8,7 +8,7 @@ from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
-from bnp_assembly.sparse_interaction_based_distance import get_edge_counts_with_max_distance, get_intra_background_sums, \
+from bnp_assembly.sparse_interaction_based_distance import get_edge_counts_with_max_distance, get_intra_background, \
     get_prob_given_intra_background_for_edges
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
     SparseInteractionMatrix, contigs_covering_percent_of_total, get_number_of_reads_between_all_contigs
@@ -440,7 +440,7 @@ def matrix():
 
 def test_get_intra_background_sums(matrix):
     print(matrix.nonsparse_matrix)
-    sums = get_intra_background_sums(matrix)
+    sums = get_intra_background(matrix)
     means = np.mean(sums, axis=0)
     print(means)
 

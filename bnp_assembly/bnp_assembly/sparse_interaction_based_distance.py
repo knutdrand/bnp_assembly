@@ -154,10 +154,14 @@ class DistanceFinder3(EdgeDistanceFinder):
 
 
 def get_prob_of_reads_given_not_edge(interactions, prob_func: Literal["cdf", "pmf", "logcdf", "logpdf"]="logcdf"):
-    background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=1000)
-    background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
+    background_sums = get_inter_background(interactions)
     return get_prob_of_edge_counts(background_sums, interactions)
 
+
+def get_inter_background(interactions):
+    background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=1000)
+    background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
+    return background_sums
 
 
 def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max_distance: int) ->\
@@ -214,7 +218,7 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
 
 
 def get_prob_given_intra_background_for_edges(interaction_matrix: SparseInteractionMatrix):
-    background_sums = get_intra_background_sums(interaction_matrix)
+    background_sums = get_intra_background(interaction_matrix)
     return get_prob_of_edge_counts(background_sums, interaction_matrix)
 
 
@@ -228,8 +232,8 @@ def get_prob_of_edge_counts(background: np.ndarray, interaction_matrix: SparseIn
     # todo: this call can either be cashed or done outside this function to speedup
     edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(interaction_matrix, maxdist)
 
-    #edge_counts.plot(name="edge_counts").show()
-    #px(name="joining").imshow(edge_counts.data, title="edge_counts").show()
+    edge_counts.plot(name="edge_counts")
+    px(name="joining").imshow(edge_counts.data, title="edge_counts")
 
     logging.info("Getting means and stds")
     #np.save('background_sums.npy', background_sums)
@@ -262,34 +266,41 @@ def get_prob_of_edge_counts(background: np.ndarray, interaction_matrix: SparseIn
     edge_scores = edge_counts.data.ravel()
     assert len(edge_scores) == len(edge_means), (len(edge_scores), len(edge_means))
     pmfs = scipy.stats.norm.logpdf(edge_scores, loc=edge_means, scale=edge_stds).reshape((n_nodesides, n_nodesides))
+    logging.info(f"Done p values")
     #px(name="joining").imshow(pmfs, title="pmfs").show()
 
     return DirectedDistanceMatrix.from_matrix(pmfs)
 
 
-def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix):
+def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix, inter_background: np.ndarray=None,
+                            intra_background: np.ndarray=None):
     """
     Computes prob of in a bayesian way by looking both at prob of reads given edge and not edge
     """
-    prob_reads_given_not_edge = get_prob_of_reads_given_not_edge(interaction_matrix, "logpdf")
+
+    inter_background = get_inter_background(interaction_matrix) if inter_background is None else inter_background
+    #prob_reads_given_not_edge = get_prob_of_reads_given_not_edge(interaction_matrix, "logpdf")
+    prob_reads_given_not_edge = get_prob_of_edge_counts(inter_background, interaction_matrix)
     assert not np.any(np.isnan(prob_reads_given_not_edge.data)), prob_reads_given_not_edge.data
     assert not np.any(np.isinf(prob_reads_given_not_edge.data)), prob_reads_given_not_edge.data
 
-    prob_reads_given_edge = get_prob_given_intra_background_for_edges(interaction_matrix)
-    prob_reads_given_edge.plot(name="prob_reads_given_edge").show()
+    intra_background = get_intra_background(interaction_matrix) if intra_background is None else intra_background
+    prob_reads_given_edge = get_prob_of_edge_counts(intra_background, interaction_matrix)
+    #prob_reads_given_edge = get_prob_given_intra_background_for_edges(interaction_matrix)
+    prob_reads_given_edge.plot(name="prob_reads_given_edge")
     assert not np.any(np.isnan(prob_reads_given_edge.data)), prob_reads_given_edge.data
     assert not np.any(np.isinf(prob_reads_given_edge.data)), prob_reads_given_edge.data
 
-    prob_reads_given_not_edge.plot(name="prob_reads_given_not_edge").show()
+    prob_reads_given_not_edge.plot(name="prob_reads_given_not_edge")
 
     prob_reads_given_edge = prob_reads_given_edge.data
     prob_reads_given_not_edge = prob_reads_given_not_edge.data
     #prob_reads_given_not_edge = 1-prob_reads_given_not_edge.data
 
 
-    plt.imshow(prob_reads_given_edge)
-    plt.figure()
-    plt.imshow(prob_reads_given_not_edge)
+    #plt.imshow(prob_reads_given_edge)
+    #plt.figure()
+    #plt.imshow(prob_reads_given_not_edge)
     #plt.show()
 
     prior_edge = np.log(0.05)
@@ -313,7 +324,7 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix):
 
 
 
-def get_intra_background_sums(interaction_matrix):
+def get_intra_background(interaction_matrix):
     background = BackgroundMatrix.from_sparse_interaction_matrix(interaction_matrix, create_stack=True, n_per_contig=5, max_contigs=10)
     # get sum of background for all possible shapes
     background = background.matrix[:, ::-1, :]  # flip because oriented towards diagonal originallyj

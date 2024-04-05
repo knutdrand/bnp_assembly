@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def split_on_scores(contig_path, edge_scores, threshold, keep_over=True) -> List[ContigPathSides]:
-    px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores')
+    px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores').show()
     if keep_over:
         edges = [edge for edge, score in edge_scores.items() if score < threshold]
     else:

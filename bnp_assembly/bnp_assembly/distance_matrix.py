@@ -135,23 +135,14 @@ class DirectedDistanceMatrix:
         new._matrix = matrix
         return new
 
-    def set_worst_edges_to_zero(self, keep_n_best=10):
+    def set_worst_edges_to_zero(self, keep_n_best=10, set_to=np.inf, reverse=False):
         # set all but the best keep_n_best to zero for each nodeside
         for nodeside_id in tqdm(range(self._matrix.shape[0]), total=self._matrix.shape[0], desc='Setting worst edges to zero'):
             row = self._matrix[nodeside_id]
             sorted_indices = np.argsort(row)
+            if reverse:
+                sorted_indices = sorted_indices[::-1]
             discard = sorted_indices[keep_n_best:]
+            logging.info(f"Keeping {sorted_indices[0:keep_n_best]} for nodeside {nodeside_id}")
             for d in discard:
-                self._matrix[nodeside_id, d] = np.inf
-
-        return
-
-        # same with columns
-        for nodeside_id in tqdm(range(self._matrix.shape[1]), total=self._matrix.shape[1], desc='Setting worst edges to zero'):
-            row = self._matrix[:, nodeside_id]
-            sorted_indices = np.argsort(row)
-            discard = sorted_indices[keep_n_best:]
-            for d in discard:
-                self._matrix[d, nodeside_id] = np.inf
-
-
+                self._matrix[nodeside_id, d] = set_to

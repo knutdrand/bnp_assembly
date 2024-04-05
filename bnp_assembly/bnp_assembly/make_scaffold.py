@@ -4,6 +4,7 @@ import random
 from typing import List
 import numpy as np
 import pandas as pd
+from bnp_assembly.iterative_path_joining import IterativePathJoiner
 from bnp_assembly.sparse_interaction_based_distance import DistanceFinder, DistanceFinder2, DistanceFinder3, \
     get_edge_counts_with_max_distance, get_prob_given_intra_background_for_edges, get_bayesian_edge_probs
 from matplotlib import pyplot as plt
@@ -229,8 +230,25 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
+def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix = None):
+    joiner = IterativePathJoiner(interaction_matrix)
+    joiner.run()
+    directed_nodes = joiner.get_final_path()
+    path = ContigPath.from_directed_nodes(directed_nodes)
+    path_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
+
+    # splitting
+    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
+    sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
+    px_func(name='splitting').histogram(sums, title='Histogram of inter-contig sums')
+    #px_funx(name='splitting').histogram(np.sum(inter_background.matrices[:, :500, :500], axis=(1, 2)), title='inter matrices sums').show()
+    splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.000005)
+
+    return splitted_paths
+
+
 def path_optimization_join_and_split(interaction_matrix: SparseInteractionMatrix = None,
-                                     n_optimization_iterations=2,
+                                     n_optimization_iterations=0,
                                      start_by_shuffling=True):
     """The path optimiztion method, tries to find optimal paths by sum of logprobs of read distances"""
     # start with some random order of contigs
@@ -342,7 +360,7 @@ def dynamic_heatmap_join_and_split(numeric_input_data: NumericInputData, n_bins_
 
     interaction_matrix.assert_is_symmetric()
 
-    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, n_samples=1000)
+    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, n_samples=200)
     splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.0005)
 
     if interaction_matrix.sparse_matrix.shape[1] < 1000000000:
@@ -366,20 +384,22 @@ def get_dynamic_heatmap_finder(numeric_input_data, cumulative_distribution, n_bi
     return edge_distance_finder
 
 
-def make_scaffold_numeric(numeric_input_data: NumericInputData, distance_measure='window', threshold=0.2,
+def make_scaffold_numeric(numeric_input_data: NumericInputData=None, distance_measure='window', threshold=0.2,
                           bin_size=5000, splitting_method='poisson', max_distance=100000, **distance_kwargs) -> List[
     ContigPath]:
-    assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
+    #assert isinstance(numeric_input_data.location_pairs, PairedReadStream), numeric_input_data.location_pairs
 
     # trim contigs, interaction matrix is clipped inplace
-    interaction_matrix = distance_kwargs.get("interaction_matrix", None)
+    interaction_matrix: SparseInteractionMatrix = distance_kwargs.get("interaction_matrix", None)
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
 
-    contig_clips = find_contig_clips_from_interaction_matrix(numeric_input_data.contig_dict, interaction_matrix_clipping, window_size=100)
+    contig_sizes = {i: size for i, size in enumerate(interaction_matrix.contig_sizes)}
+    contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, interaction_matrix_clipping, window_size=100)
     logging.info("Trimming interaction matrix with clips")
     interaction_matrix.trim_with_clips(contig_clips)
 
-    return path_optimization_join_and_split(interaction_matrix=interaction_matrix)
+    return greedy_bayesian_join_and_split(interaction_matrix)
+    #return path_optimization_join_and_split(interaction_matrix=interaction_matrix)
 
 
 
