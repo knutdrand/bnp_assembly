@@ -230,19 +230,22 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
     return path
 
 
-def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix = None):
+def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix = None, do_splitting=True):
     joiner = IterativePathJoiner(interaction_matrix)
     joiner.run()
     directed_nodes = joiner.get_final_path()
     path = ContigPath.from_directed_nodes(directed_nodes)
-    path_matrix = interaction_matrix.get_matrix_for_path(directed_nodes, as_raw_matrix=False)
+    path_matrix = interaction_matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
+    if not do_splitting:
+        return path, path_matrix
 
     # splitting
     inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix)
     sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
+
     px_func(name='splitting').histogram(sums, title='Histogram of inter-contig sums')
     #px_funx(name='splitting').histogram(np.sum(inter_background.matrices[:, :500, :500], axis=(1, 2)), title='inter matrices sums').show()
-    splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.000005)
+    splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.000000000005)
 
     return splitted_paths
 
@@ -394,9 +397,10 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData=None, distance_me
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
 
     contig_sizes = {i: size for i, size in enumerate(interaction_matrix.contig_sizes)}
-    contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, interaction_matrix_clipping, window_size=100)
+
+    #contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, interaction_matrix_clipping, window_size=100)
     logging.info("Trimming interaction matrix with clips")
-    interaction_matrix.trim_with_clips(contig_clips)
+    #interaction_matrix.trim_with_clips(contig_clips)
 
     return greedy_bayesian_join_and_split(interaction_matrix)
     #return path_optimization_join_and_split(interaction_matrix=interaction_matrix)

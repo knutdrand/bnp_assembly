@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Dict, Union, Tuple, List
 import random
 import pandas as pd
@@ -9,12 +10,11 @@ from bionumpy.genomic_data.global_offset import GlobalOffset
 import numpy as np
 from scipy.ndimage import uniform_filter1d, median_filter
 from tqdm import tqdm
-
 from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.distance_distribution import DistanceDistribution
 from bnp_assembly.graph_objects import Edge
 from bnp_assembly.io import PairedReadStream
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, coo_array, coo_matrix
 from scipy.sparse import csr_matrix
 import sklearn
 import matplotlib.pyplot as plt
@@ -56,6 +56,10 @@ class BinnedNumericGlobalOffset:
     @property
     def contig_sizes(self):
         return self._contig_sizes
+
+    @property
+    def contig_n_bins(self):
+        return self._contig_n_bins
 
     @property
     def contig_offsets(self):
@@ -114,6 +118,17 @@ class BinnedNumericGlobalOffset:
         return np.ceil(coordinates)
         #return (cumulative_contig_sizes[contig_ids] + local_offsets).astype(int)
 
+    def get_contigs_from_bins(self, bins: np.ndarray):
+        # fast, by using a mask instead of np.searchsorted
+        #mask = bins[:, None] >= self._contig_bin_offset
+        #mask = np.logical_and(mask, bins[:, None] < self._contig_bin_offset + self._contig_n_bins)
+        #contig_ids = np.argmax(mask, axis=1)
+        mask = np.zeros(np.sum(self.contig_n_bins), dtype=int)
+        for contig in range(len(self.contig_n_bins)):
+            mask[self.contig_offsets[contig]:self.contig_offsets[contig]+self.contig_n_bins[contig]] = contig
+        contig_ids = mask[bins].astype(int)
+        return contig_ids
+
     def get_unbinned_local_coordinates_from_contig_binned_coordinates(self, contig_id, binned_coordinates: np.ndarray, as_float=False):
         """Translates a binned coordinate to a real offset at the contig"""
         assert np.all(binned_coordinates >= 0)
@@ -151,6 +166,11 @@ class BinnedNumericGlobalOffset:
             return self.from_local_coordinates(contig_id, self.contig_sizes[contig_id]-1)
         return self.from_local_coordinates(contig_id, self.contig_sizes[contig_id]-1) + 1
 
+    def get_new_from_nodes(self, nodes: List[DirectedNode]):
+        new_contig_sizes = np.array([self.contig_sizes[node.node_id] for node in nodes])
+        new_contig_n_bins = np.array([self.contig_n_bins[node.node_id] for node in nodes])
+        new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+        return BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
 
 class NaiveSparseInteractionMatrix:
     """
@@ -206,6 +226,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
             assert (data.T != data).nnz == 0, "Matrix must be symmetric"
         self._data = data
         self._global_offset = global_offset
+
+    @property
+    def global_offset(self):
+        return self._global_offset
 
     @property
     def n_contigs(self):
@@ -274,6 +298,9 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
                                                       np.array([end_bin-start_bin]),
                                                       np.array([0]))
         return SparseInteractionMatrix(submatrix, new_global_offset)
+
+    def set_global_offset(self, global_offset):
+        self._global_offset = global_offset
 
     def get_edge_interaction_matrix(self, edge: Edge, orient_according_to_nearest_interaction=True) -> np.ndarray:
         """
@@ -482,7 +509,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
             # path is same as matrix, return as is
             return self._data if as_raw_matrix else self
         rows = []
-        for contig1 in contigs:
+        for contig1 in tqdm(contigs):
             columns_in_row = []
             for contig2 in contigs:
                 edge = Edge(contig1.right_side, contig2.left_side)
@@ -675,9 +702,85 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
             np.array(new_contig_sizes),
             np.array(contig_n_bins),
             new_contig_offsets)
-        new_matrix = self.get_matrix_for_path(new_path)
+        new_matrix = self.get_matrix_for_path2(new_path, backend=scipy.sparse.coo_matrix)
 
         return SparseInteractionMatrix(new_matrix, new_global_offset)
+
+    def get_matrix_for_path2(self, path: List[DirectedNode], as_raw_matrix=True, backend=scipy.sparse.csr_matrix):
+        """Fast vectorized version that uses searchsorted and some tricks
+        to change sparse coordinates"""
+        # Find current contiga/b for all nonzero
+        node_ids = [contig.node_id for contig in path]
+        if len(set(node_ids)) != len(node_ids):
+            logging.warning("Path contains duplicate nodes")
+            duplicate_node_ids = [node_id for node_id in node_ids if node_ids.count(node_id) > 1]
+            logging.warning(f"Duplicate node ids: {duplicate_node_ids}")
+
+        t0 = time.perf_counter()
+        rows, cols = np.nonzero(self.sparse_matrix)
+        if isinstance(self.sparse_matrix, scipy.sparse.lil_matrix):
+            data = self.sparse_matrix[rows, cols].toarray().ravel()
+        elif isinstance(self.sparse_matrix, coo_matrix):
+            data = self.sparse_matrix.data
+        else:
+            data = np.array(self.sparse_matrix[rows, cols]).ravel()
+
+        logging.info(f"Time to get data from matrix: {time.perf_counter()-t0}")
+        boundaries = self._global_offset._contig_bin_offset
+        #contig_a = np.searchsorted(boundaries, rows, side='right')-1
+        #contig_b = np.searchsorted(boundaries, cols, side='right')-1
+        contig_a = self._global_offset.get_contigs_from_bins(rows)
+        contig_b = self._global_offset.get_contigs_from_bins(cols)
+        logging.info(f"Time to get contigs: {time.perf_counter()-t0}")
+
+        new_contig_sizes = np.array([self._global_offset.contig_sizes[contig.node_id] for contig in path])
+        new_contig_n_bins = np.array([self._global_offset._contig_n_bins[contig.node_id] for contig in path])
+        new_bin_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+        new_global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_bin_offsets)
+
+        # how much to move positions inside contigs
+        global_position_diffs = []
+        for contig in range(self.n_contigs):
+            current_offset = boundaries[contig]
+            pos_in_new_path = [i for i, c in enumerate(path) if c.node_id == contig][0]
+            new_offset = new_bin_offsets[pos_in_new_path]
+            global_position_diffs.append(new_offset - current_offset)
+
+        global_position_diffs = np.array(global_position_diffs)
+        new_rows = rows + global_position_diffs[contig_a]
+        new_cols = cols + global_position_diffs[contig_b]
+
+
+        # adjust for reversed contigs
+        is_reversed = np.array([contig.orientation == '-' for contig in path])
+
+        #contigs_a_mask = np.searchsorted(new_bin_offsets, new_rows, side='right')-1
+        #contigs_b_mask = np.searchsorted(new_bin_offsets, new_cols, side='right')-1
+        contigs_a_mask = new_global_offset.get_contigs_from_bins(new_rows)
+        contigs_b_mask = new_global_offset.get_contigs_from_bins(new_cols)
+        logging.info(f"Time to searchsorted reverse: {time.perf_counter()-t0}")
+
+        reversed_mask_a = is_reversed[contigs_a_mask]
+        reversed_mask_b = is_reversed[contigs_b_mask]
+        contigs_where_reversed_a = contigs_a_mask[reversed_mask_a]
+        contigs_where_reversed_b = contigs_b_mask[reversed_mask_b]
+        new_rows[reversed_mask_a] = new_bin_offsets[contigs_where_reversed_a] + new_contig_n_bins[contigs_where_reversed_a] - new_rows[reversed_mask_a] + new_bin_offsets[contigs_where_reversed_a] - 1
+        new_cols[reversed_mask_b] = new_bin_offsets[contigs_where_reversed_b] + new_contig_n_bins[contigs_where_reversed_b] - new_cols[reversed_mask_b] + new_bin_offsets[contigs_where_reversed_b] - 1
+        logging.info(f"Time to getting new rows/cols: {time.perf_counter()-t0}")
+
+        new_total_bins = np.sum(new_contig_n_bins)
+        # do not need next matrix to be indexed/compressed,
+        logging.info(f"Time to getting path matrix: {time.perf_counter()-t0}")
+
+        t0 = time.perf_counter()
+        new_matrix = backend((data, (new_rows, new_cols)), shape=(new_total_bins, new_total_bins))
+        logging.info(f"Time to init sparse matrix: {time.perf_counter()-t0}")
+
+        if as_raw_matrix:
+            return new_matrix
+
+        return SparseInteractionMatrix(new_matrix, new_global_offset)
+
 
 
 
@@ -964,7 +1067,68 @@ class BackgroundInterMatrices:
         return scipy.stats.norm.logcdf(observed_value, loc=mean, scale=std)
 
     @classmethod
-    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix, assumed_largest_chromosome_ratio_of_genome=1/30, n_samples=50):
+    def weak_intra_interactions(cls, interaction_matrix: SparseInteractionMatrix, max_bins=1000, n_samples=50):
+        """
+        Attempts to sample the weaker interactions inside chromosomes by sampling closer to the diagonal
+        """
+        total_size = interaction_matrix.sparse_matrix.shape[1]
+        max_bins = min(total_size // 30, max_bins)
+        size = max_bins
+        distance_from_diagonal = min(10000, total_size // 20)
+        lowest_x_start = distance_from_diagonal + size
+        highest_x_start = total_size - distance_from_diagonal - size
+        matrices = np.zeros((n_samples, size, size))
+        for i in tqdm(range(n_samples)):
+            xstart = random.randint(lowest_x_start, highest_x_start)
+            ystart = xstart - distance_from_diagonal
+            submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size].toarray()
+            assert submatrix.shape[0] == size and submatrix.shape[1] == size
+            matrices[i] = submatrix
+            print(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size}. Dist: {abs(ystart-xstart)}")
+
+        return cls(matrices)
+
+
+    @classmethod
+    def weak_intra_interactions2(cls, interaction_matrix: SparseInteractionMatrix, max_bins=1000, n_samples=50):
+        """
+        Sample from the outside of the biggest contigs
+        """
+        total_size = interaction_matrix.sparse_matrix.shape[1]
+        biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
+        chosen_contigs = biggest_contigs[:20]
+        smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
+        logging.info(f"Sampling from contigs {chosen_contigs}")
+        size = min(max_bins, smallest_contig_size // 4)
+        logging.info(f"Sampling from size {size}")
+        min_distance_from_diagonal = smallest_contig_size // 2
+        logging.info(f"Min distance from diagonal: {min_distance_from_diagonal}")
+
+        matrices = np.zeros((n_samples, size, size))
+        n_sampled = 0
+        for contig in chosen_contigs:
+            contig_start_bin = interaction_matrix._global_offset.contig_first_bin(contig)
+            contig_end_bin = interaction_matrix._global_offset.contig_last_bin(contig, inclusive=False)
+            lowest_x_start = contig_start_bin + min_distance_from_diagonal + size
+            highest_x_start = contig_end_bin - size
+
+            n_to_sample_from_contig = n_samples // len(chosen_contigs) + 1
+            for sample in range(n_to_sample_from_contig):
+                if n_sampled >= n_samples:
+                    break
+
+                xstart = random.randint(lowest_x_start, highest_x_start)
+                ystart = xstart - min_distance_from_diagonal
+                #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size} on contig {contig} with size {contig_end_bin - contig_start_bin}")
+                submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size].toarray()
+                assert submatrix.shape[0] == size and submatrix.shape[1] == size
+                matrices[n_sampled] = submatrix
+                n_sampled += 1
+
+        return cls(matrices)
+
+    @classmethod
+    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix, assumed_largest_chromosome_ratio_of_genome=1/30, n_samples=50, max_bins=1000):
         """
         Samples outside what is assumed to be largest chromosomes reach
         """
@@ -972,7 +1136,7 @@ class BackgroundInterMatrices:
         logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
         largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
         #size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
-        size = min(1000, largest_contig)  # many bins is not necessary, and leads to large memory usage
+        size = min(max_bins, largest_contig)  # many bins is not necessary, and leads to large memory usage
         logging.info(f"Making background matrices of size {size}")
         lowest_x_start = distance_from_diagonal + size
         highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
@@ -1088,7 +1252,7 @@ class BackgroundInterMatricesMultipleBinsBackend:
         return scipy.stats.norm.logpdf(observed_value, loc=mean, scale=std)
 
 
-def get_number_of_reads_between_all_contigs(sparse_matrix: SparseInteractionMatrix):
+def get_number_of_reads_between_all_contigs(sparse_matrix: SparseInteractionMatrix, set_diagonal_to_zero=True):
     logging.info("Getting number of reads between all contigs")
 
     contig_offsets = sparse_matrix._global_offset.contig_offsets
@@ -1104,6 +1268,6 @@ def get_number_of_reads_between_all_contigs(sparse_matrix: SparseInteractionMatr
     indexes = contig1*n_contigs + contig2
     out = np.bincount(indexes, weights=values, minlength=n_contigs*n_contigs).reshape(n_contigs, n_contigs)
 
-    # set diagonal to zero
-    np.fill_diagonal(out, 0)
+    if set_diagonal_to_zero:
+        np.fill_diagonal(out, 0)
     return out

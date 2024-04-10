@@ -236,7 +236,7 @@ def test_correct_submatrix_when_getting_matrix_for_path():
     interaction_matrix = SparseInteractionMatrix.empty(global_offset)
     interaction_matrix.set_matrix(scipy.sparse.lil_matrix(matrix).tocsr())
 
-    path_matrix = interaction_matrix.get_matrix_for_path(new_path)
+    path_matrix = interaction_matrix.get_matrix_for_path2(new_path)
 
     contig_start = interaction_matrix._global_offset.contig_first_bin(3)
     contig_end = interaction_matrix._global_offset.contig_last_bin(3)+1
@@ -268,23 +268,22 @@ def test_get_matrix_for_path():
     data = np.arange(36).reshape(6, 6)
     # make symmetric
     data = np.maximum(data, data.T)
-    print(data)
     matrix.set_matrix(scipy.sparse.lil_matrix(data))
     print(matrix.nonsparse_matrix)
 
     # same path as in original matrix should not change anything
     path = [DirectedNode(0, '+'), DirectedNode(1, '+'), DirectedNode(2, '+')]
-    path_matrix = matrix.get_matrix_for_path(path)
+    path_matrix = matrix.get_matrix_for_path2(path)
     assert_array_equal(path_matrix.toarray(), matrix.nonsparse_matrix)
 
     # reverse path should reverse the matrix
     path = [DirectedNode(2, '-'), DirectedNode(1, '-'), DirectedNode(0, '-')]
-    path_matrix = matrix.get_matrix_for_path(path)
+    path_matrix = matrix.get_matrix_for_path2(path)
     assert_array_equal(path_matrix.toarray(), matrix.nonsparse_matrix[::-1, ::-1])
 
     # middle node reversed
     path = [DirectedNode(0, '+'), DirectedNode(1, '-'), DirectedNode(2, '+')]
-    path_matrix = matrix.get_matrix_for_path(path)
+    path_matrix = matrix.get_matrix_for_path2(path)
     correct = matrix.nonsparse_matrix.copy()
     correct[2:4, :] = correct[2:4, :][::-1, :]
     correct[:, 2:4] = correct[:, 2:4][:, ::-1]
@@ -304,7 +303,7 @@ def test_get_matrix_for_path2():
     print(matrix.nonsparse_matrix)
 
     initial_path = [DirectedNode(1, '-'), DirectedNode(0, '+')]
-    new = matrix.get_matrix_for_path(initial_path, as_raw_matrix=True)
+    new = matrix.get_matrix_for_path2(initial_path, as_raw_matrix=True)
 
     assert_array_equal(new.toarray(), [
         [0, 1, 1, 0],
@@ -314,7 +313,7 @@ def test_get_matrix_for_path2():
     ])
 
     initial_path = [DirectedNode(0, '-'), DirectedNode(1, '+')]
-    new = matrix.get_matrix_for_path(initial_path, as_raw_matrix=True)
+    new = matrix.get_matrix_for_path2(initial_path, as_raw_matrix=True)
     print(new.toarray())
     assert_array_equal(new.toarray(), [
         [0, 0, 0, 0],
@@ -390,7 +389,7 @@ def test_contigs_covering_percent():
 
 
 @pytest.fixture()
-def matrix():
+def matrix_small():
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 2, 1: 2}, 1)
     matrix = np.array([
         [1, 2, 3, 1],
@@ -402,9 +401,9 @@ def matrix():
     return matrix
 
 
-def test_get_number_of_reads_between_contigs(matrix):
+def test_get_number_of_reads_between_contigs(matrix_small):
 
-    m = get_number_of_reads_between_all_contigs(matrix)
+    m = get_number_of_reads_between_all_contigs(matrix_small, set_diagonal_to_zero=False)
 
     correct = np.array([
         [5, 24],
@@ -416,8 +415,8 @@ def test_get_number_of_reads_between_contigs(matrix):
     print(m)
 
 
-def test_get_edge_counts_with_max_distance(matrix):
-    d, sizes = get_edge_counts_with_max_distance(matrix, max_distance=10)
+def test_get_edge_counts_with_max_distance(matrix_small):
+    d, sizes = get_edge_counts_with_max_distance(matrix_small, max_distance=10)
     assert d[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == 10
     assert d[Edge(NodeSide(0, 'l'), NodeSide(1, 'l'))] == 3
     assert d[Edge(NodeSide(0, 'l'), NodeSide(1, 'r'))] == 1
@@ -463,3 +462,14 @@ def test_get_prob_given_intra_background_for_edges():
     probs = get_prob_given_intra_background_for_edges(matrix)
 
     print(probs)
+
+
+def test_get_contigs_from_bins():
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 3, 1: 2, 2: 10}, 1)
+
+    bins = np.array([10, 1, 2, 3, 0, 4])
+    contigs = global_offset.get_contigs_from_bins(bins)
+    correct = [2, 0, 0, 1, 0, 1]
+    assert_array_equal(contigs, correct)
+    print(contigs)
+

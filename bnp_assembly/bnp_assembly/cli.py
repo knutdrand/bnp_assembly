@@ -1,8 +1,14 @@
 """Console script for bnp_assembly."""
 import os
 from typing import Iterable
-
-# todo
+import sys
+import logging
+logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s: %(message)s",
+)
 import numpy as np
 
 import typer
@@ -34,7 +40,7 @@ import logging
 from . import plotting
 import plotly.express as px
 
-logging.basicConfig(level=logging.DEBUG)
+
 app = typer.Typer()
 
 
