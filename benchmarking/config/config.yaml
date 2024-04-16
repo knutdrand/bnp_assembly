@@ -1,5 +1,5 @@
 
-n_threads: 20
+n_threads: 40
 
 
 genomes:
@@ -27,6 +27,7 @@ genomes:
 
   # yeast
   sacCer3:
+    n_chromosomes: 16
     convert_to_numeric: True  # Set to true if chromosome names should be converted to numeric names
     simulated:
       simulated: True
@@ -52,6 +53,7 @@ genomes:
         chromosomes: "chrI,chrII,chrIII,chrIV,chrIX,chrV,chrVI,chrVII,chrVIII,chrX,chrXI,chrXII,chrXIII,chrXIV,chrXV,chrXVI,chrM"
 
   athalia_rosea:
+    n_chromosomes: 8
     real:
       simulated: True
       assembly_accession: GCA_917208135.1
@@ -62,6 +64,7 @@ genomes:
         chromosomes: 1,2,3,4,5,6,7,8
 
   nymphalis_urticae:
+    n_chromosomes: 25
     real:
       simulated: True
       assembly_accession: GCA_905147175.2
@@ -114,6 +117,7 @@ genomes:
         chromosomes: '1,2,3,4,5,6,7,8,9,10,11,12,13,14,mitochondrion'
 
   malachius_bipustulatus:
+    n_chromosomes: 10
     real:
       simulated: True
       hic_data:

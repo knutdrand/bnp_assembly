@@ -276,8 +276,6 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                             inter_background_stds: np.ndarray,
                             intra_background_means: np.ndarray,
                             intra_background_stds: np.ndarray,
-                            inter_background_means2: np.ndarray=None,
-                            inter_background_stds2: np.ndarray=None,
                             ):
     """
     Computes prob of in a bayesian way by looking both at prob of reads given edge and not edge

@@ -198,8 +198,6 @@ class IterativePathJoiner:
             self._inter_background_stds,
             self._intra_background_means,
             self._intra_background_stds,
-            #self._inter_background_means2,
-            #self._inter_background_stds2
         )
         logging.info("Time to compute distance matrix: %.2f" % (time.perf_counter() - t0))
 
@@ -269,10 +267,10 @@ class IterativePathJoiner:
         for i in range(100):
             if i == 0:
                 m = self._current_distance_matrix
-                plotly.express.imshow(m.data[::2, 1::2], title="distance matrix").show()
+                #plotly.express.imshow(m.data[::2, 1::2], title="distance matrix").show()
 
             n_contigs = self._interaction_matrix.n_contigs
-            n_to_merge = n_contigs // 4 + 1
+            n_to_merge = n_contigs // 3 + 1
             n_to_split = n_joined_prev_iteration // 2 - 1
             logging.info("")
             logging.info(f"Iteration {i}, {len(self._current_path)} nodes in path. Will split {n_to_split} and merge {n_to_merge} nodes.")

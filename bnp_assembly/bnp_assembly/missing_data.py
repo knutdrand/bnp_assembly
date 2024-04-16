@@ -176,7 +176,7 @@ def find_start_clip(bins, window_size=None, mean_coverage=None):
 def find_clips(bins, mean_coverage=None, window_size=None):
     start, end = (find_start_clip(bins),
                   find_end_clip(bins))
-    if start + end >= len(bins):
+    if start + end >= len(bins) // 2:
         return (0, 0)  # Whole node disappears, just use the whole node
     return (start, end)
 
@@ -217,9 +217,10 @@ def find_contig_clips_from_interaction_matrix(contig_dict: Dict[str, int],
         bin_sizes[contig] = interaction_matrix.contig_bin_size(contig)
         #px(name="missing_data").imshow(np.log(submatrix+1), title=f"contig matrix {contig}")
 
-    for node, b in bins.items():
-        px(name="missing_data").array(b, title=f"bin counts contig {node}")
-        px(name="missing_data").line(b, title=f"bin counts contig {node}")
+    if len(contig_dict) < 300:
+        for node, b in bins.items():
+            px(name="missing_data").array(b, title=f"bin counts contig {node}")
+            px(name="missing_data").line(b, title=f"bin counts contig {node}")
 
     #mean_coverage = interaction_matrix.mean_coverage_per_bin()  #sum(np.sum(counts) for counts in bins.values()) / sum(contig_dict.values()) * bin_size
     #assert isinstance(mean_coverage, float), mean_coverage

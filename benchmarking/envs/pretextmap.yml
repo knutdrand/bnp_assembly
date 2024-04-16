@@ -1,8 +1,9 @@
 channels:
-  - conda-forge
   - bioconda
+  - conda-forge
+  - defaults
+
 dependencies:
-  - picard
+  - pretextmap
   - samtools
-  - bwa
-  - sambamba
+

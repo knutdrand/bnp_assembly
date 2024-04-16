@@ -226,3 +226,68 @@ rule common_missing_edges:
 
         print(edge_to_file)
 
+
+rule make_pretextmap:
+    input:
+        bam=ScaffoldingResults.path() + "/scaffolds.sorted_by_read_name.pairs"
+    output:
+        bam=ScaffoldingResults.path() + "/scaffolds.pretext.disabled"
+    conda:
+        "../envs/pretextmap.yml"
+    shell:
+        """
+        #samtools view -h {input.bam} | PretextMap -o {output} --sortby nosort --sortorder descend --mapq 10
+        cat {input.bam} | PretextMap -o {output} --sortby nosort --sortorder descend --mapq 10
+        """
+
+
+rule pretextview:
+    input:
+        pretext=ScaffoldingResults.path() + "/scaffolds.pretext"
+    output:
+        touch(ScaffoldingResults.path() + "/scaffolds.pretextview")
+    #conda:
+    #	"../envs/pretextview.yml"
+    shell:
+        """
+        ./PretextView {input.pretext}
+        """
+
+
+rule pretextview_via_chromap:
+    input:
+        reads1=HiCReads.path() + "/reads1.fq.gz",
+        reads2=HiCReads.path() + "/reads2.fq.gz",
+        primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
+        index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index"
+    output:
+        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pretext",
+    conda:
+        "../envs/chromap.yml"
+    shell:
+        """
+        chromap -t {config[n_threads]} -e 4 -q 1 --split-alignment -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} --SAM -o /dev/stdout |
+        PretextMap -o {output} --sortby nosort --sortorder descend --mapq 10
+        """
+
+
+rule make_chrom_sizes:
+    input:
+        primary_assembly="{assembly}.fa.fai",
+    output:
+        chrom_sizes="{assembly}.chrom.sizes"
+    shell:
+        """
+        cut -f 1,2 {input.primary_assembly} > {output.chrom_sizes}
+        """
+
+rule make_juicebox_hic:
+    input:
+        reads=ScaffoldingResults.path() + "/scaffolds.sorted_by_read_name.short",
+        chrom_sizes=ScaffoldingResults.path() + "/scaffolds.chrom.sizes",
+    output:
+        hic=ScaffoldingResults.path() + "/scaffolds.hic"
+    shell:
+        """
+        java -Xmx2g -jar hic_tools.3.30.00.jar pre {input.reads} {output.hic} {input.chrom_sizes}
+        """

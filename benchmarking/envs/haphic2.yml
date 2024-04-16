@@ -1,0 +1,17 @@
+channels:
+  - conda-forge
+  - intel
+
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - numpy
+      - scipy
+      - matplotlib
+      - scikit-learn
+      - networkx
+      - pysam
+      - portion
+  - mkl
+  - sparse_dot_mkl

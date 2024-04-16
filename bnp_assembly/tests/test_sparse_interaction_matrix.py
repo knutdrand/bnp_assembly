@@ -445,7 +445,7 @@ def test_get_intra_background_sums(matrix):
 
 
 def test_get_prob_given_intra_background_for_edges():
-    register_logging("logging")
+    #register_logging("logging")
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 10, 1: 10}, 1)
     matrix = np.zeros((20, 20))
     for i in range(20):

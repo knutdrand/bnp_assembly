@@ -440,7 +440,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
 
         bins_to_remove = np.zeros(self._data.shape[0], bool)
 
-        for contig, (start, end) in contig_clips.items():
+        for contig, (start, end) in tqdm(contig_clips.items(), desc="Adjusting interaction matrix", total=len(contig_clips)):
             contig_start_bin = self._global_offset.contig_first_bin(contig)
             contig_end_bin = self._global_offset.contig_last_bin(contig)
             # start is where clipping at start end, end is where clipping at end begins

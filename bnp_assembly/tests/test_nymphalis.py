@@ -1,6 +1,6 @@
 import matspy
 from shared_memory_wrapper import from_file
-
+import pytest
 from bnp_assembly.cli import register_logging
 from bnp_assembly.make_scaffold import path_optimization_join_and_split
 from bnp_assembly.missing_data import find_contig_clips_from_interaction_matrix
@@ -9,6 +9,8 @@ from bnp_assembly.sparse_interaction_based_distance import get_prob_of_reads_giv
 import matplotlib.pyplot as plt
 
 
+# outdated
+@pytest.mark.skip
 def test():
     register_logging("logging")
     interaction_matrix = from_file("interaction_matrix_10000_nymphalis.npz")
@@ -27,7 +29,3 @@ def test():
 
     result = path_optimization_join_and_split(interaction_matrix=interaction_matrix)
 
-
-
-if  __name__ == "__main__":
-    test()
