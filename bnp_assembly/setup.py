@@ -12,7 +12,7 @@ with open('HISTORY.rst') as history_file:
 
 requirements = ['typer', 'more-itertools', 'numpy', 'bionumpy', 'plotly',
                 'scipy', 'networkx', 'kaleido', 'scikit-learn', 'pandas',
-                'matspy', 'shared_memory_wrapper']
+                'matspy', 'shared_memory_wrapper', 'snakehelp']
 
 test_requirements = ['pytest>=3', "hypothesis"]
 
