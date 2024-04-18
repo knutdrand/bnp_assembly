@@ -205,6 +205,7 @@ class IterativePathJoiner:
         t0 = time.perf_counter()
         # score by diff between the best score for both nodesides, i.e. max at same row/col
         m = self._current_distance_matrix.data
+        #plotly.express.imshow(m).show()
         #self._interaction_matrix.plot()
         #plt.show()
         # find the element in matrix m that has biggest difference to the next lowest element in the same row and column
@@ -227,6 +228,8 @@ class IterativePathJoiner:
         for indexes in zip(best_indexes[0], best_indexes[1]):
             nodeside_a = NodeSide.from_numeric_index(indexes[0])
             nodeside_b = NodeSide.from_numeric_index(indexes[1])
+            score = m[indexes[0], indexes[1]]
+
             node_a = nodeside_a.to_directed_node()
             node_b = nodeside_b.to_directed_node().reverse()  # reverse because we want l to be + direction for node b
             if node_a.node_id in nodes_picked or node_b.node_id in nodes_picked:
@@ -271,10 +274,10 @@ class IterativePathJoiner:
 
             n_contigs = self._interaction_matrix.n_contigs
             n_to_merge = n_contigs // 3 + 1
-            n_to_split = n_joined_prev_iteration // 2 - 1
+            n_to_split = n_joined_prev_iteration // 3 - 1
             logging.info("")
             logging.info(f"Iteration {i}, {len(self._current_path)} nodes in path. Will split {n_to_split} and merge {n_to_merge} nodes.")
-            if i > 0 and n_to_split > 0 and False:
+            if i > 0 and n_to_split > 0 and False:  #i % 2 == 1:
                 self.split(n_to_split)
 
             logging.info(f"There are {len(self._current_path)} nodes after splitting.")
@@ -326,7 +329,7 @@ class IterativePathJoiner:
             # merge the best edges into single nodes
 
             # make a new path where modes in the best edges are together and the rest after that
-            #logging.info(f"Path now is {self._current_path}")
+            logging.info(f"Path now is {self._current_path}")
             self._interaction_matrix = self._interaction_matrix.merge_edges(best_edges)
             #self._interaction_matrix.plot()
             #plt.show()

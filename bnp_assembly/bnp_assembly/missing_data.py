@@ -176,7 +176,7 @@ def find_start_clip(bins, window_size=None, mean_coverage=None):
 def find_clips(bins, mean_coverage=None, window_size=None):
     start, end = (find_start_clip(bins),
                   find_end_clip(bins))
-    if start + end >= len(bins) // 2:
+    if start + end >= len(bins):
         return (0, 0)  # Whole node disappears, just use the whole node
     return (start, end)
 
@@ -214,8 +214,20 @@ def find_contig_clips_from_interaction_matrix(contig_dict: Dict[str, int],
     for contig in tqdm(contig_dict, desc="Finding contig clips"):
         #submatrix = interaction_matrix.contig_submatrix(contig).toarray()
         bins[contig] = interaction_matrix.get_contig_coverage_counts(contig).astype(int)
+        # smooth if many bins
+
+        if len(bins[contig]) > 10000 and False:
+            bins[contig] = np.convolve(bins[contig], np.ones(1000) / 1000, mode='same')
+        elif len(bins[contig]) > 1000 and False:
+            bins[contig] = np.convolve(bins[contig], np.ones(100) / 100, mode='same')
+        elif len(bins[contig]) > 100 and False:
+            bins[contig] = np.convolve(bins[contig], np.ones(10) / 10, mode='same')
+        elif len(bins[contig]) > 50 and False:
+            bins[contig] = np.convolve(bins[contig], np.ones(2) / 2, mode='same')
+
         bin_sizes[contig] = interaction_matrix.contig_bin_size(contig)
         #px(name="missing_data").imshow(np.log(submatrix+1), title=f"contig matrix {contig}")
+
 
     if len(contig_dict) < 300:
         for node, b in bins.items():

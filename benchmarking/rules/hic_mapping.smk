@@ -155,6 +155,22 @@ rule map_hic_with_chromap:
         cat pairs.header {output.temp} > {output.pairs}
         """
 
+rule map_hic_with_chromap_bam:
+    input:
+        reads1=HiCReads.path() + "/reads1.fq.gz",
+        reads2=HiCReads.path() + "/reads2.fq.gz",
+        primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
+        index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index",
+    output:
+        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap.bam",
+    conda:
+        "../envs/chromap.yml"
+    shell:
+        """
+        chromap -t {config[n_threads]} --low-mem --SAM -e 4 -q 1 --split-alignment  -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o /dev/stdout |
+        samtools view -b -o {output}
+        """
+
 rule map_hic_with_chromap_sam:
     input:
         reads1=HiCReads.path() + "/reads1.fq.gz",
@@ -162,12 +178,12 @@ rule map_hic_with_chromap_sam:
         primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
         index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index",
     output:
-        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.sorted_by_read_name.sam",
+        pairs=temp(HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap.sam"),
     conda:
         "../envs/chromap.yml"
     shell:
         """
-        chromap -t {config[n_threads]} --preset chip -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output}
+        chromap -t {config[n_threads]} --low-mem --SAM -e 4 -q 1 --split-alignment  -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output}
         """
 
 

@@ -25,7 +25,7 @@ def split_on_scores(contig_path, edge_scores, threshold, keep_over=True) -> List
         edges = [edge for edge, score in edge_scores.items() if score < threshold]
     else:
         edges = [edge for edge, score in edge_scores.items() if score >= threshold]
-    #logger.info(f'Splitting with threshold {threshold} on {len(edges)} edges: {edges}')
+    logger.info(f'Splitting with threshold {threshold} on {len(edges)} edges: {edges}')
     return contig_path.split_on_edges(edges)
 
 

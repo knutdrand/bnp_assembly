@@ -23,10 +23,10 @@ class OptimalSquares:
         self._opportunity_matrix_background = np.broadcast_to(opportunity_matrix_background, self._count_matrix.shape)
         self._max_split = max_splits
         self._n_nodes = len(self._count_matrix)
-        px.imshow(self._count_matrix, title='count').show()
-        px.imshow(self._opportunity_matrix, title='opportunity').show()
-        px.imshow(self._opportunity_matrix_background, title='opportunity background').show()
-        px.imshow(self._count_matrix / self._opportunity_matrix, title='rate').show()
+        #px.imshow(self._count_matrix, title='count').show()
+        #px.imshow(self._opportunity_matrix, title='opportunity').show()
+        #px.imshow(self._opportunity_matrix_background, title='opportunity background').show()
+        #px.imshow(self._count_matrix / self._opportunity_matrix, title='rate').show()
 
     def score_split(self, split_indices: List[int]) -> float:
         if len(split_indices) != len(set(split_indices)):

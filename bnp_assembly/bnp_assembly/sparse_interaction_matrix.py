@@ -543,18 +543,24 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         logging.info("Flipped contig")
 
     def plot(self, xaxis_names=None, title=""):
-        return self.plot_submatrix(0, self.n_contigs-1, xaxis_names=xaxis_names, title=title)
+        return self.plot_submatrix(None, None, xaxis_names=xaxis_names, title=title)
 
     def plot_submatrix(self, from_contig: int, to_contig: int, xaxis_names=None, title=""):
-        start = self._global_offset.contig_first_bin(from_contig)
-        end = self._global_offset.contig_last_bin(to_contig, inclusive=False)
-        matrix = self._data[start:end, start:end]
-        logging.info(f"Total matrix size: {matrix.shape}")
-        if xaxis_names is None:
-            xaxis_names = [str(c) for c in range(from_contig, to_contig+1)]
-        xaxis_names = [x.replace("contig", "") for x in xaxis_names]
+        if from_contig == None and to_contig == None:
+            matrix = self.sparse_matrix
+            xaxis_names = [str(c) for c in range(self.n_contigs)]
+            offsets = [self._global_offset.contig_first_bin(c) for c in range(0, self.n_contigs)]
+        else:
+            start = self._global_offset.contig_first_bin(from_contig)
+            end = self._global_offset.contig_last_bin(to_contig, inclusive=False)
+            matrix = self._data[start:end, start:end]
+            if xaxis_names is None:
+                xaxis_names = [str(c) for c in range(from_contig, to_contig+1)]
+                xaxis_names = [x.replace("contig", "") for x in xaxis_names]
+            offsets = [self._global_offset.contig_first_bin(c) - start for c in range(from_contig, to_contig+1)]
 
-        offsets = [self._global_offset.contig_first_bin(c) - start for c in range(from_contig, to_contig+1)]
+        logging.info(f"Total matrix size: {matrix.shape}")
+
         buckets = max(500, min(2000, matrix.shape[0]//200))
         logging.info(f"Number of buckets: {buckets}")
         fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
@@ -629,7 +635,8 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
                    return_matrices=False):
         """Returns an edge score for splitting at the given index.
         The scores is minimum of the score of a right window and left window.
-        For one window, we never look further than the previous contig sizes (in case we end up outside a chromosome)
+        For one window, we never look further than the previous contig sizes
+        (in case we end up outside a chromosome)
         For the other window, we never look further than the next contig size
 
         If background_matrix is given, score is divided by score in same sized region in background matrix

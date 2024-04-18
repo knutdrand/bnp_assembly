@@ -8,8 +8,7 @@ from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.graph_objects import Edge, NodeSide
 from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
-from bnp_assembly.sparse_interaction_based_distance import get_edge_counts_with_max_distance, get_intra_background, \
-    get_prob_given_intra_background_for_edges
+from bnp_assembly.sparse_interaction_based_distance import get_edge_counts_with_max_distance, get_intra_background
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
     SparseInteractionMatrix, contigs_covering_percent_of_total, get_number_of_reads_between_all_contigs
 import numpy as np
@@ -444,6 +443,7 @@ def test_get_intra_background_sums(matrix):
     print(means)
 
 
+@pytest.mark.skip(reason="Outdated after refactor")
 def test_get_prob_given_intra_background_for_edges():
     #register_logging("logging")
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 10, 1: 10}, 1)
@@ -452,7 +452,6 @@ def test_get_prob_given_intra_background_for_edges():
         for j in range(20):
             matrix[i, j] = 20 - abs(i - j) + np.random.random()
 
-    px.imshow(matrix, title="interaction matrix").show()
     # make symmetric
     matrix = np.maximum(matrix, matrix.T)
 

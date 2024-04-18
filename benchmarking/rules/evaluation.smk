@@ -229,9 +229,9 @@ rule common_missing_edges:
 
 rule make_pretextmap:
     input:
-        bam=ScaffoldingResults.path() + "/scaffolds.sorted_by_read_name.pairs"
+        bam=ScaffoldingResults.path() + "/scaffolds.chromap.sam"
     output:
-        bam=ScaffoldingResults.path() + "/scaffolds.pretext.disabled"
+        pretext=ScaffoldingResults.path() + "/scaffolds.pretext"
     conda:
         "../envs/pretextmap.yml"
     shell:
@@ -261,7 +261,7 @@ rule pretextview_via_chromap:
         primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
         index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index"
     output:
-        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pretext",
+        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pretext.disabled",
     conda:
         "../envs/chromap.yml"
     shell:

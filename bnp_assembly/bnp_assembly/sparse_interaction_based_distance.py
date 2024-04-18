@@ -228,10 +228,6 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
     return matrix, nodeside_sizes
 
 
-def get_prob_given_intra_background_for_edges(interaction_matrix: SparseInteractionMatrix):
-    background_sums = get_intra_background(interaction_matrix)
-    return get_prob_of_edge_counts(background_sums, interaction_matrix)
-
 
 def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.ndarray,
                             edge_counts, nodeside_sizes):

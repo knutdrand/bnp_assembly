@@ -620,13 +620,16 @@ def split_using_interaction_matrix(path, path_matrix, threshold=0.1):
     return splitted_paths
 
 
-def get_splitting_edge_scores(path_matrix, background_inter_matrices: BackgroundInterMatrices, path: ContigPathSides,
-                                   threshold=0.05):
+def get_splitting_edge_scores(path_matrix, background_inter_matrices: BackgroundInterMatrices,
+                              path: ContigPathSides,
+                              threshold=0.05):
 
     minimum_assumed_chromosome_size_in_bins = path_matrix.sparse_matrix.shape[1] // 50
 
     edge_scores = {}
     max_size = background_inter_matrices.matrices.shape[1]
+    logging.info(f"Max size when splitting: {max_size}")
+    logging.info(f"Minimum assumed chromosome size: {minimum_assumed_chromosome_size_in_bins}")
     for i, edge in enumerate(path.edges):
         matrix1, matrix2 = path_matrix.edge_score(i + 1, minimum_assumed_chromosome_size_in_bins, return_matrices=True)
         # matrices have direction directly from the main matrix, i.e. not
