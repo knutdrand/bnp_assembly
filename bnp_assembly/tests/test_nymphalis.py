@@ -3,9 +3,6 @@ from shared_memory_wrapper import from_file
 import pytest
 from bnp_assembly.cli import register_logging
 from bnp_assembly.make_scaffold import path_optimization_join_and_split
-from bnp_assembly.missing_data import find_contig_clips_from_interaction_matrix
-from bnp_assembly.sparse_interaction_based_distance import get_prob_of_reads_given_not_edge, \
-    get_prob_given_intra_background_for_edges
 import matplotlib.pyplot as plt
 
 

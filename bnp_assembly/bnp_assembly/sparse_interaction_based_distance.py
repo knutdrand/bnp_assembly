@@ -15,8 +15,7 @@ from tqdm import tqdm
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundMatrix, BackgroundInterMatrices, \
-    BackgroundInterMatricesSingleBin, get_number_of_reads_between_all_contigs, \
-    BackgroundInterMatricesMultipleBinsBackend
+    BackgroundInterMatricesSingleBin, get_number_of_reads_between_all_contigs
 from bnp_assembly.util import get_all_possible_edges
 from .plotting import px
 
