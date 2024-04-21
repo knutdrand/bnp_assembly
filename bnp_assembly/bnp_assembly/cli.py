@@ -1,8 +1,14 @@
 """Console script for bnp_assembly."""
 import os
+from pathlib import Path
 from typing import Iterable
 import sys
 import logging
+
+from bnp_assembly.bayesian_splitting import bayesian_split
+from bnp_assembly.contig_path_optimization import split_using_inter_distribution
+from bnp_assembly.iterative_path_joining import IterativePathJoiner
+
 logging.basicConfig(level=logging.INFO)
 logging.basicConfig(
     stream=sys.stderr,
@@ -18,7 +24,7 @@ import matplotlib
 #matplotlib.use('Agg')
 
 from bnp_assembly.agp import ScaffoldAlignments
-from bnp_assembly.contig_graph import DirectedNode
+from bnp_assembly.contig_graph import DirectedNode, ContigPath
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
 from bnp_assembly.evaluation.debugging import ScaffoldingDebugger, analyse_missing_data
@@ -29,11 +35,13 @@ from bnp_assembly.input_data import FullInputData
 from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix
-from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix, BackgroundMatrix
+from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix, BackgroundMatrix, \
+    BackgroundInterMatrices
 from shared_memory_wrapper import to_file, from_file
 
 from .io import get_genomic_read_pairs, PairedReadStream
-from bnp_assembly.make_scaffold import make_scaffold, join as _join, split as _split, get_numeric_input_data
+from bnp_assembly.make_scaffold import make_scaffold, join as _join, split as _split, get_numeric_input_data, \
+    get_contig_names_to_ids_translation, get_contig_ids_to_names_translation
 from bnp_assembly.max_distance import estimate_max_distance2
 from .simulation import hic_read_simulation
 import logging
@@ -88,14 +96,63 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
                              interaction_matrix_clipping=interaction_matrix_big,
                              cumulative_distribution=cumulative_distribution,
                              )
-    alignments = scaffold.to_scaffold_alignments(genome, 1)
-    alignments.to_agp(out_directory + "/scaffolds.agp")
-    sequence_entries = scaffold.to_sequence_entries(genome.read_sequence(), padding=2)
-    with bnp.open(out_file_name, "w") as f:
-        f.write(sequence_entries)
+
+    write_scaffolds_to_file(genome, out_file_name, scaffold)
 
     report_file = plotting.px(name="main").write_report()
     logging.info(f"Report written to {report_file}")
+
+
+def write_scaffolds_to_file(genome, out_file_name, scaffold):
+    alignments = scaffold.to_scaffold_alignments(genome, 1)
+    out_base_name = ".".join(out_file_name.split(".")[0:-1])
+    alignments.to_agp(out_base_name + ".agp")
+    logging.info(f"Wrote scaffold to {out_base_name}.agp")
+    sequence_entries = scaffold.to_sequence_entries(genome.read_sequence(), padding=2)
+    with bnp.open(out_file_name, "w") as f:
+        f.write(sequence_entries)
+    logging.info(f"Wrote scaffold to {out_file_name}")
+
+
+@app.command()
+def scaffold_iteration(agp: str, original_contigs_fa: str, interaction_matrix: str, out_file_name: str):
+    logging_folder = str(Path(out_file_name).parent / "logging")
+    register_logging(logging_folder)
+    matrix = from_file(interaction_matrix)
+    scaffolds = ScaffoldAlignments.from_agp(agp)
+    genome = bnp.Genome.from_file(original_contigs_fa)
+    contig_names_to_ids = get_contig_names_to_ids_translation(genome)
+    contig_name_translation = get_contig_ids_to_names_translation(genome)
+
+    # contig_sizes = {i: size for i, size in enumerate(matrix.contig_sizes)}
+    # contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, matrix, window_size=100)
+    # matrix.trim_with_clips(contig_clips)
+    path = scaffolds.get_list_of_nodes()
+    logging.info(f"Read path {path}")
+    # translate to numeric ids
+    path = [DirectedNode(contig_names_to_ids[node.node_id], node.orientation) for nodes in path for node in nodes]
+
+    # only split
+    path = bayesian_split(matrix, path)
+    """
+    print(scaffolds.get_list_of_nodes())
+    joiner = IterativePathJoiner(matrix)
+    joiner.init_with_scaffold_alignments(scaffolds, contig_names_to_ids)
+    joiner.run(n_rounds=1)
+    path = joiner.get_final_path_as_list_of_contigpaths()
+
+    #path = ContigPath.from_directed_nodes(directed_nodes)
+    #path = [path]
+
+    # splitting
+    #path_matrix = matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
+    #inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, max_bins=5000)
+    #path = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.05)
+    """
+    splitted_path = Scaffolds.from_contig_paths(path, contig_name_translation)
+    logging.info(f"Writing path {splitted_path}")
+    write_scaffolds_to_file(genome, out_file_name, splitted_path)
+
 
 
 @app.command()

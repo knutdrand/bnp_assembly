@@ -4,6 +4,7 @@ import random
 from typing import List
 import numpy as np
 import pandas as pd
+from bnp_assembly.bayesian_splitting import bayesian_split
 from bnp_assembly.iterative_path_joining import IterativePathJoiner
 from bnp_assembly.sparse_interaction_based_distance import DistanceFinder, DistanceFinder2, DistanceFinder3, \
     get_edge_counts_with_max_distance, get_bayesian_edge_probs
@@ -134,6 +135,17 @@ def get_numeric_input_data(input_data):
     return contig_name_translation, numeric_input_data
 
 
+def get_contig_names_to_ids_translation(genome):
+    encoding = genome.get_genome_context().encoding
+    contig_dict = genome.get_genome_context().chrom_sizes
+    return {name: int(encoding.encode(name).raw()) for name in contig_dict}
+
+
+def get_contig_ids_to_names_translation(genome):
+    encoding = genome.get_genome_context().encoding
+    contig_dict = genome.get_genome_context().chrom_sizes
+    return {int(encoding.encode(name).raw()): name for name in contig_dict}
+
 def get_numeric_contig_name_translation(genome):
     encoding = genome.get_genome_context().encoding
     contig_dict = genome.get_genome_context().chrom_sizes
@@ -233,19 +245,22 @@ def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix =
     joiner = IterativePathJoiner(interaction_matrix)
     joiner.run()
     directed_nodes = joiner.get_final_path()
+    #return joiner.get_final_path_as_list_of_contigpaths()
+
     path = ContigPath.from_directed_nodes(directed_nodes)
     path_matrix = interaction_matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
     if not do_splitting:
         return path, path_matrix
 
     # splitting
-    inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, max_bins=5000)
-    sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
+    #inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, max_bins=5000)
+    #sums = inter_background.get_sums(inter_background.matrices.shape[0], inter_background.matrices.shape[1])
 
-    px_func(name='splitting').histogram(sums, title='Histogram of inter-contig sums')
+    #px_func(name='splitting').histogram(sums, title='Histogram of inter-contig sums')
     #px_funx(name='splitting').histogram(np.sum(inter_background.matrices[:, :500, :500], axis=(1, 2)), title='inter matrices sums').show()
 
-    splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.05)
+    #splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.00000005)
+    splitted_paths = bayesian_split(path_matrix, directed_nodes, threshold=10)
     return splitted_paths
 
 

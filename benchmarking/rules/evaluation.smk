@@ -261,7 +261,7 @@ rule pretextview_via_chromap:
         primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
         index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index"
     output:
-        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pretext.disabled",
+        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.dirext.pretext",
     conda:
         "../envs/chromap.yml"
     shell:

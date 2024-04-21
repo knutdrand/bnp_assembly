@@ -2,7 +2,7 @@ from typing import List
 
 import scipy.stats
 
-from .contig_graph import ContigPathSides
+from .contig_graph import ContigPathSides, ContigPath
 from .location import LocationPair, Location
 from .contig_map import ScaffoldMap
 from .scaffold_splitting import count_possible_edge_pairs, count_edge_overlaps
@@ -16,10 +16,11 @@ from .distance_distribution import calculate_distance_distritbution, distance_di
 # import plotly.express as _px
 from .scaffold_splitting.binned_bayes import Yahs
 import logging
+
 logger = logging.getLogger(__name__)
 
 
-def split_on_scores(contig_path, edge_scores, threshold, keep_over=True) -> List[ContigPathSides]:
+def split_on_scores(contig_path, edge_scores, threshold, keep_over=True) -> List[ContigPath]:
     px(name='splitting').bar(y=list(edge_scores.values()), x=[str(edge) for edge in edge_scores.keys()], title='Edge scores').show()
     if keep_over:
         edges = [edge for edge, score in edge_scores.items() if score < threshold]

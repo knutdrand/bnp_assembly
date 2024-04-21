@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Dict, Union, Tuple, List
+from typing import Dict, Union, Tuple, List, Literal
 import random
 import pandas as pd
 import plotly.express as px
@@ -169,6 +169,13 @@ class BinnedNumericGlobalOffset:
     def get_new_from_nodes(self, nodes: List[DirectedNode]):
         new_contig_sizes = np.array([self.contig_sizes[node.node_id] for node in nodes])
         new_contig_n_bins = np.array([self.contig_n_bins[node.node_id] for node in nodes])
+        new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+        return BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
+
+    def get_new_by_merging_nodes(self, nodes: List[List[int]]):
+        """Returns a new global offset where new nodes are merges of the nodes given in the list of lists"""
+        new_contig_sizes = np.array([sum(self.contig_sizes[node] for node in nodes) for nodes in nodes])
+        new_contig_n_bins = np.array([sum(self.contig_n_bins[node] for node in nodes) for nodes in nodes])
         new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
         return BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
 
@@ -681,7 +688,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         score2 = np.sum(matrix2) / demominator2
         return max(score1, score2)
 
-    def merge_edges(self, edges):
+    def merge_edges(self, edges) -> 'SparseInteractionMatrix':
         """Returns a new matrix where the two nodes in each of the edges have been merged
         and placed at the beginning of the matrix"""
         new_path = []
@@ -1097,21 +1104,27 @@ class BackgroundInterMatrices:
 
 
     @classmethod
-    def weak_intra_interactions2(cls, interaction_matrix: SparseInteractionMatrix, max_bins=1000, n_samples=50):
+    def weak_intra_interactions2(cls, interaction_matrix: SparseInteractionMatrix, max_bins=1000, n_samples=50, type=Literal['weak', 'strong']):
         """
         Sample from the outside of the biggest contigs
         """
         total_size = interaction_matrix.sparse_matrix.shape[1]
         biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
-        chosen_contigs = biggest_contigs[:20]
+        chosen_contigs = biggest_contigs[:5]
+        logging.info(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
         smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
         logging.info(f"Sampling from contigs {chosen_contigs}")
         size = min(max_bins, smallest_contig_size // 4)
         logging.info(f"Sampling from size {size}")
-        min_distance_from_diagonal = smallest_contig_size // 2
+
+        if type == "weak":
+            min_distance_from_diagonal = smallest_contig_size // 2
+        else:
+            min_distance_from_diagonal = 0
         logging.info(f"Min distance from diagonal: {min_distance_from_diagonal}")
 
         matrices = np.zeros((n_samples, size, size))
+
         n_sampled = 0
         for contig in chosen_contigs:
             contig_start_bin = interaction_matrix._global_offset.contig_first_bin(contig)
@@ -1125,7 +1138,11 @@ class BackgroundInterMatrices:
                     break
 
                 xstart = random.randint(lowest_x_start, highest_x_start)
-                ystart = xstart - min_distance_from_diagonal
+                lowest_y_start = contig_start_bin
+                highest_y_start = xstart - min_distance_from_diagonal - size
+                ystart = random.randint(lowest_y_start, highest_y_start)
+                #logging.info(f"Sampling {type} from {ystart}:{ystart+size} and {xstart}:{xstart+size} on contig {contig}")
+                #ystart = xstart - min_distance_from_diagonal
                 #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size} on contig {contig} with size {contig_end_bin - contig_start_bin}")
                 submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size].toarray()
                 assert submatrix.shape[0] == size and submatrix.shape[1] == size

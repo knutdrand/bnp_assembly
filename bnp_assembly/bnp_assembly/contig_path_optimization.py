@@ -641,7 +641,7 @@ def get_splitting_edge_scores(path_matrix, background_inter_matrices: Background
         # percentile is ratio of background with larger sum, low percentile indicates high counts and one should not split
         # we care about the lowest percentile when looking both directions
         edge_scores[edge] = min(percentile1, percentile2)
-        #print(f"Edge {edge} has score {edge_scores[edge]}. Percentile1: {percentile1}, percentile2: {percentile2}.")
+        print(f"Edge {edge} has score {edge_scores[edge]}. Percentile1: {percentile1}, percentile2: {percentile2}. Sum1: {matrix1.sum()}, sum2: {matrix2.sum()}")
         #print(f"  Shape/sum1: {matrix1.shape}, {matrix1.sum()}")
         #print(f"  Shape/sum2: {matrix2.shape}, {matrix2.sum()}")
 
@@ -651,7 +651,7 @@ def get_splitting_edge_scores(path_matrix, background_inter_matrices: Background
 def split_using_inter_distribution(path_matrix, background_inter_matrices: BackgroundInterMatrices, path: ContigPathSides,
                                    threshold=0.05):
     edge_scores = get_splitting_edge_scores(path_matrix, background_inter_matrices, path, threshold=threshold)
-    #px_func(name="main").bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values()), title="Splitting scores")
+    px_func(name="main").bar(x=[str(e) for e in edge_scores.keys()], y=list(edge_scores.values()), title="Splitting scores")
     logging.info(f"Path before splitting {path.directed_nodes}")
     splitted_paths = split_on_scores(path, edge_scores, threshold=threshold, keep_over=False)
     return splitted_paths

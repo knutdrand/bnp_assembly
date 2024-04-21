@@ -1,11 +1,15 @@
 from collections import defaultdict
+from typing import List, Tuple
 
 import numpy as np
 from bionumpy import LocationEntry
 from bionumpy.bnpdataclass import bnpdataclass
+from bnp_assembly.contig_graph import DirectedNode
+from bnp_assembly.graph_objects import Edge
 
 from bnp_assembly.location import Location
 from bnp_assembly.simulation.pair_distribution import PairedLocationEntry
+import bionumpy as bnp
 
 
 class ScaffoldMap:
@@ -136,3 +140,41 @@ class ScaffoldAlignments:
             desc += "\n"
 
         return desc
+
+    @property
+    def scaffold_ids(self):
+        ids = []
+        for entry in self:
+            scaffold_id = entry.scaffold_id.to_string()
+            if scaffold_id not in ids:
+                ids.append(scaffold_id)
+        return ids
+
+    def get_contigs_in_scaffold(self, scaffold_id) -> List[DirectedNode]:
+        entries = self[bnp.str_equal(self.scaffold_id, scaffold_id)]
+        contigs = []
+        for entry in entries:
+            contig_name = entry.contig_id.to_string()
+            direction = entry.orientation.to_string()
+            contigs.append(DirectedNode(contig_name, direction))
+        return contigs
+
+    def to_list_of_edges(self) -> List[Tuple[DirectedNode, DirectedNode]]:
+        """Returns a list of edges (tuples of nodes) where edges are nodes connected because
+         they are connected in a scaffold
+        """
+        edges = []
+        for scaffold_id in self.scaffold_ids:
+            contigs = self.get_contigs_in_scaffold(scaffold_id)
+            if len(contigs) > 1:
+                for i in range(len(contigs) - 1):
+                    edges.append((contigs[i], contigs[i + 1]))
+        return edges
+
+    def get_list_of_nodes(self) -> List[List[DirectedNode]]:
+        """Returns a list of lists of nodes where each sublist contains the nodes for a scaffold"""
+        nodes = []
+        for scaffold_id in self.scaffold_ids:
+            contigs = self.get_contigs_in_scaffold(scaffold_id)
+            nodes.append(contigs)
+        return nodes

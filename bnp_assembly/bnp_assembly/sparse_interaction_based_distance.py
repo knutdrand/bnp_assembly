@@ -159,14 +159,37 @@ def get_prob_of_reads_given_not_edge(interactions, prob_func: Literal["cdf", "pm
     return get_prob_of_edge_counts(background_sums, interactions)
 
 
+def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix):
+    resolutions = [(1000, 500), (5000, 350), (10000, 200), (20000, 50)]
+    inter_background_means = None
+    inter_background_stds = None
+    for n_samples, max_bins in resolutions:
+        logging.info(f"Sampling {n_samples} reads for inter background with max bins {max_bins}")
+        #b = get_intra_distance_background(interaction_matrix, n_samples=n_samples, max_bins=max_bins)
+        b = BackgroundInterMatrices.from_sparse_interaction_matrix(interaction_matrix, max_bins=max_bins, n_samples=n_samples).matrices
+        b = np.cumsum(b, axis=1).cumsum(axis=2)
+
+        means = b.mean(axis=0)
+        stds = b.std(axis=0)
+        if inter_background_means is None:
+            inter_background_means = means
+            inter_background_stds = stds
+        else:
+            # overwrite the closer part with the one that has more samples (better estimate
+            inter_background_means[:means.shape[0], :means.shape[1]] = means
+            inter_background_stds[:means.shape[0], :means.shape[1]] = stds
+
+    return inter_background_means, inter_background_stds
+
 def get_inter_background(interactions, n_samples=1000, max_bins=1000):
     background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=n_samples, max_bins=max_bins)
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
     return background_sums
 
 
-def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000):
-    background = BackgroundInterMatrices.weak_intra_interactions2(interactions, n_samples=n_samples, max_bins=max_bins)
+def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000, type="weak"):
+    background = BackgroundInterMatrices.weak_intra_interactions2(interactions, n_samples=n_samples, max_bins=max_bins, type=type)
+    background.matrices = background.matrices[:, ::-1, :]  # flip because oriented towards diagonal originally
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
     return background_sums
 
@@ -229,7 +252,8 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
 
 
 def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.ndarray,
-                            edge_counts, nodeside_sizes):
+                            edge_counts, nodeside_sizes,
+                            func=scipy.stats.norm.logsf):
     # get background of intra counts
 
     maxdist = background_means.shape[0] - 1
@@ -239,9 +263,6 @@ def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.nd
         logging.warning(f"{np.sum(stds==0)} stds are 0. Will fix by adding small number to those that are zero")
         logging.warning("Could be because too few reads")
         stds[stds == 0] = 0.0000001
-
-    # todo: this call can either be cashed or done outside this function to speedup
-    #edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(interaction_matrix, maxdist)
 
     #n_nodesides = interaction_matrix.n_contigs * 2
     n_nodesides = len(nodeside_sizes)
@@ -259,7 +280,7 @@ def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.nd
     edge_scores = edge_counts.data.ravel()
     assert len(edge_scores) == len(edge_means), (len(edge_scores), len(edge_means))
     t0 = time.perf_counter()
-    pmfs = scipy.stats.norm.logsf(edge_scores, loc=edge_means, scale=edge_stds).reshape((n_nodesides, n_nodesides))
+    pmfs = func(edge_scores, loc=edge_means, scale=edge_stds).reshape((n_nodesides, n_nodesides))
     logging.info(f"Done p values, logpdf time: {time.perf_counter() - t0:.2f}")
     #px(name="joining").imshow(pmfs, title="pmfs").show()
 
@@ -283,22 +304,29 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
 
     #prob_reads_given_same_chrom = get_prob_of_edge_counts(inter_background_means2, inter_background_stds2, edge_counts, nodeside_sizes)
 
-    prob_reads_given_not_edge = get_prob_of_edge_counts(inter_background_means, inter_background_stds, edge_counts, nodeside_sizes)
+    #plotly.express.imshow(edge_counts.data[1::2, ::2], title="Edge counts").show()
+    prob_reads_given_not_edge = get_prob_of_edge_counts(inter_background_means, inter_background_stds, edge_counts,
+                                                        nodeside_sizes,
+                                                        func=scipy.stats.norm.logsf)
     prob_reads_given_not_edge = prob_reads_given_not_edge.data
+
+    #plotly.express.imshow(prob_reads_given_not_edge[1::2, ::2], title="Prob reads given not edge").show()
 
     assert not np.any(np.isnan(prob_reads_given_not_edge)), prob_reads_given_not_edge
     assert not np.any(np.isinf(prob_reads_given_not_edge)), prob_reads_given_not_edge
 
-    prob_reads_given_edge = get_prob_of_edge_counts(intra_background_means, intra_background_stds, edge_counts, nodeside_sizes)
+    prob_reads_given_edge = get_prob_of_edge_counts(intra_background_means, intra_background_stds, edge_counts,
+                                                    nodeside_sizes,
+                                                    func=scipy.stats.norm.logcdf)
     #prob_reads_given_edge = get_prob_given_intra_background_for_edges(interaction_matrix)
     #prob_reads_given_edge.plot(name="prob_reads_given_edge")
     assert not np.any(np.isnan(prob_reads_given_edge.data)), prob_reads_given_edge.data
     assert not np.any(np.isinf(prob_reads_given_edge.data)), prob_reads_given_edge.data
 
+    #plotly.express.imshow(prob_reads_given_edge.data[1::2, ::2], title="Prob reads given edge").show()
     #prob_reads_given_not_edge.plot(name="prob_reads_given_not_edge")
 
     prob_reads_given_edge = prob_reads_given_edge.data
-    #plotly.express.imshow(prob_reads_given_edge[::2, 1::2], title="Prob reads given edge").show()
     #prob_reads_given_same_chrom = prob_reads_given_same_chrom.data
     #prob_reads_given_not_edge = 1-prob_reads_given_not_edge.data
 
@@ -321,6 +349,7 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                               #prior_same_chrom + prob_reads_given_same_chrom
                             ))
     logging.info(f"Time to compute probs: {time.perf_counter() - t0:.2f}")
+    #plotly.express.imshow(prob_edge[1::2, ::2], title="Prob edge").show()
     #prob_edge = prob_edge.reshape(prob_reads_given_edge.shape)
 
     #plt.figure()
@@ -336,8 +365,9 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
 
 
 
-def get_intra_background(interaction_matrix):
-    background = BackgroundMatrix.from_sparse_interaction_matrix(interaction_matrix, create_stack=True, n_per_contig=5, max_contigs=10)
+def get_intra_background(interaction_matrix, n_per_contig=20, max_contigs=10):
+    background = BackgroundMatrix.from_sparse_interaction_matrix(interaction_matrix, create_stack=True, n_per_contig=n_per_contig,
+                                                                 max_contigs=max_contigs)
     # get sum of background for all possible shapes
     background = background.matrix[:, ::-1, :]  # flip because oriented towards diagonal originallyj
     background_sums = background.cumsum(axis=1).cumsum(axis=2)
