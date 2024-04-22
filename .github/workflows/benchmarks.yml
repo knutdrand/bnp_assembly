@@ -26,11 +26,11 @@ jobs:
             apt-get update
             apt-get -y install gcc
             cd bnp_assembly
+            python -m pip install --upgrade pip setuptools wheel
             pip install .
             cd ../benchmarking
             #./install_pbsim.sh
             #pbsim
-            python -m pip install --upgrade pip setuptools wheel
             pip install -r requirements.txt
 
       - name: Save results
