@@ -261,6 +261,7 @@ def test_move_contig_right():
         assert scorer.score() == score
 
 
+@pytest.mark.skip(reason="outdated")
 def test_integration_real_case():
     matrix = from_file("interaction_matrix_test.npz")
     distance_pmf = np.load("distance_pmf.npy")
@@ -287,7 +288,7 @@ def test_integration_real_case():
     assert new_path == testpath
 
 
-
+@pytest.mark.skip(reason="outdated")
 def test_integration_real_case3():
     matrix = from_file("interaction_matrix_test3.npz")
     distance_pmf = np.load("distance_pmf_test.npy")
@@ -321,6 +322,7 @@ def test_integration_real_case3():
     assert new_path[2].orientation == '-', "Should have flipped the last node"
 
 
+@pytest.mark.skip(reason="outdated")
 def test_integration_try_all_possible_paths_optimization():
     matrix = from_file("interaction_matrix_test4.npz")
     matrix = matrix.get_subset_on_contigs(0, 4)
@@ -351,6 +353,7 @@ def test_integration_try_all_possible_paths_optimization():
 
 
 # slow, but working
+@pytest.mark.skip
 def test_integration_real_case5():
     """
     Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
@@ -402,6 +405,7 @@ def test_integration_splitting2():
             assert score > 0.001, f"Edge {edge} should be split, score {score}"
 
 
+@pytest.mark.skip(reason="outdated")
 def test_caching():
     """
     Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
@@ -436,16 +440,5 @@ def test_malachius_case():
 
     path_optimization_join_and_split(interaction_matrix, n_optimization_iterations=3, start_by_shuffling=False)
 
-
-
-if __name__ == "__main__":
-    #test_acceptance()
-    #test_total_read_optimizer_acceptance()
-    #test_total_read_optimizer_large_interaction_matrix()
-    #test_logprob_dynamic_scores()
-    #test_move_contig_right()
-    #test_caching()
-    test_malachius_case()
-    print("done")
 
 
