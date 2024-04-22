@@ -23,7 +23,7 @@ from matplotlib import pyplot as plt
 import matplotlib
 #matplotlib.use('Agg')
 
-from bnp_assembly.agp import ScaffoldAlignments
+from bnp_assembly.agp import ScaffoldAlignments, translate_bam_coordinates
 from bnp_assembly.contig_graph import DirectedNode, ContigPath
 from bnp_assembly.distance_distribution import distance_dist
 from bnp_assembly.evaluation.compare_scaffold_alignments import ScaffoldComparison
@@ -386,6 +386,12 @@ def sanitize_paired_end_bam(bam_file_name: str, out_file_name: str):
         offset += chunk_size
     out.close()
     file.close()
+
+
+@app.command()
+def translate_contig_bam_to_scaffold(contig_bam: str, scaffold_agp: str):
+    agp = ScaffoldAlignments.from_agp(scaffold_agp)
+    translate_bam_coordinates(contig_bam, agp)
 
 
 @app.command()

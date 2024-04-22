@@ -178,3 +178,16 @@ class ScaffoldAlignments:
             contigs = self.get_contigs_in_scaffold(scaffold_id)
             nodes.append(contigs)
         return nodes
+
+
+
+def translate_bam_coordinates(contig_bam_file_name: str, scaffold_alignments: ScaffoldAlignments):
+    """
+    Reads bam and translates coordinates from contig coordinates to scaffold coordinates using
+    scaffold alignments. Prints sam as output
+    """
+    coordinate_map = ScaffoldMap(scaffold_alignments)
+
+
+
+
