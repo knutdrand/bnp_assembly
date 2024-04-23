@@ -145,15 +145,14 @@ rule map_hic_with_chromap:
         primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
         index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index",
     output:
-        temp=temp(HifiasmResultsWithExtraSplits.path() + "/{prefix}.sorted_by_read_name.tmp.pairs"),
-        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.sorted_by_read_name.pairs",
+        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pairs",
     conda:
         "../envs/chromap.yml"
     shell:
         """
-        chromap --pairs -t {config[n_threads]} --preset hic -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output.temp} &&
-        cat pairs.header {output.temp} > {output.pairs}
+        chromap --pairs -t {config[n_threads]} --preset hic -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output}
         """
+
 
 rule map_hic_with_chromap_bam:
     input:

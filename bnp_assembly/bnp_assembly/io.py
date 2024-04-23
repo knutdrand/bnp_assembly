@@ -50,6 +50,11 @@ class PairedReadStream:
         self._stream = stream
 
     @classmethod
+    def from_pairs(cls, genome: bnp.Genome, pairs_file_name: str):
+        """Creates from .pairs file"""
+        pass
+
+    @classmethod
     def from_bam(cls, genome: bnp.Genome, bam_file_name: str, mapq_threshold: int = 10):
         def get():
             chunks = bnp.open(bam_file_name).read_chunks()

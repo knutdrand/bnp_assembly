@@ -1,9 +1,12 @@
+import logging
 from collections import defaultdict
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 from bionumpy import LocationEntry
 from bionumpy.bnpdataclass import bnpdataclass
+from bionumpy.encoded_array import ASCIIEncoding
+from bionumpy.genomic_data.global_offset import GlobalOffset
 from bnp_assembly.contig_graph import DirectedNode
 from bnp_assembly.graph_objects import Edge
 
@@ -42,6 +45,10 @@ class ScaffoldMap:
     @property
     def contig_sizes(self):
         return self._contig_dict
+
+    @property
+    def contig_orientations(self) -> Dict[str, str]:
+        return {contig_id: fields[2] for contig_id, fields in self._scaffold_offsets.items()}
 
     def map_to_scaffold_locations(self, contig_locations: LocationEntry):
         entries = [self.map_to_scaffold_location(entry) for entry in contig_locations]
@@ -180,14 +187,68 @@ class ScaffoldAlignments:
         return nodes
 
 
-
-def translate_bam_coordinates(contig_bam_file_name: str, scaffold_alignments: ScaffoldAlignments):
+def translate_bam_coordinates(contig_bam_file_name: str, scaffold_alignments: ScaffoldAlignments,
+                              contigs_genome: bnp.Genome, scaffolds_genome: bnp.Genome, out_file_name: str):
     """
     Reads bam and translates coordinates from contig coordinates to scaffold coordinates using
     scaffold alignments. Prints sam as output
     """
-    coordinate_map = ScaffoldMap(scaffold_alignments)
+    contigs_encoding = contigs_genome.get_genome_context().encoding
+    scaffolds_encoding = scaffolds_genome.get_genome_context().encoding
 
+    logging.info(f"Contig encoding: {contigs_encoding}")
 
+    scaffold_map = ScaffoldMap(scaffold_alignments)
+    contig_sizes = contigs_genome.get_genome_context().chrom_sizes
 
+    # contig sizes are original contigs without padding, scaffolds have padding
+    # find actual size of each scaffold when contigs are consecutive
+    scaffold_sizes = {}
+    for scaffold_id in scaffold_map.scaffold_sizes:
+        scaffold_sizes[scaffold_id] = sum(contig_sizes[contig_id] for contig_id in scaffold_map._contig_ids[scaffold_id])
 
+    #scaffold_sizes = scaffold_map.scaffold_sizes
+    #contig_sizes = scaffold_map.contig_sizes
+    #scaffold_sizes = scaffolds_genome.get_genome_context().chrom_sizes
+    logging.info(f"Contig sizes: {contig_sizes}")
+    logging.info(f"Scaffold sizes: {scaffold_sizes}")
+    assert sum(scaffold_sizes.values()) == sum(contig_sizes.values())
+
+    scaffold_global_offset = GlobalOffset(scaffold_sizes, string_encoding=scaffolds_encoding)
+    contig_global_offset = GlobalOffset(contig_sizes, string_encoding=contigs_encoding)
+
+    is_reverse = np.zeros(len(contig_sizes), dtype=bool)
+    logging.info(f"Contig orientations: {scaffold_map.contig_orientations}")
+    contig_encoding_ids = contigs_encoding.encode(list(scaffold_map.contig_orientations.keys())).raw()
+    contig_sizes_lookup = np.zeros(len(contig_sizes), dtype=int)
+    # important to use contig sizes from genome, not from scaffold map (since they are padded)
+    contig_sizes_lookup[contig_encoding_ids] = np.array([contig_sizes[contig] for contig in scaffold_map.contig_sizes.keys()])
+
+    logging.info("Contig encoding ids: %s" % contig_encoding_ids)
+    is_reverse[contig_encoding_ids] = [orientation == '-' for orientation in scaffold_map.contig_orientations.values()]
+    logging.info("Is reverse: %s", is_reverse)
+
+    out = bnp.open(out_file_name, "w")
+
+    with bnp.open(contig_bam_file_name, lazy=False, buffer_type=bnp.SAMBuffer) as f:
+        for chunk in f:
+            out.write(chunk)
+            continue
+            positions = chunk.position
+            # change positions on negative contigs
+            logging.info(f"Original chromosome encoding: {chunk.chromosome.encoding}")
+            contig_id = bnp.as_encoded_array(chunk.chromosome, target_encoding=contigs_encoding).raw()
+            flip = is_reverse[contig_id]
+            assert np.all(positions < contig_sizes_lookup[contig_id])
+            positions[flip] = contig_sizes_lookup[contig_id[flip]] - positions[flip] - 1
+            assert np.all(positions < contig_sizes_lookup[contig_id])
+            assert np.all(positions >= 0)
+
+            global_offset = contig_global_offset.from_local_coordinates(chunk.chromosome, positions)
+            chromosome, offset = scaffold_global_offset.to_local_coordinates(global_offset)
+            chromosome = bnp.change_encoding(chromosome, bnp.BaseEncoding)
+            #chunk = bnp.replace(chunk, chromosome=chromosome, position=offset)
+            logging.info(f"New chromosome encoding: {chunk.chromosome.encoding}")
+            #print(chunk)
+
+    out.close()

@@ -19,6 +19,7 @@ from scipy.sparse import csr_matrix
 import sklearn
 import matplotlib.pyplot as plt
 from .plotting import px as px_func
+import bionumpy as bnp
 
 
 class NumericGlobalOffset(GlobalOffset):
@@ -265,6 +266,28 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         y = self._global_offset.from_local_coordinates(contig_b, offset_b)
         self._data[x, y] += 1
         self._data[y, x] += 1
+
+    @classmethod
+    def from_pairs(cls, global_offset, genome: bnp.Genome, pairs_file_name):
+        size = global_offset.total_size()
+        matrix = lil_matrix((size, size), dtype=float)
+
+        with bnp.open(pairs_file_name) as f:
+            chromosome_encoding = genome.get_genome_context().encoding
+
+            for chunk in f:
+                chrom1_numeric = chromosome_encoding.encode(chunk.chrom1).raw()
+                chrom2_numeric = chromosome_encoding.encode(chunk.chrom2).raw()
+                pos1 = chunk.pos1
+                pos2 = chunk.pos2
+                global_pos1 = global_offset.from_local_coordinates(chrom1_numeric, pos1)
+                global_pos2 = global_offset.from_local_coordinates(chrom2_numeric, pos2)
+                for a, b in zip(global_pos1, global_pos2):
+                    matrix[a, b] += 1
+                    matrix[b, a] += 1
+
+        matrix = matrix.tocsr()
+        return cls(matrix, global_offset)
 
     @classmethod
     def from_reads(cls, global_offset: BinnedNumericGlobalOffset, reads: PairedReadStream):

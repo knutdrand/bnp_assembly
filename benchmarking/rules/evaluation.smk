@@ -261,13 +261,13 @@ rule pretextview_via_chromap:
         primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
         index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index"
     output:
-        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.dirext.pretext",
+        pretext=HifiasmResultsWithExtraSplits.path() + "/{prefix}.direct.pretext",
     conda:
         "../envs/chromap.yml"
     shell:
         """
         chromap -t {config[n_threads]} -e 4 -q 1 --split-alignment -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} --SAM -o /dev/stdout |
-        PretextMap -o {output} --sortby nosort --sortorder descend --mapq 10
+        PretextMap -o {output} --sortby nosort --sortorder descend --mapq 10 --highres
         """
 
 
@@ -291,3 +291,20 @@ rule make_juicebox_hic:
         """
         java -Xmx2g -jar hic_tools.3.30.00.jar pre {input.reads} {output.hic} {input.chrom_sizes}
         """
+
+
+rule pretext_from_contigs_bam:
+    input:
+        contigs_bam = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bam",
+        agp = ScaffoldingResults.path() + "/scaffolds.agp",
+        contigs_fai = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
+        scaffolds_fai=ScaffoldingResults.path() + "/scaffolds.fa.fai",
+    output:
+        scaffolds_fai=ScaffoldingResults.path() + "/scaffolds.from_contigs.pretext",
+    conda:
+        "../envs/pretextmap.yml"
+    shell:
+        """
+        bnp_assembly translate-contig-bam-to-scaffold-coordinates {input}
+        """
+

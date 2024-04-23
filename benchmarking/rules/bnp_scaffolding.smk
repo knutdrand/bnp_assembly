@@ -19,7 +19,19 @@ rule make_interaction_matrix:
     params:
         log_folder = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + '/logging/'
     output:
-        matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size}.npz",
+        matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size, \d+}.npz",
+    shell:
+        "bnp_assembly make-interaction-matrix {input.contigs} {input.hic_to_contig_mappings} {output.matrix} --bin-size {wildcards.bin_size} "
+
+
+rule make_interaction_matrix_from_pairs:
+    input:
+        contigs=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.pairs",
+    params:
+        log_folder = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + '/logging/'
+    output:
+        matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size, \d+}.pairs.npz",
     shell:
         "bnp_assembly make-interaction-matrix {input.contigs} {input.hic_to_contig_mappings} {output.matrix} --bin-size {wildcards.bin_size} "
 
@@ -30,10 +42,20 @@ rule plot_interaction_matrix:
     params:
         log_folder = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + '/logging/'
     output:
-        plot = touch(ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size}.png")
+        plot = touch(ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size, \d+}.png")
     shell:
         "bnp_assembly plot-interaction-matrix {input.matrix}  "
 
+
+rule plot_interaction_matrix_pairs:
+    input:
+        matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size}.pairs.npz",
+    params:
+        log_folder = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + '/logging/'
+    output:
+        plot = touch(ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size, \d+}.pairs.png")
+    shell:
+        "bnp_assembly plot-interaction-matrix {input.matrix}  "
 
 rule get_cumulative_distribution:
     input:

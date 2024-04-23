@@ -41,7 +41,7 @@ from shared_memory_wrapper import to_file, from_file
 
 from .io import get_genomic_read_pairs, PairedReadStream
 from bnp_assembly.make_scaffold import make_scaffold, join as _join, split as _split, get_numeric_input_data, \
-    get_contig_names_to_ids_translation, get_contig_ids_to_names_translation
+    get_contig_names_to_ids_translation, get_contig_ids_to_names_translation, get_numeric_contig_name_translation
 from bnp_assembly.max_distance import estimate_max_distance2
 from .simulation import hic_read_simulation
 import logging
@@ -158,12 +158,17 @@ def scaffold_iteration(agp: str, original_contigs_fa: str, interaction_matrix: s
 @app.command()
 def make_interaction_matrix(contig_filename: str, read_filename: str, out_filename: str, bin_size: int=50):
     genome = bnp.Genome.from_file(contig_filename)
-    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
-    input_data = FullInputData(genome, read_stream)
-    contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
+    contig_sizes, _ = get_numeric_contig_name_translation(genome)
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes(contig_sizes, bin_size)
 
-    global_offset = BinnedNumericGlobalOffset.from_contig_sizes(numeric_input_data.contig_dict, bin_size)
-    matrix = SparseInteractionMatrix.from_reads(global_offset, numeric_input_data.location_pairs)
+    if read_filename.endswith(".bam"):
+        read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
+        input_data = FullInputData(genome, read_stream)
+        contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
+        matrix = SparseInteractionMatrix.from_reads(global_offset, numeric_input_data.location_pairs)
+    elif read_filename.endswith(".pairs"):
+        matrix = SparseInteractionMatrix.from_pairs(global_offset, genome, read_filename)
+
     matrix.assert_is_symmetric()
     matrix.normalize_on_row_and_column_products()
     plt.show()
@@ -389,9 +394,12 @@ def sanitize_paired_end_bam(bam_file_name: str, out_file_name: str):
 
 
 @app.command()
-def translate_contig_bam_to_scaffold(contig_bam: str, scaffold_agp: str):
+def translate_contig_bam_to_scaffold_coordinates(contig_bam: str, scaffold_agp: str, scaffolds_fai: str,
+                                                 contigs_fai: str, out_file: str):
+    scaffolds_genome = bnp.Genome.from_file(scaffolds_fai)
+    contigs_genome = bnp.Genome.from_file(contigs_fai)
     agp = ScaffoldAlignments.from_agp(scaffold_agp)
-    translate_bam_coordinates(contig_bam, agp)
+    translate_bam_coordinates(contig_bam, agp, scaffolds_genome, contigs_genome, out_file)
 
 
 @app.command()
