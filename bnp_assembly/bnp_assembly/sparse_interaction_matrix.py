@@ -235,6 +235,9 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         self._data = data
         self._global_offset = global_offset
 
+    def set_dtype(self, dtype):
+        self._data = self._data.astype(dtype)
+
     @property
     def global_offset(self):
         return self._global_offset
@@ -271,22 +274,45 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
     def from_pairs(cls, global_offset, genome: bnp.Genome, pairs_file_name):
         size = global_offset.total_size()
         matrix = lil_matrix((size, size), dtype=float)
+        n_processed = 0
+
+        all_rows = []
+        all_cols = []
 
         with bnp.open(pairs_file_name) as f:
             chromosome_encoding = genome.get_genome_context().encoding
 
             for chunk in f:
+                logging.info(f"{n_processed} pairs processed")
                 chrom1_numeric = chromosome_encoding.encode(chunk.chrom1).raw()
                 chrom2_numeric = chromosome_encoding.encode(chunk.chrom2).raw()
                 pos1 = chunk.pos1
                 pos2 = chunk.pos2
                 global_pos1 = global_offset.from_local_coordinates(chrom1_numeric, pos1)
                 global_pos2 = global_offset.from_local_coordinates(chrom2_numeric, pos2)
-                for a, b in zip(global_pos1, global_pos2):
-                    matrix[a, b] += 1
-                    matrix[b, a] += 1
 
-        matrix = matrix.tocsr()
+                #indexes = global_pos1 * size + global_pos2
+                #matrix.ravel()[:] += np.bincount(indexes, minlength=size*size)
+
+                #indexes = global_pos2 * size + global_pos1
+                #matrix.ravel()[:] += np.bincount(indexes, minlength=size*size)
+                all_rows.append(global_pos1)
+                all_cols.append(global_pos2)
+                all_rows.append(global_pos2)
+                all_cols.append(global_pos1)
+
+                # todo: Can speed up with bincout
+                #for a, b in zip(global_pos1, global_pos2):
+                #    matrix[a, b] += 1
+                #    matrix[b, a] += 1
+
+                n_processed += len(chunk)
+
+        all_rows = np.concatenate(all_rows)
+        all_cols = np.concatenate(all_cols)
+        matrix = coo_matrix((np.ones(len(all_rows)), (all_rows, all_cols)), shape=(size, size)).tocsr()
+
+        #matrix = matrix.tocsr()
         return cls(matrix, global_offset)
 
     @classmethod
@@ -650,6 +676,14 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         contig_start = self._global_offset.contig_first_bin(contig)
         contig_end = self._global_offset.contig_last_bin(contig, inclusive=False)
 
+    def get_new_by_grouping_nodes(self, path: List[List[DirectedNode]]):
+        new = self.get_matrix_for_path2(
+            [node for nodes in path for node in nodes], as_raw_matrix=False)
+        new.set_global_offset(self._global_offset.get_new_by_merging_nodes(
+            [[n.node_id for n in nodes] for nodes in path]
+        ))
+        return new
+
     def average_bin_value_outside_contigs(self):
         n_bins = self.sparse_matrix.shape[0]**2
         total = np.sum(self.sparse_matrix)
@@ -1002,7 +1036,7 @@ class BackgroundMatrix:
         # sample from smaller matrices than smallest contig so we can sample
         # multiple times from the same matrix
         size = smallest // 3  # divide by three to make sure we can sample from multiple positions
-        size = min(2000, size)  # divide by three to make sure we can sample from multiple positions
+        size = min(4000, size)  # divide by three to make sure we can sample from multiple positions
         logging.info(f"Using size {size} to estimate background matrix")
         background = np.zeros((size, size))
         all_backgrounds = np.zeros((n_per_contig*len(contigs_to_use), size, size))
@@ -1131,56 +1165,20 @@ class BackgroundInterMatrices:
         """
         Sample from the outside of the biggest contigs
         """
-        total_size = interaction_matrix.sparse_matrix.shape[1]
-        biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
-        chosen_contigs = biggest_contigs[:5]
-        logging.info(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
-        smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
-        logging.info(f"Sampling from contigs {chosen_contigs}")
-        size = min(max_bins, smallest_contig_size // 4)
-        logging.info(f"Sampling from size {size}")
+        matrices = [matrix.toarray() for matrix in sample_intra_matrices(interaction_matrix, max_bins, n_samples, type)]
+        return cls(np.array(matrices))
 
-        if type == "weak":
-            min_distance_from_diagonal = smallest_contig_size // 2
-        else:
-            min_distance_from_diagonal = 0
-        logging.info(f"Min distance from diagonal: {min_distance_from_diagonal}")
-
-        matrices = np.zeros((n_samples, size, size))
-
-        n_sampled = 0
-        for contig in chosen_contigs:
-            contig_start_bin = interaction_matrix._global_offset.contig_first_bin(contig)
-            contig_end_bin = interaction_matrix._global_offset.contig_last_bin(contig, inclusive=False)
-            lowest_x_start = contig_start_bin + min_distance_from_diagonal + size
-            highest_x_start = contig_end_bin - size
-
-            n_to_sample_from_contig = n_samples // len(chosen_contigs) + 1
-            for sample in range(n_to_sample_from_contig):
-                if n_sampled >= n_samples:
-                    break
-
-                xstart = random.randint(lowest_x_start, highest_x_start)
-                lowest_y_start = contig_start_bin
-                highest_y_start = xstart - min_distance_from_diagonal - size
-                ystart = random.randint(lowest_y_start, highest_y_start)
-                #logging.info(f"Sampling {type} from {ystart}:{ystart+size} and {xstart}:{xstart+size} on contig {contig}")
-                #ystart = xstart - min_distance_from_diagonal
-                #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size} on contig {contig} with size {contig_end_bin - contig_start_bin}")
-                submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size].toarray()
-                assert submatrix.shape[0] == size and submatrix.shape[1] == size
-                matrices[n_sampled] = submatrix
-                n_sampled += 1
-
-        return cls(matrices)
 
     @classmethod
-    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix, assumed_largest_chromosome_ratio_of_genome=1/30, n_samples=50, max_bins=1000):
+    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix, assumed_largest_chromosome_ratio_of_genome=1/10, n_samples=50, max_bins=1000):
         """
         Samples outside what is assumed to be largest chromosomes reach
         """
+        matrices = [matrix.toarray() for matrix in sample_inter_matrices(interaction_matrix, assumed_largest_chromosome_ratio_of_genome, n_samples, max_bins)]
+        return cls(np.array(matrices))
+
         distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
-        logging.info(f"Assumed largest chromosome size: {distance_from_diagonal}")
+        logging.info(f"Assumed smallest chromosome size: {distance_from_diagonal}")
         largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
         #size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
         size = min(max_bins, largest_contig)  # many bins is not necessary, and leads to large memory usage
@@ -1242,7 +1240,7 @@ class BackgroundInterMatricesSingleBin:
         return cdf
 
     @classmethod
-    def from_sparse_interaction_matrix(cls, interaction_matrix: SparseInteractionMatrix,
+    def from_sparse_interactin_matrix(cls, interaction_matrix: SparseInteractionMatrix,
                                    assumed_largest_chromosome_ratio_of_genome=1 / 10, n_samples=1000000):
         distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
         samples = []
@@ -1318,3 +1316,137 @@ def get_number_of_reads_between_all_contigs(sparse_matrix: SparseInteractionMatr
     if set_diagonal_to_zero:
         np.fill_diagonal(out, 0)
     return out
+
+
+def sample_intra_matrices(interaction_matrix, max_bins, n_samples, type: Literal["weak", "strong"]):
+
+    biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
+    chosen_contigs = biggest_contigs[:min(5, 1+len(biggest_contigs)//4)]
+    logging.info(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
+    smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
+    logging.info(f"Sampling from contigs {chosen_contigs}")
+
+    if type == "weak":
+        size = min(max_bins, smallest_contig_size // 4)
+        min_distance_from_diagonal = smallest_contig_size // 2
+    else:
+        min_distance_from_diagonal = 0
+        size = min(max_bins, smallest_contig_size // 2)
+    logging.info(f"Sampling from size {size}")
+    logging.info(f"Min distance from diagonal: {min_distance_from_diagonal}")
+
+    #matrices = np.zeros((n_samples, size, size))
+
+    n_sampled = 0
+    for contig in chosen_contigs:
+        contig_start_bin = interaction_matrix._global_offset.contig_first_bin(contig)
+        contig_end_bin = interaction_matrix._global_offset.contig_last_bin(contig, inclusive=False)
+        lowest_x_start = contig_start_bin + min_distance_from_diagonal + size
+        highest_x_start = contig_end_bin - size
+
+        n_to_sample_from_contig = n_samples // len(chosen_contigs) + 1
+        for sample in range(n_to_sample_from_contig):
+            if n_sampled >= n_samples:
+                break
+
+            xstart = random.randint(lowest_x_start, highest_x_start)
+            lowest_y_start = contig_start_bin
+            highest_y_start = xstart - min_distance_from_diagonal - size
+            ystart = random.randint(lowest_y_start, highest_y_start)
+            #logging.info(f"Sampling {type} from {ystart}:{ystart+size} and {xstart}:{xstart+size} on contig {contig}")
+            #ystart = xstart - min_distance_from_diagonal
+            #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size} on contig {contig} with size {contig_end_bin - contig_start_bin}")
+            submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size]
+            assert submatrix.shape[0] == size and submatrix.shape[1] == size
+            #matrices[n_sampled] = submatrix
+            n_sampled += 1
+            yield submatrix
+
+
+
+
+def sample_inter_matrices(interaction_matrix: SparseInteractionMatrix,
+                        assumed_largest_chromosome_ratio_of_genome=1 / 10, n_samples=50, max_bins=1000,
+                          keep_close=False):
+    """
+    Samples outside what is assumed to be largest chromosomes reach
+    """
+    distance_from_diagonal = int(
+        interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
+    #distance_from_diagonal = min(20000, distance_from_diagonal)
+
+    logging.info(f"Assumed smallest chromosome size: {distance_from_diagonal}")
+    largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
+    # size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
+    size = min(max_bins, largest_contig)  # many bins is not necessary, and leads to large memory usage
+    logging.info(f"Making background matrices of size {size}")
+    lowest_x_start = distance_from_diagonal + size
+    highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
+
+    #matrices = np.zeros((n_samples, size, size))
+    for i in tqdm(range(n_samples), desc="Sampling from background", total=n_samples):
+        xstart = random.randint(lowest_x_start, highest_x_start)
+        lowest_y_start = 0
+        highest_y_start = xstart - size - distance_from_diagonal
+        if keep_close:
+            lowest_y_start = highest_y_start-1  # only sample from this diagonal
+        assert highest_y_start >= 0
+        ystart = random.randint(lowest_y_start, highest_y_start)
+        assert abs((ystart + size) - xstart) >= distance_from_diagonal
+        # logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size}")
+
+        submatrix = interaction_matrix.sparse_matrix[ystart:ystart + size, xstart:xstart + size]
+        assert submatrix.shape[0] == size and submatrix.shape[1] == size
+        yield submatrix
+
+
+def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInteractionMatrix,
+                                                  max_bins=1000, n_samples=50,
+                             distance_type=Literal['close', 'far']):
+
+    biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
+    chosen_contigs = biggest_contigs[:min(3, 1 + len(biggest_contigs) // 4)]
+    logging.info(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
+    smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
+    logging.info(f"Sampling from contigs {chosen_contigs}")
+
+    size = max_bins
+    size = min(size, smallest_contig_size//8)
+
+    if distance_type == "close":
+        #distance_from_diagonal = min(4000, smallest_contig_size//4)
+        distance_from_diagonal = smallest_contig_size//8
+        logging.info(f"Sampling close with distance {distance_from_diagonal}")
+    elif distance_type == "closest":
+        distance_from_diagonal = 1
+        logging.info(f"Sampling closest with distance {distance_from_diagonal}")
+    else:
+        #distance_from_diagonal = min(10000, smallest_contig_size//2)
+        distance_from_diagonal = int(smallest_contig_size * 2/3)
+        distance_from_diagonal = min(25, distance_from_diagonal)
+        logging.info(f"Sampling far with distance {distance_from_diagonal}")
+
+
+    assert distance_from_diagonal < smallest_contig_size
+    logging.info(f"Distance from diagonal: {distance_from_diagonal}")
+
+    n_sampled = 0
+    for contig in chosen_contigs:
+        contig_start_bin = interaction_matrix._global_offset.contig_first_bin(contig)
+        contig_end_bin = interaction_matrix._global_offset.contig_last_bin(contig, inclusive=False)
+
+        lowest_x_start = contig_start_bin + distance_from_diagonal + size
+        highest_x_start = contig_end_bin - size
+
+        n_to_sample_from_contig = n_samples // len(chosen_contigs) + 1
+        for sample in range(n_to_sample_from_contig):
+            if n_sampled >= n_samples:
+                break
+
+            xstart = random.randint(lowest_x_start, highest_x_start)
+            ystart = xstart - distance_from_diagonal - size
+            submatrix = interaction_matrix.sparse_matrix[ystart:ystart + size, xstart:xstart + size]
+            assert submatrix.shape[0] == size and submatrix.shape[1] == size
+            # matrices[n_sampled] = submatrix
+            n_sampled += 1
+            yield submatrix

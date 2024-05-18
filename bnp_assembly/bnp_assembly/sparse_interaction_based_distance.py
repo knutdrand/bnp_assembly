@@ -15,7 +15,8 @@ from tqdm import tqdm
 from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundMatrix, BackgroundInterMatrices, \
-    BackgroundInterMatricesSingleBin, get_number_of_reads_between_all_contigs
+    BackgroundInterMatricesSingleBin, get_number_of_reads_between_all_contigs, \
+    sample_with_fixed_distance_inside_big_contigs
 from bnp_assembly.util import get_all_possible_edges
 from .plotting import px
 
@@ -181,17 +182,75 @@ def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix
 
     return inter_background_means, inter_background_stds
 
+
 def get_inter_background(interactions, n_samples=1000, max_bins=1000):
     background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=n_samples, max_bins=max_bins)
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
     return background_sums
 
 
-def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000, type="weak"):
+def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000, type="weak", start_clip=0):
     background = BackgroundInterMatrices.weak_intra_interactions2(interactions, n_samples=n_samples, max_bins=max_bins, type=type)
     background.matrices = background.matrices[:, ::-1, :]  # flip because oriented towards diagonal originally
+    background.matrices = background.matrices[:, :-start_clip-1, start_clip:]
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
     return background_sums
+
+
+def get_background_fixed_distance(interactions, n_samples=1000, max_bins=1000, distance_type="close", start_clip=0):
+    matrices = np.array([matrix.toarray() for matrix in
+                sample_with_fixed_distance_inside_big_contigs(interactions, max_bins, n_samples, distance_type)])
+    matrices = matrices[:, ::-1, :]  # flip because oriented towards diagonal originally
+    background_sums = matrices.cumsum(axis=1).cumsum(axis=2)
+    return background_sums
+
+
+def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins):
+    inter_inside = get_background_fixed_distance(matrix, n_samples, max_bins, "far")
+    return inter_inside
+    #inter_inside2 = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
+    #inter_inside = np.concatenate([inter_inside, inter_inside2], axis=0)
+    #inter_inside_mean = inter_inside.mean(axis=0)
+
+    inter_outside = get_inter_background(matrix, n_samples, inter_inside.shape[1])
+    #inter_outside_mean = inter_outside.mean(axis=0)
+
+    # mix between inside and outside (middle between)
+    inter = inter_inside - (inter_inside - inter_outside) * 0.0
+    return inter
+
+
+def get_intra_as_mix(matrix, n_samples, max_bins):
+    intra_closest = get_background_fixed_distance(matrix, n_samples, max_bins, "closest")
+    #return intra_closest
+    intra_close = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
+    intra = np.concatenate([intra_closest, intra_close], axis=0)
+    return intra
+
+def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins):
+    # uses multiple resolution to get enough data for close interactions
+    resolutions = [(n_samples, max_bins), (n_samples*16, max_bins//4), (n_samples*64, max_bins//8)]
+    n_resolutions = 4
+    all_means = None
+    all_stds = None
+    #for n_samples, max_bins in resolutions:
+    for i in range(n_resolutions):
+        logging.info(f"Sampling at resolution {max_bins} with {n_samples}")
+        b = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins)
+        means = b.mean(axis=0)
+        stds = b.std(axis=0)
+        if all_means is None:
+            all_means = means
+            all_stds = stds
+        else:
+            # overwrite the closer part with the one that has more samples (better estimate
+            all_means[:means.shape[0], :means.shape[1]] = means
+            all_stds[:means.shape[0], :means.shape[1]] = stds
+
+        n_samples *= 4
+        max_bins //= 2
+
+    return all_means, all_stds
 
 
 def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max_distance: int) ->\
@@ -262,7 +321,10 @@ def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.nd
     if not np.all(stds > 0):
         logging.warning(f"{np.sum(stds==0)} stds are 0. Will fix by adding small number to those that are zero")
         logging.warning("Could be because too few reads")
-        stds[stds == 0] = 0.0000001
+        stds[stds == 0] = 0.0001
+        #plotly.express.imshow(stds, title="stds").show()
+        #plotly.express.imshow(means, title="means").show()
+        #raise Exception("")
 
     #n_nodesides = interaction_matrix.n_contigs * 2
     n_nodesides = len(nodeside_sizes)
@@ -304,13 +366,13 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
 
     #prob_reads_given_same_chrom = get_prob_of_edge_counts(inter_background_means2, inter_background_stds2, edge_counts, nodeside_sizes)
 
-    #plotly.express.imshow(edge_counts.data[1::2, ::2], title="Edge counts").show()
+    #plotly.express.imshow(edge_counts.data, title="Edge counts").show()
     prob_reads_given_not_edge = get_prob_of_edge_counts(inter_background_means, inter_background_stds, edge_counts,
                                                         nodeside_sizes,
                                                         func=scipy.stats.norm.logsf)
     prob_reads_given_not_edge = prob_reads_given_not_edge.data
 
-    #plotly.express.imshow(prob_reads_given_not_edge[1::2, ::2], title="Prob reads given not edge").show()
+    #plotly.express.imshow(prob_reads_given_not_edge[0:1000, 0:1000], title="Prob reads given not edge").show()
 
     assert not np.any(np.isnan(prob_reads_given_not_edge)), prob_reads_given_not_edge
     assert not np.any(np.isinf(prob_reads_given_not_edge)), prob_reads_given_not_edge
@@ -318,13 +380,10 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
     prob_reads_given_edge = get_prob_of_edge_counts(intra_background_means, intra_background_stds, edge_counts,
                                                     nodeside_sizes,
                                                     func=scipy.stats.norm.logcdf)
-    #prob_reads_given_edge = get_prob_given_intra_background_for_edges(interaction_matrix)
-    #prob_reads_given_edge.plot(name="prob_reads_given_edge")
     assert not np.any(np.isnan(prob_reads_given_edge.data)), prob_reads_given_edge.data
     assert not np.any(np.isinf(prob_reads_given_edge.data)), prob_reads_given_edge.data
 
-    #plotly.express.imshow(prob_reads_given_edge.data[1::2, ::2], title="Prob reads given edge").show()
-    #prob_reads_given_not_edge.plot(name="prob_reads_given_not_edge")
+    #plotly.express.imshow(prob_reads_given_edge.data[0:1000, 0:1000], title="Prob reads given edge").show()
 
     prob_reads_given_edge = prob_reads_given_edge.data
     #prob_reads_given_same_chrom = prob_reads_given_same_chrom.data
@@ -349,8 +408,8 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                               #prior_same_chrom + prob_reads_given_same_chrom
                             ))
     logging.info(f"Time to compute probs: {time.perf_counter() - t0:.2f}")
-    #plotly.express.imshow(prob_edge[1::2, ::2], title="Prob edge").show()
     #prob_edge = prob_edge.reshape(prob_reads_given_edge.shape)
+
 
     #plt.figure()
     #plt.imshow(prob_edge)
@@ -361,17 +420,36 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
 
     m = DirectedDistanceMatrix.from_matrix(prob_edge)
     m.fill_infs()
+
+    prob_edge = m.data
+    multi_zero = (prob_edge == 0).sum(axis=1) > 1
+    if np.any(multi_zero):
+        logging.warning(f"Multiple zeros in prob_edge for {np.sum(multi_zero)} nodesides")
+
+    zero_rows, zero_cols = np.where(prob_edge == 0)
+    for row, col in zip(zero_rows, zero_cols):
+        logging.warning(f"Nodeside sizes: {nodeside_sizes[row]}, {nodeside_sizes[col]}. "
+                        f"Prob given edge: {prob_reads_given_edge[row, col]}, prob given not edge: {prob_reads_given_not_edge[row, col]}"
+                        f"Edge count: {edge_counts.data[row, col]}"
+                        f"Inter mean: {inter_background_means[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}, std: {inter_background_stds[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}"
+                        f"Intra mean: {intra_background_means[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}, std: {intra_background_stds[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}")
+
+    #plotly.express.imshow(prob_edge[0:1000, 0:1000], title="Prob edge").show()
     return m
 
 
 
-def get_intra_background(interaction_matrix, n_per_contig=20, max_contigs=10):
+def get_intra_background(interaction_matrix, n_per_contig=10, max_contigs=10):
     background = BackgroundMatrix.from_sparse_interaction_matrix(interaction_matrix, create_stack=True, n_per_contig=n_per_contig,
                                                                  max_contigs=max_contigs)
     # get sum of background for all possible shapes
+    logging.info("Doing cumsum")
     background = background.matrix[:, ::-1, :]  # flip because oriented towards diagonal originallyj
     background_sums = background.cumsum(axis=1).cumsum(axis=2)
+    assert np.all(background_sums >= 0)
+    logging.info("Cumsum done")
     return background_sums
+
 
 
 def get_negative_binom_params(mean, variance):

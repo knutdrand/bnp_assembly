@@ -5,7 +5,7 @@ rule run_haphic:
     input:
         contigs=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         contigs_index=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
-        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.chromap.bam",
+        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.pa5",
     output:
         scaffolds = ScaffoldingResults.path(scaffolder="haphic") + "/scaffolds.fa",
         agp = ScaffoldingResults.path(scaffolder="haphic") + "/scaffolds.agp",

@@ -50,7 +50,7 @@ rule make_heatmap2:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         agp = ScaffoldingResults.path() + "/scaffolds.agp",
-        interaction_matrix= ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.npz",
+        interaction_matrix= ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.pairs.npz",
     output:
         ScaffoldingResults.path() + "/heatmap-{contig}.png"
     shell:
@@ -58,6 +58,18 @@ rule make_heatmap2:
         bnp_assembly heatmap2 {input.contigs} {input.agp} {input.interaction_matrix} {output} --contig {wildcards.contig}
         """
 
+
+rule scaffold_heatmap:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        agp = ScaffoldingResults.path() + "/scaffolds.agp",
+        interaction_matrix= ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.pairs.npz",
+    output:
+        ScaffoldingResults.path() + "/scaffold_heatmap.png"
+    shell:
+        """
+        bnp_assembly scaffold-heatmap {input.contigs} {input.agp} {input.interaction_matrix} {output} 
+        """
 
 rule debug:
     input:

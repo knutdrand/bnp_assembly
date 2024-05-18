@@ -14,11 +14,11 @@ from matplotlib import pyplot as plt
 from bnp_assembly.contig_graph import DirectedNode, ContigPath
 from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.sparse_interaction_based_distance import get_bayesian_edge_probs, get_inter_background, \
-    get_intra_background, get_intra_distance_background
+    get_intra_background, get_intra_distance_background, get_background_fixed_distance, \
+    get_inter_as_mix_between_inside_outside, get_inter_as_mix_between_inside_outside_multires, get_intra_as_mix
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundInterMatrices, \
     BinnedNumericGlobalOffset
 from bnp_assembly.plotting import px
-
 
 class CompundNode:
     def __init__(self, nodes: List[Union[DirectedNode, 'CompundNode']]):
@@ -92,23 +92,52 @@ class IterativePathJoiner:
         n_contigs = self._interaction_matrix.n_contigs
         initial_path = [DirectedNode(contig, '+') for contig in range(n_contigs)]
         random.seed(0)
-        #random.shuffle(initial_path)
+        random.shuffle(initial_path)
         self._current_path = initial_path
         self._interaction_matrix = self._interaction_matrix.get_matrix_for_path2(initial_path, as_raw_matrix=False, backend=scipy.sparse.csr_matrix)
         self._get_backgrounds()
         if not self._skip_init_distance_matrix:
             self._compute_distance_matrix()
 
+    @property
+    def current_interaction_matrix(self):
+        return self._interaction_matrix
+
     def _get_backgrounds(self):
         # n_samples and max gins for inter
         matrix = self._interaction_matrix
+        if isinstance(self._interaction_matrix.sparse_matrix, scipy.sparse.coo_matrix):
+            matrix.to_csr_matrix()
+
+
         # combine inter with some samples from everywhere and some samples
         # from weak intra-interactions
         #inter0 = get_inter_background(matrix, n_samples=500, max_bins=1000)
-        inter = get_intra_distance_background(matrix, n_samples=500, max_bins=1000, type="strong")
+        #inter = get_intra_distance_background(matrix, n_samples=40, max_bins=4000, type="weak")
+        #inter = get_background_fixed_distance(matrix, 50, 3000, "far")
+        #inter = get_inter_as_mix_between_inside_outside(matrix, 50, 3000)
+        #self._inter_background_means = self._inter_background.mean(axis=0)
+        #self._inter_background_stds = self._inter_background.std(axis=0)
+
+        self._inter_background_means, self._inter_background_stds = (
+            get_inter_as_mix_between_inside_outside_multires(matrix, 200, 1000))
         #self._inter_background = np.concatenate([inter0[:, :inter.shape[1], :inter.shape[2]], inter], axis=0)
-        self._inter_background = inter
-        intra0 = get_intra_background(matrix)
+        #plt.hist(inter[:, -1, -1], bins=100)
+        #plt.show()
+        logging.info("Getting intra..")
+        #intra0 = get_intra_background(matrix)
+        #intra0 = get_background_fixed_distance(matrix, 200, 3000, "close")
+        intra0 = get_intra_as_mix(matrix, 500, 1000)
+        #plt.hist(intra0[:, -1, -1], bins=100)
+        lowest_size = min(intra0.shape[1], self._inter_background_means.shape[0])
+        logging.info(f"Lowest size: {lowest_size}")
+        intra0 = intra0[:, :lowest_size, :lowest_size]
+        self._inter_background_means = self._inter_background_means[:lowest_size, :lowest_size]
+        self._inter_background_stds = self._inter_background_stds[:lowest_size, :lowest_size]
+        #inter = inter[:, :lowest_size, :lowest_size]
+
+        #self._inter_background = inter
+
         #intra1 = get_intra_distance_background(matrix, n_samples=500, max_bins=500, type="strong")
         #intra0 = intra0[:, :intra1.shape[1], :intra1.shape[2]]
         self._intra_background = intra0  # np.concatenate([intra0], axis=0)
@@ -121,8 +150,6 @@ class IterativePathJoiner:
         #self._inter_background = get_intra_distance_background(self._interaction_matrix, n_samples=1000, max_bins=500, type="weak")
         #self._inter_background = get_inter_background(self._interaction_matrix, n_samples=1000, max_bins=500)
         #plotly.express.histogram(self._inter_background[:, -1, -1], nbins=10, title="Inter means").show()
-        self._inter_background_means = self._inter_background.mean(axis=0)
-        self._inter_background_stds = self._inter_background.std(axis=0)
         return
 
         self._inter_background_means = None
@@ -253,6 +280,9 @@ class IterativePathJoiner:
         next_lowest_on_rows = np.partition(m, 2, axis=1)[:, 2]
         next_lowest_on_columns = np.partition(m, 2, axis=0)[2, :]
 
+        lowest_on_rows = np.min(m, axis=1)
+        logging.info(f"This many has same lowest and next lowest: {np.sum(next_lowest_on_rows == lowest_on_rows)}")
+
         # tile to matrices
         next_lowest_on_rows = np.tile(next_lowest_on_rows, (len(m), 1)).T
         next_lowest_on_columns = np.tile(next_lowest_on_columns, (len(m), 1))
@@ -264,6 +294,7 @@ class IterativePathJoiner:
 
         # look among the best diffs
         best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1][:n*100], diffs.shape)
+        #best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1], diffs.shape)
         to_return = []
         nodes_picked = set()
         for indexes in zip(best_indexes[0], best_indexes[1]):
@@ -292,8 +323,8 @@ class IterativePathJoiner:
                 #             f"Best score: {np.min(all_scores)}, score: {m[indexes[0], indexes[1]]}")
                 continue
 
-            if score > -np.log(0.9) and False:
-                logging.info(f"Ignoring {node_a} -> {node_b} because score is {score}")
+            if score > -np.log(0.001) and False:
+                #logging.info(f"Ignoring {node_a} -> {node_b} because score is {score}")
                 continue
 
                 #logging.info(f"   Best edge: {node_a} -> {node_b}, from indexes {indexes}")
@@ -374,11 +405,13 @@ class IterativePathJoiner:
             # merge the best edges into single nodes
 
             # make a new path where modes in the best edges are together and the rest after that
-            logging.info(f"Path now is {self._current_path}")
+            #logging.info(f"Path now is {self._current_path[0:50]}..")
             logging.info(f"Length of path is {len(self._current_path)}")
             self._interaction_matrix = self._interaction_matrix.merge_edges(best_edges)
             #self._interaction_matrix.plot()
             self._compute_distance_matrix()
+            if i % 2 == 0 and False:
+                self._get_backgrounds()
             #plt.show()
 
     def _cleanup_path(self):

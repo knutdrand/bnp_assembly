@@ -12,11 +12,12 @@ from bnp_assembly.location import LocationPair
 @dataclasses.dataclass
 class FullInputData:
     contig_genome: Genome
-    paired_read_stream: Union[PairedReadStream, Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]]
+    paired_read_stream: Union[PairedReadStream, Iterable[Union[GenomicLocationPair, StreamedGenomicLocationPair]]] = None
+
 
 @dataclasses.dataclass
 class FullSplittingData(FullInputData):
-    joined_path: ScaffoldAlignments
+    joined_path: ScaffoldAlignments = None
 
 
 @dataclasses.dataclass

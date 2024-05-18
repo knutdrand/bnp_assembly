@@ -145,7 +145,7 @@ rule map_hic_with_chromap:
         primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
         index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index",
     output:
-        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pairs",
+        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.pa5",
     conda:
         "../envs/chromap.yml"
     shell:
@@ -189,7 +189,7 @@ rule map_hic_with_chromap_sam:
 
 rule convert_pairs_to_short:
     input:
-        pairs="{prefix}.pairs",
+        pairs="{prefix}.pa5",
     output:
         short="{prefix}.short"
     shell:

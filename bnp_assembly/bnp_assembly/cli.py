@@ -57,7 +57,7 @@ def estimate_max_distance(contig_sizes: Iterable[int]):
 
 
 @app.command()
-def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, threshold: float = 0,
+def scaffold(contig_file_name: str, out_file_name: str, threshold: float = 0,
              logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None,
              distance_measure: str = "forbes3", n_bins_heatmap_scoring: int=10, interaction_matrix: str = None, cumulative_distribution: str = None, interaction_matrix_big: str = None,
 
@@ -81,8 +81,7 @@ def scaffold(contig_file_name: str, read_filename: str, out_file_name: str, thre
     max_distance = set_max_distance(bin_size, genome, max_distance)
 
     logging.info("Getting genomic reads")
-    read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
-    input_data = FullInputData(genome, read_stream)
+    input_data = FullInputData(genome, None)
     logging.info("Making scaffold")
     scaffold = make_scaffold(input_data,
                              window_size=2500,
@@ -128,29 +127,35 @@ def scaffold_iteration(agp: str, original_contigs_fa: str, interaction_matrix: s
     # contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, matrix, window_size=100)
     # matrix.trim_with_clips(contig_clips)
     path = scaffolds.get_list_of_nodes()
-    logging.info(f"Read path {path}")
+
     # translate to numeric ids
     path = [DirectedNode(contig_names_to_ids[node.node_id], node.orientation) for nodes in path for node in nodes]
 
-    # only split
-    path = bayesian_split(matrix, path)
+    # split first
     """
-    print(scaffolds.get_list_of_nodes())
+    path_matrix = matrix.get_matrix_for_path2(path, as_raw_matrix=False)
+    path = bayesian_split(path_matrix, path, type='median')
+    splitted_path = Scaffolds.from_contig_paths(path, contig_name_translation)
+    scaffolds = Scaffolds.from_contig_paths(path, contig_name_translation)
+    scaffolds = scaffolds.to_scaffold_alignments(genome)
+    """
+
     joiner = IterativePathJoiner(matrix)
     joiner.init_with_scaffold_alignments(scaffolds, contig_names_to_ids)
-    joiner.run(n_rounds=1)
+    joiner.run(n_rounds=10)
     path = joiner.get_final_path_as_list_of_contigpaths()
-
-    #path = ContigPath.from_directed_nodes(directed_nodes)
-    #path = [path]
-
-    # splitting
-    #path_matrix = matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
-    #inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(path_matrix, max_bins=5000)
-    #path = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.05)
-    """
     splitted_path = Scaffolds.from_contig_paths(path, contig_name_translation)
+
+    """
+    directed_nodes = joiner.get_final_path()
+    path_matrix = matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
+    splitted_path = bayesian_split(path_matrix, directed_nodes, threshold=10, type='median')
+    splitted_path = Scaffolds.from_contig_paths(splitted_path, contig_name_translation)
+    #path = joiner.get_final_path_as_list_of_contigpaths()
+    #splitted_path = Scaffolds.from_contig_paths(path, contig_name_translation)
     logging.info(f"Writing path {splitted_path}")
+    """
+
     write_scaffolds_to_file(genome, out_file_name, splitted_path)
 
 
@@ -166,8 +171,9 @@ def make_interaction_matrix(contig_filename: str, read_filename: str, out_filena
         input_data = FullInputData(genome, read_stream)
         contig_name_translation, numeric_input_data = get_numeric_input_data(input_data)
         matrix = SparseInteractionMatrix.from_reads(global_offset, numeric_input_data.location_pairs)
-    elif read_filename.endswith(".pairs"):
+    elif read_filename.endswith(".pairs") or read_filename.endswith(".pa5"):
         matrix = SparseInteractionMatrix.from_pairs(global_offset, genome, read_filename)
+
 
     matrix.assert_is_symmetric()
     matrix.normalize_on_row_and_column_products()
@@ -260,6 +266,26 @@ def heatmap2(fasta_filename: str, agp_file: str, interaction_matrix_file_name: s
     plt.savefig(out_file_name)
     plt.show()
     to_file(matrix, out_file_name + ".matrix")
+
+
+@app.command()
+def scaffold_heatmap(fasta_filename: str, agp_file: str, interaction_matrix_file_name: str, out_file_name: str):
+    genome = bnp.Genome.from_file(fasta_filename)
+    contig_names_to_ids = get_contig_names_to_ids_translation(genome)
+    scaffold_alignments = ScaffoldAlignments.from_agp(agp_file)
+    interaction_matrix = from_file(interaction_matrix_file_name)
+
+    path = scaffold_alignments.get_list_of_nodes()
+    # translate to numeric ids
+    path = [
+        [DirectedNode(contig_names_to_ids[node.node_id], node.orientation) for node in nodes]
+        for nodes in path
+    ]
+    new_matrix = interaction_matrix.get_new_by_grouping_nodes(path)
+    new_matrix.plot()
+    to_file(new_matrix, out_file_name + ".matrix")
+    plt.show()
+    plt.savefig(out_file_name)
 
 
 @app.command()

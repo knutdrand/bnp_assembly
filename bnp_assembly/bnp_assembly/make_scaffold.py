@@ -129,8 +129,6 @@ def make_scaffold(input_data: FullInputData,
 def get_numeric_input_data(input_data):
     contig_sizes, contig_name_translation = get_numeric_contig_name_translation(input_data.contig_genome)
     reads = input_data.paired_read_stream
-    if not isinstance(reads, PairedReadStream):
-        reads = PairedReadStream(genomic_location_pair.get_numeric_locations() for genomic_location_pair in reads)
     numeric_input_data = NumericInputData(contig_sizes, reads)
     return contig_name_translation, numeric_input_data
 
@@ -244,8 +242,8 @@ def numeric_join(numeric_input_data: NumericInputData, n_bins_heatmap_scoring=20
 def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix = None, do_splitting=True):
     joiner = IterativePathJoiner(interaction_matrix)
     joiner.run()
-    directed_nodes = joiner.get_final_path()
-    #return joiner.get_final_path_as_list_of_contigpaths()
+    #directed_nodes = joiner.get_final_path()
+    return joiner.get_final_path_as_list_of_contigpaths()
 
     path = ContigPath.from_directed_nodes(directed_nodes)
     path_matrix = interaction_matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
@@ -260,7 +258,7 @@ def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix =
     #px_funx(name='splitting').histogram(np.sum(inter_background.matrices[:, :500, :500], axis=(1, 2)), title='inter matrices sums').show()
 
     #splitted_paths = split_using_inter_distribution(path_matrix, inter_background, path, threshold=0.00000005)
-    splitted_paths = bayesian_split(path_matrix, directed_nodes, threshold=10)
+    splitted_paths = bayesian_split(path_matrix, directed_nodes, threshold=10, type='median')
     return splitted_paths
 
 

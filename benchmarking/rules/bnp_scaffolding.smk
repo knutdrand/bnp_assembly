@@ -27,7 +27,7 @@ rule make_interaction_matrix:
 rule make_interaction_matrix_from_pairs:
     input:
         contigs=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
-        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.pairs",
+        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.pa5",
     params:
         log_folder = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + '/logging/'
     output:
@@ -73,16 +73,15 @@ rule run_bnp:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         contigs_index = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
-        hic_to_contig_mappings = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bam",
-        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.npz",
-        interaction_matrix_big = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.npz",
+        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.pairs.npz",
+        interaction_matrix_big = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.pairs.npz",
     params:
         log_folder = ScaffoldingResults.path(scaffolder="bnp1k") + '/logging/'
     output:
         fa = ScaffoldingResults.path(scaffolder="bnp1k") + "/scaffolds.fa",
         agp = ScaffoldingResults.path(scaffolder="bnp1k") + "/scaffolds.agp"
     shell:
-        "bnp_assembly scaffold {input.contigs} {input.hic_to_contig_mappings} {output.fa} --threshold 20000000000000 "
+        "bnp_assembly scaffold {input.contigs} {output.fa} --threshold 20000000000000 "
         "--bin-size 5000  --logging-folder {params.log_folder} --distance-measure dynamic_heatmap --n-bins-heatmap-scoring 10 "
         "--interaction-matrix {input.interaction_matrix} --interaction-matrix-big {input.interaction_matrix_big}  "
 
@@ -91,7 +90,7 @@ rule run_bnp_iteration:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         contigs_index = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
-        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.npz",
+        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.pairs.npz",
         agp = ScaffoldingResults.path(scaffolder="bnp1k") + "/scaffolds.agp"
     output:
         fa = ScaffoldingResults.path(scaffolder="bnp1k-iteration") + "/scaffolds.fa",
