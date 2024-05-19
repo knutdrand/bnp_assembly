@@ -598,10 +598,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         self._data[:, start:end] = self._data[:, start:end][:, ::-1]
         logging.info("Flipped contig")
 
-    def plot(self, xaxis_names=None, title=""):
-        return self.plot_submatrix(None, None, xaxis_names=xaxis_names, title=title)
+    def plot(self, xaxis_names=None, title="", show_contigs=True):
+        return self.plot_submatrix(None, None, xaxis_names=xaxis_names, title=title, show_contigs=show_contigs)
 
-    def plot_submatrix(self, from_contig: int, to_contig: int, xaxis_names=None, title=""):
+    def plot_submatrix(self, from_contig: int, to_contig: int, xaxis_names=None, title="", show_contigs=True):
         if from_contig == None and to_contig == None:
             matrix = self.sparse_matrix
             xaxis_names = [str(c) for c in range(self.n_contigs)]
@@ -621,10 +621,11 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         logging.info(f"Number of buckets: {buckets}")
         fig, ax = matspy.spy_to_mpl(matrix, buckets=buckets, figsize=10, shading='relative')
         plt.title(title)
-        plt.vlines(offsets, 0, matrix.shape[0], color='b')
-        plt.hlines(offsets, 0, matrix.shape[0], color='b')
-        ax.set_xticks(offsets)
-        ax.set_xticklabels(xaxis_names)
+        if show_contigs:
+            plt.vlines(offsets, 0, matrix.shape[0], color='b')
+            plt.hlines(offsets, 0, matrix.shape[0], color='b')
+            ax.set_xticks(offsets)
+            ax.set_xticklabels(xaxis_names)
         return fig, ax
 
     def to_lil_matrix(self):
@@ -1423,7 +1424,7 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
     else:
         #distance_from_diagonal = min(10000, smallest_contig_size//2)
         distance_from_diagonal = int(smallest_contig_size * 2/3)
-        distance_from_diagonal = min(25, distance_from_diagonal)
+        distance_from_diagonal = min(50, distance_from_diagonal)
         logging.info(f"Sampling far with distance {distance_from_diagonal}")
 
 

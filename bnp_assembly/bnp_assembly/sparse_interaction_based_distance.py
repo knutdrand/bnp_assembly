@@ -250,6 +250,8 @@ def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins
         n_samples *= 4
         max_bins //= 2
 
+    all_stds *= 5
+
     return all_means, all_stds
 
 

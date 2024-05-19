@@ -53,6 +53,6 @@ def visualize_from_agp(contig_filename, agp_filename, sparse_interaction_matrix_
     agp = ScaffoldAlignments.from_agp(agp_filename)
     genome = bnp.Genome.from_file(contig_filename)
     nodes, nonumeric_nodes = get_directed_nodes_from_scaffold_alignments(
-        agp, genome, around_contig, window_size=200)
+        agp, genome, around_contig, window_size=350)
     return visualize_scaffolding_using_sparse_interaction_matrix(nodes, matrix, nonumeric_nodes)
 
