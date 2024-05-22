@@ -185,7 +185,9 @@ def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix
 
 def get_inter_background(interactions, n_samples=1000, max_bins=1000):
     background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=n_samples, max_bins=max_bins)
+    logging.info("Summing inter background")
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
+    logging.info("Done summing")
     return background_sums
 
 
@@ -198,16 +200,16 @@ def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000, t
 
 
 def get_background_fixed_distance(interactions, n_samples=1000, max_bins=1000, distance_type="close", start_clip=0):
-    matrices = np.array([matrix.toarray() for matrix in
+    matrices = np.array([matrix.toarray().astype(np.float32) for matrix in
                 sample_with_fixed_distance_inside_big_contigs(interactions, max_bins, n_samples, distance_type)])
     matrices = matrices[:, ::-1, :]  # flip because oriented towards diagonal originally
     background_sums = matrices.cumsum(axis=1).cumsum(axis=2)
     return background_sums
 
 
-def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins):
-    inter_inside = get_background_fixed_distance(matrix, n_samples, max_bins, "far")
-    return inter_inside
+def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
+    inter_inside = get_background_fixed_distance(matrix, n_samples, max_bins, distance_type)
+    #return inter_inside
     #inter_inside2 = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
     #inter_inside = np.concatenate([inter_inside, inter_inside2], axis=0)
     #inter_inside_mean = inter_inside.mean(axis=0)
@@ -216,27 +218,26 @@ def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins):
     #inter_outside_mean = inter_outside.mean(axis=0)
 
     # mix between inside and outside (middle between)
-    inter = inter_inside - (inter_inside - inter_outside) * 0.0
+    inter = inter_inside - (inter_inside - inter_outside) * ratio
     return inter
 
 
 def get_intra_as_mix(matrix, n_samples, max_bins):
     intra_closest = get_background_fixed_distance(matrix, n_samples, max_bins, "closest")
-    #return intra_closest
     intra_close = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
     intra = np.concatenate([intra_closest, intra_close], axis=0)
     return intra
 
-def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins):
+
+def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
     # uses multiple resolution to get enough data for close interactions
-    resolutions = [(n_samples, max_bins), (n_samples*16, max_bins//4), (n_samples*64, max_bins//8)]
     n_resolutions = 4
     all_means = None
     all_stds = None
     #for n_samples, max_bins in resolutions:
     for i in range(n_resolutions):
         logging.info(f"Sampling at resolution {max_bins} with {n_samples}")
-        b = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins)
+        b = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins, ratio=ratio, distance_type=distance_type)
         means = b.mean(axis=0)
         stds = b.std(axis=0)
         if all_means is None:
@@ -250,7 +251,7 @@ def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins
         n_samples *= 4
         max_bins //= 2
 
-    all_stds *= 5
+    #all_stds *= 5
 
     return all_means, all_stds
 

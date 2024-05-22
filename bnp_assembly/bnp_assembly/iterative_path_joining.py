@@ -109,73 +109,41 @@ class IterativePathJoiner:
         if isinstance(self._interaction_matrix.sparse_matrix, scipy.sparse.coo_matrix):
             matrix.to_csr_matrix()
 
-
-        # combine inter with some samples from everywhere and some samples
-        # from weak intra-interactions
-        #inter0 = get_inter_background(matrix, n_samples=500, max_bins=1000)
-        #inter = get_intra_distance_background(matrix, n_samples=40, max_bins=4000, type="weak")
-        #inter = get_background_fixed_distance(matrix, 50, 3000, "far")
-        #inter = get_inter_as_mix_between_inside_outside(matrix, 50, 3000)
-        #self._inter_background_means = self._inter_background.mean(axis=0)
-        #self._inter_background_stds = self._inter_background.std(axis=0)
-
         self._inter_background_means, self._inter_background_stds = (
-            get_inter_as_mix_between_inside_outside_multires(matrix, 200, 1000))
-        #self._inter_background = np.concatenate([inter0[:, :inter.shape[1], :inter.shape[2]], inter], axis=0)
-        #plt.hist(inter[:, -1, -1], bins=100)
-        #plt.show()
+            get_inter_as_mix_between_inside_outside_multires(matrix, 25, 5000, ratio=0.5))
+
         logging.info("Getting intra..")
-        #intra0 = get_intra_background(matrix)
-        #intra0 = get_background_fixed_distance(matrix, 200, 3000, "close")
-        intra0 = get_intra_as_mix(matrix, 500, 1000)
-        #plt.hist(intra0[:, -1, -1], bins=100)
+        intra0 = get_intra_as_mix(matrix, 20, 5000)
+
         lowest_size = min(intra0.shape[1], self._inter_background_means.shape[0])
         logging.info(f"Lowest size: {lowest_size}")
         intra0 = intra0[:, :lowest_size, :lowest_size]
         self._inter_background_means = self._inter_background_means[:lowest_size, :lowest_size]
         self._inter_background_stds = self._inter_background_stds[:lowest_size, :lowest_size]
-        #inter = inter[:, :lowest_size, :lowest_size]
 
-        #self._inter_background = inter
-
-        #intra1 = get_intra_distance_background(matrix, n_samples=500, max_bins=500, type="strong")
-        #intra0 = intra0[:, :intra1.shape[1], :intra1.shape[2]]
         self._intra_background = intra0  # np.concatenate([intra0], axis=0)
-
-        #self._intra_background = get_intra_distance_background(self._interaction_matrix, n_samples=1000, max_bins=500, type="weak")
-        self._intra_background_means = self._intra_background.mean(axis=0)
-        #plotly.express.histogram(self._intra_background[:, -1, -1], nbins=10, title="Intra means").show()
-        self._intra_background_stds = self._intra_background.std(axis=0)
-
-        #self._inter_background = get_intra_distance_background(self._interaction_matrix, n_samples=1000, max_bins=500, type="weak")
-        #self._inter_background = get_inter_background(self._interaction_matrix, n_samples=1000, max_bins=500)
-        #plotly.express.histogram(self._inter_background[:, -1, -1], nbins=10, title="Inter means").show()
-        return
-
-        self._inter_background_means = None
-        resolutions = [(1000, 1000), (5000, 500), (10000, 200), (200000, 50)]
-        resolutions = [(1000, 750)]
-        for n_samples, max_bins in resolutions:
-            b = get_intra_distance_background(self._interaction_matrix, n_samples=n_samples, max_bins=max_bins)
-            means = b.mean(axis=0)
-            stds = b.std(axis=0)
-            if self._inter_background_means is None:
-                self._inter_background_means = means
-                self._inter_background_stds = stds
-            else:
-                # overwrite the closer part with the one that has more samples (better estimate
-                self._inter_background_means[:means.shape[0], :means.shape[1]] = means
-                self._inter_background_stds[:means.shape[0], :means.shape[1]] = stds
-
-        np.save("inter_background_means.npy", self._inter_background_means)
-        np.save("inter_background_stds.npy", self._inter_background_stds)
-
-        #self._inter_background_means *= 10
-        #self._inter_background_stds *= 10
-
-        self._intra_background = get_intra_background(self._interaction_matrix)
         self._intra_background_means = self._intra_background.mean(axis=0)
         self._intra_background_stds = self._intra_background.std(axis=0)
+
+        inter2 = get_inter_background(matrix, 20, 5000)
+        self._inter_background_means2 = inter2.mean(axis=0)
+        self._inter_background_stds2 = inter2.std(axis=0)
+        #self._inter_background_means2, self._inter_background_stds2 = (
+        #    get_inter_as_mix_between_inside_outside_multires(matrix, 20, 5000, ratio=1.0, distance_type="close"))
+
+        self._intra_background_means2, self._intra_background_stds2 = (
+            get_inter_as_mix_between_inside_outside_multires(matrix, 20, 5000, ratio=0.95, distance_type="close"))
+
+        #intra = get_background_fixed_distance(matrix, 200, 5000, "outer_contig")
+        #self._intra_background_means2 = intra.mean(axis=0)
+        #self._intra_background_stds2 = intra.std(axis=0)
+
+
+        self._intra_background_means2 = self._intra_background_means2[:lowest_size, :lowest_size]
+        self._intra_background_stds2 = self._intra_background_stds2[:lowest_size, :lowest_size]
+        self._inter_background_means2 = self._inter_background_means2[:lowest_size, :lowest_size]
+        self._inter_background_stds2 = self._inter_background_stds2[:lowest_size, :lowest_size]
+
 
     def split(self, n_to_split):
         n_to_split = n_to_split
@@ -243,6 +211,14 @@ class IterativePathJoiner:
         )
         logging.info("Time to compute distance matrix: %.2f" % (time.perf_counter() - t0))
 
+        self._current_distance_matrix2 = get_bayesian_edge_probs(
+            self._interaction_matrix,
+            self._inter_background_means2,
+            self._inter_background_stds2,
+            self._intra_background_means2,
+            self._intra_background_stds2,
+        )
+
     def init_with_scaffold_alignments(self, scaffold_alignments: ScaffoldAlignments, contig_names_to_ids: Dict[str, int]):
         """Initiates by reading scaffolds from agp and starting with all contigs inside scaffolds joined"""
         scaffold_edges = scaffold_alignments.to_list_of_edges()
@@ -293,14 +269,15 @@ class IterativePathJoiner:
         #px(name="joining").imshow(diffs, title="diffs")
 
         # look among the best diffs
-        best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1][:n*100], diffs.shape)
-        #best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1], diffs.shape)
+        #best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1][:n*100], diffs.shape)
+        best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1], diffs.shape)
         to_return = []
         nodes_picked = set()
         for indexes in zip(best_indexes[0], best_indexes[1]):
             nodeside_a = NodeSide.from_numeric_index(indexes[0])
             nodeside_b = NodeSide.from_numeric_index(indexes[1])
             score = m[indexes[0], indexes[1]]
+            score2 = self._current_distance_matrix2.data[indexes[0], indexes[1]]
 
             node_a = nodeside_a.to_directed_node()
             node_b = nodeside_b.to_directed_node().reverse()  # reverse because we want l to be + direction for node b
@@ -323,8 +300,8 @@ class IterativePathJoiner:
                 #             f"Best score: {np.min(all_scores)}, score: {m[indexes[0], indexes[1]]}")
                 continue
 
-            if score > -np.log(0.001) and False:
-                #logging.info(f"Ignoring {node_a} -> {node_b} because score is {score}")
+            if score2 > -np.log(0.9) and True:
+                logging.info(f"Ignoring {node_a} -> {node_b} because score is {score2} ({score})")
                 continue
 
                 #logging.info(f"   Best edge: {node_a} -> {node_b}, from indexes {indexes}")
@@ -389,9 +366,9 @@ class IterativePathJoiner:
                 nodes_picked.add(id_a)
                 nodes_picked.add(id_b)
 
-            for i, node in enumerate(self._current_path):
+            for j, node in enumerate(self._current_path):
                 # skip those that have been merged
-                if i not in nodes_picked:
+                if j not in nodes_picked:
                     new_path.append(node)
 
             #logging.info(f"New path: {new_path[0:30]}")
@@ -409,9 +386,12 @@ class IterativePathJoiner:
             logging.info(f"Length of path is {len(self._current_path)}")
             self._interaction_matrix = self._interaction_matrix.merge_edges(best_edges)
             #self._interaction_matrix.plot()
-            self._compute_distance_matrix()
-            if i % 2 == 0 and False:
+            if i % 2 == 0:
+                logging.info("Getting backroungds")
                 self._get_backgrounds()
+            else:
+                logging.info(f"Not getting backgrounds, {i}")
+            self._compute_distance_matrix()
             #plt.show()
 
     def _cleanup_path(self):

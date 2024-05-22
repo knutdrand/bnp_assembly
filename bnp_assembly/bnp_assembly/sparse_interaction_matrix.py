@@ -1175,33 +1175,8 @@ class BackgroundInterMatrices:
         """
         Samples outside what is assumed to be largest chromosomes reach
         """
-        matrices = [matrix.toarray() for matrix in sample_inter_matrices(interaction_matrix, assumed_largest_chromosome_ratio_of_genome, n_samples, max_bins)]
+        matrices = [matrix.toarray().astype(np.float32) for matrix in sample_inter_matrices(interaction_matrix, assumed_largest_chromosome_ratio_of_genome, n_samples, max_bins)]
         return cls(np.array(matrices))
-
-        distance_from_diagonal = int(interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
-        logging.info(f"Assumed smallest chromosome size: {distance_from_diagonal}")
-        largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
-        #size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
-        size = min(max_bins, largest_contig)  # many bins is not necessary, and leads to large memory usage
-        logging.info(f"Making background matrices of size {size}")
-        lowest_x_start = distance_from_diagonal + size
-        highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
-
-        matrices = np.zeros((n_samples, size, size))
-        for i in tqdm(range(n_samples), desc="Sampling from background", total=n_samples):
-            xstart = random.randint(lowest_x_start, highest_x_start)
-            lowest_y_start = 0
-            highest_y_start = xstart - size - distance_from_diagonal
-            assert highest_y_start >= 0
-            ystart = random.randint(lowest_y_start, highest_y_start)
-            assert abs((ystart+size) - xstart) >= distance_from_diagonal
-            #logging.info(f"Sampling from {ystart} to {ystart+size} and {xstart} to {xstart+size}")
-
-            submatrix = interaction_matrix.sparse_matrix[ystart:ystart+size, xstart:xstart+size].toarray()
-            assert submatrix.shape[0] == size and submatrix.shape[1] == size
-            matrices[i] = submatrix
-
-        return cls(matrices)
 
 
 class BackgroundInterMatricesSingleBin:
@@ -1412,7 +1387,7 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
     logging.info(f"Sampling from contigs {chosen_contigs}")
 
     size = max_bins
-    size = min(size, smallest_contig_size//8)
+    size = min(size, smallest_contig_size//4)
 
     if distance_type == "close":
         #distance_from_diagonal = min(4000, smallest_contig_size//4)
@@ -1421,11 +1396,16 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
     elif distance_type == "closest":
         distance_from_diagonal = 1
         logging.info(f"Sampling closest with distance {distance_from_diagonal}")
-    else:
+    elif distance_type == "outer_contig":
+        distance_from_diagonal = int(smallest_contig_size * 3/4)
+        logging.info(f"Sampling outer contig with distance {distance_from_diagonal}")
+    elif distance_type == "far":
         #distance_from_diagonal = min(10000, smallest_contig_size//2)
         distance_from_diagonal = int(smallest_contig_size * 2/3)
         distance_from_diagonal = min(50, distance_from_diagonal)
         logging.info(f"Sampling far with distance {distance_from_diagonal}")
+    else:
+        assert False
 
 
     assert distance_from_diagonal < smallest_contig_size

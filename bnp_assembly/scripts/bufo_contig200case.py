@@ -20,13 +20,13 @@ from shared_memory_wrapper import from_file, to_file
 import matplotlib.pyplot as plt
 
 #matrix = from_file("../tests/interaction_matrix_bufo.npz")
-matrix = from_file("heatmap-contig4088.png.matrix.npz")
-matrix.plot(show_contigs=False)
-plt.show()
+#matrix = from_file("heatmap-contig4088.png.matrix.npz")
+#matrix.plot(show_contigs=False)
+#plt.show()
 #intra = get_intra_as_mix(matrix, 100, 1000)
 #inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(matrix, max_bins=5000)
 #matrix = from_file("heatmap-contig1886.png.matrix.npz")
-#matrix = from_file("scaffold_heatmap.png.matrix.3.npz")
+matrix = from_file("scaffold_heatmap.png.matrix.4.npz")
 #inter_means, inter_stds = get_inter_as_mix_between_inside_outside_multires(matrix, 50, 1000)
 #plt.imshow(inter_means)
 #inter = get_inter_as_mix_between_inside_outside(matrix, 5000, 60)
@@ -71,7 +71,7 @@ initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 #sys.exit()
 
 joiner = IterativePathJoiner(matrix)
-joiner.run(n_rounds=50)
+joiner.run(n_rounds=2)
 path_matrix = joiner.current_interaction_matrix
 path_matrix.plot()
 path = joiner.get_final_path()
