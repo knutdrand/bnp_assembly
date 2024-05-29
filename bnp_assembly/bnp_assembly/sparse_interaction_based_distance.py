@@ -16,8 +16,10 @@ from bnp_assembly.distance_matrix import DirectedDistanceMatrix
 from bnp_assembly.edge_distance_interface import EdgeDistanceFinder
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundMatrix, BackgroundInterMatrices, \
     BackgroundInterMatricesSingleBin, get_number_of_reads_between_all_contigs, \
-    sample_with_fixed_distance_inside_big_contigs
+    sample_with_fixed_distance_inside_big_contigs, sample_inter_matrices
 from bnp_assembly.util import get_all_possible_edges
+from welford import Welford
+
 from .plotting import px
 
 
@@ -160,18 +162,15 @@ def get_prob_of_reads_given_not_edge(interactions, prob_func: Literal["cdf", "pm
     return get_prob_of_edge_counts(background_sums, interactions)
 
 
-def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix):
-    resolutions = [(1000, 500), (5000, 350), (10000, 200), (20000, 50)]
+def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix, n_samples, max_bins):
+    n_iterations = 7
     inter_background_means = None
     inter_background_stds = None
-    for n_samples, max_bins in resolutions:
+    for i in range(n_iterations):
+
         logging.info(f"Sampling {n_samples} reads for inter background with max bins {max_bins}")
         #b = get_intra_distance_background(interaction_matrix, n_samples=n_samples, max_bins=max_bins)
-        b = BackgroundInterMatrices.from_sparse_interaction_matrix(interaction_matrix, max_bins=max_bins, n_samples=n_samples).matrices
-        b = np.cumsum(b, axis=1).cumsum(axis=2)
-
-        means = b.mean(axis=0)
-        stds = b.std(axis=0)
+        means, stds = get_inter_background_means_stds(interaction_matrix, n_samples=n_samples, max_bins=max_bins)
         if inter_background_means is None:
             inter_background_means = means
             inter_background_stds = stds
@@ -179,6 +178,11 @@ def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix
             # overwrite the closer part with the one that has more samples (better estimate
             inter_background_means[:means.shape[0], :means.shape[1]] = means
             inter_background_stds[:means.shape[0], :means.shape[1]] = stds
+
+        n_samples *= 4
+        max_bins //= 2
+        if max_bins < 10:
+            break
 
     return inter_background_means, inter_background_stds
 
@@ -189,6 +193,20 @@ def get_inter_background(interactions, n_samples=1000, max_bins=1000):
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
     logging.info("Done summing")
     return background_sums
+
+
+def get_inter_background_means_stds(interactions, n_samples=1000, max_bins=1000):
+    matrices = (matrix.toarray().astype(np.float32) for matrix in
+                sample_inter_matrices(interactions, assumed_largest_chromosome_ratio_of_genome=1/10, n_samples=n_samples,
+                                      max_bins=max_bins))
+    w = Welford()
+    for matrix in matrices:
+        sums = matrix.cumsum(axis=0).cumsum(axis=1)
+        w.add(sums)
+
+    mean = w.mean
+    variance = w.var_p
+    return mean, np.sqrt(variance)
 
 
 def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000, type="weak", start_clip=0):
@@ -207,19 +225,42 @@ def get_background_fixed_distance(interactions, n_samples=1000, max_bins=1000, d
     return background_sums
 
 
+def get_background_fixed_distance_mean_stds(interactions, n_samples=1000, max_bins=1000, distance_type="close", start_clip=0):
+    matrices = (matrix.toarray().astype(np.float32) for matrix in
+                sample_with_fixed_distance_inside_big_contigs(interactions, max_bins, n_samples, distance_type))
+    w = Welford()
+    for matrix in matrices:
+        matrix = matrix[::-1, :]
+        sums = matrix.cumsum(axis=0).cumsum(axis=1)
+        w.add(sums)
+
+    #matrices = matrices[:, ::-1, :]  # flip because oriented towards diagonal originally
+    #background_sums = matrices.cumsum(axis=1).cumsum(axis=2)
+    #return background_sums
+    means = w.mean
+    variance = w.var_p
+    return means, np.sqrt(variance)
+
+
 def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
-    inter_inside = get_background_fixed_distance(matrix, n_samples, max_bins, distance_type)
+    #inter_inside = get_background_fixed_distance(matrix, n_samples, max_bins, distance_type)
+    inter_inside_mean, inter_inside_std = get_background_fixed_distance_mean_stds(matrix, n_samples, max_bins, distance_type)
     #return inter_inside
     #inter_inside2 = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
     #inter_inside = np.concatenate([inter_inside, inter_inside2], axis=0)
     #inter_inside_mean = inter_inside.mean(axis=0)
 
-    inter_outside = get_inter_background(matrix, n_samples, inter_inside.shape[1])
+    #inter_outside = get_inter_background(matrix, n_samples, inter_inside.shape[1])
+    inter_outside_mean, inter_outside_std = get_inter_background_means_stds(matrix, n_samples, inter_inside_mean.shape[0])
     #inter_outside_mean = inter_outside.mean(axis=0)
 
+
     # mix between inside and outside (middle between)
-    inter = inter_inside - (inter_inside - inter_outside) * ratio
-    return inter
+    #inter = inter_inside - (inter_inside - inter_outside) * ratio
+    means = inter_inside_mean #inter_inside.mean(axis=0)
+    means - (means - inter_outside_mean) * ratio
+    stds = inter_inside_std  #inter_inside.std(axis=0)
+    return means, stds
 
 
 def get_intra_as_mix(matrix, n_samples, max_bins):
@@ -229,17 +270,33 @@ def get_intra_as_mix(matrix, n_samples, max_bins):
     return intra
 
 
+def get_intra_as_mix_means_stds(interaction_matrix, n_samples, max_bins):
+    # uses welford
+    for dist_type in ["closest", "close"]:
+        matrices = (matrix.toarray().astype(np.float32) for matrix in
+                    sample_with_fixed_distance_inside_big_contigs(interaction_matrix, max_bins, n_samples, dist_type))
+        w = Welford()
+        for matrix in matrices:
+            matrix = matrix[::-1, :]
+            sums = matrix.cumsum(axis=0).cumsum(axis=1)
+            w.add(sums)
+
+    means = w.mean
+    variance = w.var_p
+    return means, np.sqrt(variance)
+
+
 def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
     # uses multiple resolution to get enough data for close interactions
-    n_resolutions = 4
+    n_resolutions = 7
     all_means = None
     all_stds = None
     #for n_samples, max_bins in resolutions:
     for i in range(n_resolutions):
         logging.info(f"Sampling at resolution {max_bins} with {n_samples}")
-        b = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins, ratio=ratio, distance_type=distance_type)
-        means = b.mean(axis=0)
-        stds = b.std(axis=0)
+        means, stds = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins, ratio=ratio, distance_type=distance_type)
+        #means = b.mean(axis=0)
+        #stds = b.std(axis=0)
         if all_means is None:
             all_means = means
             all_stds = stds
@@ -250,6 +307,9 @@ def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins
 
         n_samples *= 4
         max_bins //= 2
+
+        if max_bins < 10:
+            break
 
     #all_stds *= 5
 
@@ -312,7 +372,6 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
     return matrix, nodeside_sizes
 
 
-
 def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.ndarray,
                             edge_counts, nodeside_sizes,
                             func=scipy.stats.norm.logsf):
@@ -321,13 +380,6 @@ def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.nd
     maxdist = background_means.shape[0] - 1
     means = background_means
     stds = background_stds
-    if not np.all(stds > 0):
-        logging.warning(f"{np.sum(stds==0)} stds are 0. Will fix by adding small number to those that are zero")
-        logging.warning("Could be because too few reads")
-        stds[stds == 0] = 0.0001
-        #plotly.express.imshow(stds, title="stds").show()
-        #plotly.express.imshow(means, title="means").show()
-        #raise Exception("")
 
     #n_nodesides = interaction_matrix.n_contigs * 2
     n_nodesides = len(nodeside_sizes)
@@ -337,6 +389,14 @@ def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.nd
 
     edge_means = means[sizes1-1, sizes2-1]
     edge_stds = stds[sizes1-1, sizes2-1]
+
+    if not np.all(edge_stds > 0):
+        logging.warning(f"{np.sum(edge_stds == 0)} stds are 0.")
+        logging.warning("Could be because too few reads")
+        edge_stds[edge_stds == 0] = edge_means[edge_stds == 0] + 0.001
+        # plotly.express.imshow(stds, title="stds").show()
+        # plotly.express.imshow(means, title="means").show()
+        # raise Exception("")
 
     n = n_nodesides
 
@@ -429,6 +489,7 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
     if np.any(multi_zero):
         logging.warning(f"Multiple zeros in prob_edge for {np.sum(multi_zero)} nodesides")
 
+    """
     zero_rows, zero_cols = np.where(prob_edge == 0)
     for row, col in zip(zero_rows, zero_cols):
         logging.warning(f"Nodeside sizes: {nodeside_sizes[row]}, {nodeside_sizes[col]}. "
@@ -436,6 +497,7 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                         f"Edge count: {edge_counts.data[row, col]}"
                         f"Inter mean: {inter_background_means[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}, std: {inter_background_stds[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}"
                         f"Intra mean: {intra_background_means[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}, std: {intra_background_stds[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}")
+    """
 
     #plotly.express.imshow(prob_edge[0:1000, 0:1000], title="Prob edge").show()
     return m

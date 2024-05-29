@@ -1402,7 +1402,7 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
     elif distance_type == "far":
         #distance_from_diagonal = min(10000, smallest_contig_size//2)
         distance_from_diagonal = int(smallest_contig_size * 2/3)
-        distance_from_diagonal = min(50, distance_from_diagonal)
+        distance_from_diagonal = min(10, distance_from_diagonal)
         logging.info(f"Sampling far with distance {distance_from_diagonal}")
     else:
         assert False

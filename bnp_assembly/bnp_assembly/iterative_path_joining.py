@@ -15,7 +15,9 @@ from bnp_assembly.contig_graph import DirectedNode, ContigPath
 from bnp_assembly.graph_objects import NodeSide, Edge
 from bnp_assembly.sparse_interaction_based_distance import get_bayesian_edge_probs, get_inter_background, \
     get_intra_background, get_intra_distance_background, get_background_fixed_distance, \
-    get_inter_as_mix_between_inside_outside, get_inter_as_mix_between_inside_outside_multires, get_intra_as_mix
+    get_inter_as_mix_between_inside_outside, get_inter_as_mix_between_inside_outside_multires, get_intra_as_mix, \
+    get_intra_as_mix_means_stds, get_inter_background_means_stds, \
+    get_inter_background_means_std_using_multiple_resolutions
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundInterMatrices, \
     BinnedNumericGlobalOffset
 from bnp_assembly.plotting import px
@@ -76,6 +78,7 @@ class CompundNode:
 
 class IterativePathJoiner:
     def __init__(self, interaction_matrix: SparseInteractionMatrix, skip_init_distance_matrix=False):
+        self._iteration = 0
         self._interaction_matrix = interaction_matrix
         self._original_interaction_matrix = interaction_matrix
         self._original_global_offset = interaction_matrix.global_offset
@@ -109,30 +112,38 @@ class IterativePathJoiner:
         if isinstance(self._interaction_matrix.sparse_matrix, scipy.sparse.coo_matrix):
             matrix.to_csr_matrix()
 
+        max_bins = 5000
+
         self._inter_background_means, self._inter_background_stds = (
-            get_inter_as_mix_between_inside_outside_multires(matrix, 25, 5000, ratio=0.5))
+            get_inter_as_mix_between_inside_outside_multires(matrix, 50, max_bins, ratio=0.5))
 
         logging.info("Getting intra..")
-        intra0 = get_intra_as_mix(matrix, 20, 5000)
+        #intra0 = get_intra_as_mix(matrix, 500, max_bins)
 
-        lowest_size = min(intra0.shape[1], self._inter_background_means.shape[0])
-        logging.info(f"Lowest size: {lowest_size}")
-        intra0 = intra0[:, :lowest_size, :lowest_size]
+        #lowest_size = min(intra0.shape[1], self._inter_background_means.shape[0])
+        #logging.info(f"Lowest size: {lowest_size}")
+        #intra0 = intra0[:, :lowest_size, :lowest_size]
+        self._intra_background_means, self._intra_background_stds = get_intra_as_mix_means_stds(matrix, 2000, max_bins)
+        lowest_size = min(self._intra_background_means.shape[0], self._inter_background_means.shape[0])
+        self._intra_background_means = self._intra_background_means[:lowest_size, :lowest_size]
+        self._intra_background_stds = self._intra_background_stds[:lowest_size, :lowest_size]
         self._inter_background_means = self._inter_background_means[:lowest_size, :lowest_size]
         self._inter_background_stds = self._inter_background_stds[:lowest_size, :lowest_size]
 
-        self._intra_background = intra0  # np.concatenate([intra0], axis=0)
-        self._intra_background_means = self._intra_background.mean(axis=0)
-        self._intra_background_stds = self._intra_background.std(axis=0)
+        #self._intra_background = intra0  # np.concatenate([intra0], axis=0)
+        #self._intra_background_means = self._intra_background.mean(axis=0)
+        #self._intra_background_stds = self._intra_background.std(axis=0)
 
-        inter2 = get_inter_background(matrix, 20, 5000)
-        self._inter_background_means2 = inter2.mean(axis=0)
-        self._inter_background_stds2 = inter2.std(axis=0)
+        #self._inter_background_means2, self._inter_background_stds2 = get_inter_background_means_stds(matrix, 200, max_bins)
+        self._inter_background_means2, self._inter_background_stds2 = (
+            get_inter_background_means_std_using_multiple_resolutions(matrix, 100, max_bins))
+        #self._inter_background_means2 = inter2.mean(axis=0)
+        #self._inter_background_stds2 = inter2.std(axis=0)
         #self._inter_background_means2, self._inter_background_stds2 = (
         #    get_inter_as_mix_between_inside_outside_multires(matrix, 20, 5000, ratio=1.0, distance_type="close"))
 
         self._intra_background_means2, self._intra_background_stds2 = (
-            get_inter_as_mix_between_inside_outside_multires(matrix, 20, 5000, ratio=0.95, distance_type="close"))
+            get_inter_as_mix_between_inside_outside_multires(matrix, 100, max_bins, ratio=0.95, distance_type="close"))
 
         #intra = get_background_fixed_distance(matrix, 200, 5000, "outer_contig")
         #self._intra_background_means2 = intra.mean(axis=0)
@@ -143,6 +154,18 @@ class IterativePathJoiner:
         self._intra_background_stds2 = self._intra_background_stds2[:lowest_size, :lowest_size]
         self._inter_background_means2 = self._inter_background_means2[:lowest_size, :lowest_size]
         self._inter_background_stds2 = self._inter_background_stds2[:lowest_size, :lowest_size]
+
+        i = self._iteration
+        logging.info("Saving debug data")
+        np.save(f"intra_means-{i}.npy", self._intra_background_means)
+        np.save(f"intra_stds-{i}.npy", self._intra_background_stds)
+        np.save(f"intra_means2-{i}.npy", self._intra_background_means2)
+        np.save(f"intra_stds2-{i}.npy", self._intra_background_stds2)
+
+        np.save(f"inter_means-{i}.npy", self._inter_background_means)
+        np.save(f"inter_stds-{i}.npy", self._inter_background_stds)
+        np.save(f"inter_means2-{i}.npy", self._inter_background_means2)
+        np.save(f"inter_stds2-{i}.npy", self._inter_background_stds2)
 
 
     def split(self, n_to_split):
@@ -202,6 +225,7 @@ class IterativePathJoiner:
 
     def _compute_distance_matrix(self):
         t0 = time.perf_counter()
+        logging.info("----- Getting probs 1")
         self._current_distance_matrix = get_bayesian_edge_probs(
             self._interaction_matrix,
             self._inter_background_means,
@@ -211,6 +235,7 @@ class IterativePathJoiner:
         )
         logging.info("Time to compute distance matrix: %.2f" % (time.perf_counter() - t0))
 
+        logging.info("----- Getting probs 2")
         self._current_distance_matrix2 = get_bayesian_edge_probs(
             self._interaction_matrix,
             self._inter_background_means2,
@@ -269,8 +294,8 @@ class IterativePathJoiner:
         #px(name="joining").imshow(diffs, title="diffs")
 
         # look among the best diffs
-        #best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1][:n*100], diffs.shape)
-        best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1], diffs.shape)
+        best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1][:n*100], diffs.shape)
+        #best_indexes = np.unravel_index(np.argsort(diffs, axis=None)[::-1], diffs.shape)
         to_return = []
         nodes_picked = set()
         for indexes in zip(best_indexes[0], best_indexes[1]):
@@ -321,12 +346,14 @@ class IterativePathJoiner:
         # merge the best edges
         n_joined_prev_iteration = 0
         for i in range(n_rounds):
+            self._iteration = i
             if i == 0:
                 m = self._current_distance_matrix
                 #plotly.express.imshow(m.data[::2, 1::2], title="distance matrix").show()
 
             n_contigs = self._interaction_matrix.n_contigs
             n_to_merge = n_contigs // 3 + 1
+            n_to_merge = n_contigs - 1
             n_to_split = n_joined_prev_iteration // 3 - 1
             logging.info("")
             logging.info(f"Iteration {i}, {len(self._current_path)} nodes in path. Will split {n_to_split} and merge {n_to_merge} nodes.")
@@ -386,11 +413,9 @@ class IterativePathJoiner:
             logging.info(f"Length of path is {len(self._current_path)}")
             self._interaction_matrix = self._interaction_matrix.merge_edges(best_edges)
             #self._interaction_matrix.plot()
-            if i % 2 == 0:
-                logging.info("Getting backroungds")
+            if i % 10 == 0 and i > 0:
                 self._get_backgrounds()
-            else:
-                logging.info(f"Not getting backgrounds, {i}")
+
             self._compute_distance_matrix()
             #plt.show()
 
