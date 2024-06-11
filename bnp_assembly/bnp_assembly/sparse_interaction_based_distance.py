@@ -163,14 +163,24 @@ def get_prob_of_reads_given_not_edge(interactions, prob_func: Literal["cdf", "pm
 
 
 def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix, n_samples, max_bins):
-    n_iterations = 7
+    def sampling_function(matrix, n_samples, max_bins, dynamic_sampling, dynamic_sampling_lowest_bin):
+        return get_inter_background_means_stds(matrix, n_samples=n_samples, max_bins=max_bins,
+                                               dynamic_sampling=dynamic_sampling, dynamic_sampling_lowest_bin=dynamic_sampling_lowest_bin)
+
+    return get_background_means_stds_multires(interaction_matrix, sampling_function, n_samples, max_bins)
+
+    n_iterations = 10
     inter_background_means = None
     inter_background_stds = None
     for i in range(n_iterations):
 
         logging.info(f"Sampling {n_samples} reads for inter background with max bins {max_bins}")
         #b = get_intra_distance_background(interaction_matrix, n_samples=n_samples, max_bins=max_bins)
-        means, stds = get_inter_background_means_stds(interaction_matrix, n_samples=n_samples, max_bins=max_bins)
+        next_bin_end = max_bins // 2
+        if next_bin_end < 10:
+            next_bin_end = 0
+        means, stds = get_inter_background_means_stds(interaction_matrix, n_samples=n_samples, max_bins=max_bins,
+                                                      dynamic_sampling=True, dynamic_sampling_lowest_bin=next_bin_end)
         if inter_background_means is None:
             inter_background_means = means
             inter_background_stds = stds
@@ -195,18 +205,41 @@ def get_inter_background(interactions, n_samples=1000, max_bins=1000):
     return background_sums
 
 
-def get_inter_background_means_stds(interactions, n_samples=1000, max_bins=1000):
-    matrices = (matrix.toarray().astype(np.float32) for matrix in
-                sample_inter_matrices(interactions, assumed_largest_chromosome_ratio_of_genome=1/10, n_samples=n_samples,
-                                      max_bins=max_bins))
+def get_background_mean_stds(interactions, sampling_function, n_samples=1000, max_bins=1000,
+                             dynamic_sampling=False, dynamic_sampling_lowest_bin=0):
+    matrices = (matrix for matrix in
+                sampling_function(interactions, n_samples=n_samples, max_bins=max_bins))
+
     w = Welford()
-    for matrix in matrices:
+    n_nonzero_cols = None
+    n_nonzero_rows = None
+    for i, matrix in enumerate(matrices):
         sums = matrix.cumsum(axis=0).cumsum(axis=1)
         w.add(sums)
+        if dynamic_sampling:
+            if n_nonzero_cols is None:
+                n_nonzero_rows = np.zeros(matrix.shape[0])
+                n_nonzero_cols = np.zeros(matrix.shape[1])
+            dynamic_sampling_lowest_bin = min(dynamic_sampling_lowest_bin, matrix.shape[0] - 1)
+            n_nonzero_rows += sums[:, dynamic_sampling_lowest_bin] > 0
+            n_nonzero_cols += sums[dynamic_sampling_lowest_bin, :] > 0
 
+            if np.all(n_nonzero_rows > 10) and np.all(n_nonzero_cols > 10):
+                logging.info(
+                    f"Stopping sampling after {i} samples because all rows and columns from {dynamic_sampling_lowest_bin} have enough data")
+                break
+    logging.info(f"Total samples: {i}")
     mean = w.mean
     variance = w.var_p
     return mean, np.sqrt(variance)
+
+
+def get_inter_background_means_stds(interactions, n_samples=1000, max_bins=1000, dynamic_sampling=False, dynamic_sampling_lowest_bin=0):
+    """
+    if dynamic_sampling, will sample until all values at row/column lowest_bin have enough data
+    """
+    return get_background_mean_stds(interactions, sample_inter_matrices, n_samples, max_bins, dynamic_sampling, dynamic_sampling_lowest_bin)
+
 
 
 def get_intra_distance_background(interactions, n_samples=1000, max_bins=1000, type="weak", start_clip=0):
@@ -225,8 +258,11 @@ def get_background_fixed_distance(interactions, n_samples=1000, max_bins=1000, d
     return background_sums
 
 
-def get_background_fixed_distance_mean_stds(interactions, n_samples=1000, max_bins=1000, distance_type="close", start_clip=0):
-    matrices = (matrix.toarray().astype(np.float32) for matrix in
+def get_background_fixed_distance_mean_stds(interactions, n_samples=1000, max_bins=1000, distance_type="close", dynamic_sampling=False, dynamic_sampling_lowest_bin=0):
+    return get_background_mean_stds(interactions, lambda interactions, n_samples, max_bins: sample_with_fixed_distance_inside_big_contigs(interactions, max_bins, n_samples, distance_type), n_samples, max_bins,
+                                    dynamic_sampling, dynamic_sampling_lowest_bin)
+
+    matrices = (matrix.toarray() for matrix in
                 sample_with_fixed_distance_inside_big_contigs(interactions, max_bins, n_samples, distance_type))
     w = Welford()
     for matrix in matrices:
@@ -242,41 +278,58 @@ def get_background_fixed_distance_mean_stds(interactions, n_samples=1000, max_bi
     return means, np.sqrt(variance)
 
 
-def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
+def get_inter_as_mix_between_inside_outside(matrix, n_samples, max_bins, ratio=0.5, distance_type="far",
+                                            dynamic_sampling=False, dynamic_sampling_lowest_bin=0):
     #inter_inside = get_background_fixed_distance(matrix, n_samples, max_bins, distance_type)
-    inter_inside_mean, inter_inside_std = get_background_fixed_distance_mean_stds(matrix, n_samples, max_bins, distance_type)
+    inter_inside_mean, inter_inside_std = get_background_fixed_distance_mean_stds(matrix, n_samples, max_bins,
+                                                                                  distance_type, dynamic_sampling,
+                                                                                  dynamic_sampling_lowest_bin)
     #return inter_inside
     #inter_inside2 = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
     #inter_inside = np.concatenate([inter_inside, inter_inside2], axis=0)
     #inter_inside_mean = inter_inside.mean(axis=0)
 
     #inter_outside = get_inter_background(matrix, n_samples, inter_inside.shape[1])
-    inter_outside_mean, inter_outside_std = get_inter_background_means_stds(matrix, n_samples, inter_inside_mean.shape[0])
+    # don't need to sample more than inside here, this is only used for getting a mean to adjust for
+    n_samples = 20
+    inter_outside_mean, inter_outside_std = get_inter_background_means_stds(matrix, n_samples, inter_inside_mean.shape[0],
+                                                                            dynamic_sampling, dynamic_sampling_lowest_bin)
     #inter_outside_mean = inter_outside.mean(axis=0)
 
 
     # mix between inside and outside (middle between)
     #inter = inter_inside - (inter_inside - inter_outside) * ratio
     means = inter_inside_mean #inter_inside.mean(axis=0)
-    means - (means - inter_outside_mean) * ratio
+    means = means - (means - inter_outside_mean) * ratio
     stds = inter_inside_std  #inter_inside.std(axis=0)
+    #stds = inter_inside_std - (inter_inside_std - inter_outside_std) * ratio
+    #stds = (inter_inside_std + inter_outside_std) / 2
     return means, stds
 
 
 def get_intra_as_mix(matrix, n_samples, max_bins):
+    assert False, "not to be used"
     intra_closest = get_background_fixed_distance(matrix, n_samples, max_bins, "closest")
     intra_close = get_background_fixed_distance(matrix, n_samples, max_bins, "close")
     intra = np.concatenate([intra_closest, intra_close], axis=0)
     return intra
 
 
+def sample_intra_from_close_and_closest(interaction_matrix, n_samples, max_bins):
+    return sample_with_fixed_distance_inside_big_contigs(interaction_matrix, max_bins, n_samples, "close_closest")
+
+
 def get_intra_as_mix_means_stds(interaction_matrix, n_samples, max_bins):
+    def sampling_function(matrix, n_samples, max_bins, dynamic_sampling, dynamic_sampling_lowest_bin):
+        return get_background_mean_stds(matrix, sample_intra_from_close_and_closest, n_samples, max_bins, dynamic_sampling, dynamic_sampling_lowest_bin)
+    return get_background_means_stds_multires(interaction_matrix, sampling_function, n_samples, max_bins)
+
     # uses welford
     for dist_type in ["closest", "close"]:
-        matrices = (matrix.toarray().astype(np.float32) for matrix in
+        matrices = (matrix for matrix in
                     sample_with_fixed_distance_inside_big_contigs(interaction_matrix, max_bins, n_samples, dist_type))
         w = Welford()
-        for matrix in matrices:
+        for matrix in tqdm(matrices, total=n_samples):
             matrix = matrix[::-1, :]
             sums = matrix.cumsum(axis=0).cumsum(axis=1)
             w.add(sums)
@@ -286,15 +339,60 @@ def get_intra_as_mix_means_stds(interaction_matrix, n_samples, max_bins):
     return means, np.sqrt(variance)
 
 
-def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
+def get_background_means_stds_multires(matrix, sampling_function, n_samples, max_bins):
     # uses multiple resolution to get enough data for close interactions
-    n_resolutions = 7
+    n_resolutions = 10
     all_means = None
     all_stds = None
     #for n_samples, max_bins in resolutions:
     for i in range(n_resolutions):
-        logging.info(f"Sampling at resolution {max_bins} with {n_samples}")
-        means, stds = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins, ratio=ratio, distance_type=distance_type)
+        logging.info(f"Sampling at resolution {max_bins} with {n_samples} (sample iteration {i})")
+        next_lowest_bin = max_bins // 2
+        if next_lowest_bin < 10:
+            next_lowest_bin = 0
+
+        means, stds = sampling_function(matrix, n_samples=n_samples, max_bins=max_bins,
+                                                             dynamic_sampling=True, dynamic_sampling_lowest_bin=next_lowest_bin)
+        #means = b.mean(axis=0)
+        #stds = b.std(axis=0)
+        if all_means is None:
+            all_means = means
+            all_stds = stds
+        else:
+            # overwrite the closer part with the one that has more samples (better estimate
+            all_means[:means.shape[0], :means.shape[1]] = means
+            all_stds[:means.shape[0], :means.shape[1]] = stds
+
+        n_samples *= 4
+        max_bins //= 2
+
+        if max_bins < 10:
+            break
+
+    #all_stds *= 5
+
+    return all_means, all_stds
+
+
+def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins, ratio=0.5, distance_type="far"):
+    sampling_function = lambda matrix, n_samples, max_bins, dynamic_sampling, dynamic_sampling_lowest_bin: (
+        get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins, ratio=ratio, distance_type=distance_type, dynamic_sampling=dynamic_sampling, dynamic_sampling_lowest_bin=dynamic_sampling_lowest_bin))
+    return get_background_means_stds_multires(matrix, sampling_function, n_samples, max_bins)
+
+
+    # uses multiple resolution to get enough data for close interactions
+    n_resolutions = 10
+    all_means = None
+    all_stds = None
+    #for n_samples, max_bins in resolutions:
+    for i in range(n_resolutions):
+        logging.info(f"Sampling at resolution {max_bins} with {n_samples} (sample iteration {i}")
+        next_lowest_bin = max_bins // 2
+        if next_lowest_bin < 10:
+            next_lowest_bin = 0
+
+        means, stds = get_inter_as_mix_between_inside_outside(matrix, n_samples=n_samples, max_bins=max_bins, ratio=ratio, distance_type=distance_type,
+                                                             dynamic_sampling=True, dynamic_sampling_lowest_bin=next_lowest_bin)
         #means = b.mean(axis=0)
         #stds = b.std(axis=0)
         if all_means is None:
@@ -497,8 +595,8 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                         f"Edge count: {edge_counts.data[row, col]}"
                         f"Inter mean: {inter_background_means[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}, std: {inter_background_stds[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}"
                         f"Intra mean: {intra_background_means[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}, std: {intra_background_stds[nodeside_sizes[row]-1, nodeside_sizes[col]-1]}")
-    """
 
+    """
     #plotly.express.imshow(prob_edge[0:1000, 0:1000], title="Prob edge").show()
     return m
 

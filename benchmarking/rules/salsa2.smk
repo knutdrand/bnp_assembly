@@ -4,7 +4,7 @@ rule bam_to_bed:
     input:
         "{file}.bam"
     output:
-        "{file}.bed_for_salsa"
+        "{file}.bed.old"
     conda:
         "../envs/bedtools.yml"
     shell:
@@ -12,12 +12,22 @@ rule bam_to_bed:
         bedtools bamtobed -i {input} > {output}
         """
 
+rule pairs_to_bed:
+    input:
+        "{file}.pa5"
+    output:
+        "{file}.bed"
+    shell:
+        """
+        python3 scripts/convert_pa5_to_bed.py {input} > {output}
+        """
+
 
 rule run_salsa2:
     input:
         contigs=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         contigs_index=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
-        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bed_for_salsa",
+        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.bed",
     output:
         scaffolds = ScaffoldingResults.path(scaffolder="salsa2") + "/scaffolds.fa",
         agp = ScaffoldingResults.path(scaffolder="salsa2") + "/scaffolds.agp",

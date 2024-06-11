@@ -12,7 +12,8 @@ from matplotlib import pyplot as plt
 
 from bnp_assembly.contig_path_optimization import InteractionDistancesAndWeights, \
     LogProbSumOfReadDistancesDynamicScores, split_using_interaction_matrix
-from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, estimate_distance_pmf_from_sparse_matrix2
+from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, estimate_distance_pmf_from_sparse_matrix2, \
+    filter_low_mappability
 from scipy.stats import poisson
 
 from bnp_assembly.clustering import cluster_split
@@ -243,7 +244,8 @@ def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix =
     joiner = IterativePathJoiner(interaction_matrix)
     joiner.run()
     #directed_nodes = joiner.get_final_path()
-    return joiner.get_final_path_as_list_of_contigpaths()
+    return joiner.rerun_for_each_scaffold()
+    #return joiner.get_final_path_as_list_of_contigpaths()
 
     path = ContigPath.from_directed_nodes(directed_nodes)
     path_matrix = interaction_matrix.get_matrix_for_path2(directed_nodes, as_raw_matrix=False)
@@ -406,11 +408,14 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData=None, distance_me
 
     # trim contigs, interaction matrix is clipped inplace
     interaction_matrix: SparseInteractionMatrix = distance_kwargs.get("interaction_matrix", None)
+    interaction_matrix = filter_low_mappability(interaction_matrix)
+
+
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
 
     contig_sizes = {i: size for i, size in enumerate(interaction_matrix.contig_sizes)}
 
-    if len(contig_sizes) < 1000:
+    if len(contig_sizes) < 1000 and False:
         contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, interaction_matrix_clipping, window_size=100)
         logging.info("Trimming interaction matrix with clips")
         interaction_matrix.trim_with_clips(contig_clips)

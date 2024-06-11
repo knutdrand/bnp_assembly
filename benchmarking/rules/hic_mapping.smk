@@ -154,6 +154,22 @@ rule map_hic_with_chromap:
         """
 
 
+rule map_hic_with_bed:
+    input:
+        reads1=HiCReads.path() + "/reads1.fq.gz",
+        reads2=HiCReads.path() + "/reads2.fq.gz",
+        primary_assembly=HifiasmResultsWithExtraSplits.path() + "/{prefix}.fa",
+        index=HifiasmResultsWithExtraSplits.path() + "/{prefix}.chromap_index",
+    output:
+        pairs=HifiasmResultsWithExtraSplits.path() + "/{prefix}.bed.old",
+    conda:
+        "../envs/chromap.yml"
+    shell:
+        """
+        chromap --BED -t {config[n_threads]} --preset hic -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output}
+        """
+
+
 rule map_hic_with_chromap_bam:
     input:
         reads1=HiCReads.path() + "/reads1.fq.gz",
@@ -195,3 +211,12 @@ rule convert_pairs_to_short:
     shell:
         "grep -v '#' {input.pairs} | cut -f 2,3,4,5 > {output.short}"
 
+
+
+rule add_pairs_file_ending:
+    input:
+        pairs="{prefix}.pa5",
+    output:
+        pairs="{prefix}.pairs"
+    shell:
+        "cp {input.pairs} {output.pairs}"

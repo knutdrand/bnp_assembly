@@ -8,8 +8,9 @@ from bnp_assembly.iterative_path_joining import IterativePathJoiner
 from bnp_assembly.missing_data import find_contig_clips_from_interaction_matrix
 from bnp_assembly.sparse_interaction_based_distance import get_intra_distance_background, get_background_fixed_distance, \
     get_inter_background, get_inter_as_mix_between_inside_outside, get_inter_as_mix_between_inside_outside_multires, \
-    get_intra_as_mix
-from bnp_assembly.sparse_interaction_matrix import BackgroundInterMatrices
+    get_intra_as_mix, get_inter_background_means_stds, get_inter_background_means_std_using_multiple_resolutions, \
+    get_intra_as_mix_means_stds
+from bnp_assembly.sparse_interaction_matrix import BackgroundInterMatrices, filter_low_mappability
 import plotly.express as px
 logging.basicConfig(level=logging.INFO)
 from bnp_assembly.contig_graph import DirectedNode, ContigPath
@@ -26,7 +27,27 @@ import matplotlib.pyplot as plt
 #intra = get_intra_as_mix(matrix, 100, 1000)
 #inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(matrix, max_bins=5000)
 #matrix = from_file("heatmap-contig1886.png.matrix.npz")
-matrix = from_file("scaffold_heatmap.png.matrix.4.npz")
+#matrix = from_file("scaffold_heatmap.png.matrix.5.npz")
+matrix = from_file("heatmap-contig57.png.matrix.npz")
+#matrix = from_file("interaction_matrix_2000.pairs.npz")
+# matrix.plot()
+# plt.show()
+matrix = filter_low_mappability(matrix)
+# matrix.plot()
+# plt.show()
+#intra_background_means, intra_background_stds = get_intra_as_mix_means_stds(matrix, 2000, 5000)
+#plt.imshow(intra_background_stds)
+# matrix2.plot()
+#plt.show()
+#sys.exit()
+
+#m, s = get_inter_background_means_std_using_multiple_resolutions(matrix, 50, 10000)
+#m, s = get_inter_as_mix_between_inside_outside_multires(matrix, 50, 10000)
+#plt.imshow(s)
+#plt.show()
+#inter_outside_mean, inter_outside_std = get_inter_background_means_stds(matrix, 20, 5000)
+#print(inter_outside_mean[-1, -1], inter_outside_std[-1, -1])
+#sys.exit()
 #inter_means, inter_stds = get_inter_as_mix_between_inside_outside_multires(matrix, 50, 1000)
 #plt.imshow(inter_means)
 #inter = get_inter_as_mix_between_inside_outside(matrix, 5000, 60)
@@ -71,7 +92,7 @@ initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 #sys.exit()
 
 joiner = IterativePathJoiner(matrix)
-joiner.run(n_rounds=2)
+joiner.run(n_rounds=10)
 path_matrix = joiner.current_interaction_matrix
 path_matrix.plot()
 path = joiner.get_final_path()

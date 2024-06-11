@@ -72,7 +72,12 @@ genomes:
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/000/ERR6002570/ERR6002570_1.fastq.gz
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/000/ERR6002570/ERR6002570_2.fastq.gz
       big:
-        chromosomes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,mitochondrion,W,Z,SUPER_26_unloc_1,SUPER_26_unloc_2
+        chromosomes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
+    simulated:
+      simulated: True
+      big:
+        chromosomes: 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
+
 
 
   pieris_rapae:

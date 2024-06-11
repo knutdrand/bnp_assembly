@@ -78,6 +78,7 @@ class CompundNode:
 
 class IterativePathJoiner:
     def __init__(self, interaction_matrix: SparseInteractionMatrix, skip_init_distance_matrix=False):
+        self._max_bins_background = 10000
         self._iteration = 0
         self._interaction_matrix = interaction_matrix
         self._original_interaction_matrix = interaction_matrix
@@ -93,9 +94,10 @@ class IterativePathJoiner:
 
     def shuffle(self):
         n_contigs = self._interaction_matrix.n_contigs
+        logging.info(f"Initing with {n_contigs} contigs")
         initial_path = [DirectedNode(contig, '+') for contig in range(n_contigs)]
         random.seed(0)
-        random.shuffle(initial_path)
+        #random.shuffle(initial_path)
         self._current_path = initial_path
         self._interaction_matrix = self._interaction_matrix.get_matrix_for_path2(initial_path, as_raw_matrix=False, backend=scipy.sparse.csr_matrix)
         self._get_backgrounds()
@@ -112,7 +114,10 @@ class IterativePathJoiner:
         if isinstance(self._interaction_matrix.sparse_matrix, scipy.sparse.coo_matrix):
             matrix.to_csr_matrix()
 
-        max_bins = 5000
+        max_bins = self._max_bins_background
+        if False and self._inter_background_means is not None and max_bins <= self._inter_background_means.shape[1] + 1:
+            logging.info(f"Not sampling again, already reached max bins")
+            return
 
         self._inter_background_means, self._inter_background_stds = (
             get_inter_as_mix_between_inside_outside_multires(matrix, 50, max_bins, ratio=0.5))
@@ -130,20 +135,26 @@ class IterativePathJoiner:
         self._inter_background_means = self._inter_background_means[:lowest_size, :lowest_size]
         self._inter_background_stds = self._inter_background_stds[:lowest_size, :lowest_size]
 
+        max_bins = lowest_size
+
         #self._intra_background = intra0  # np.concatenate([intra0], axis=0)
         #self._intra_background_means = self._intra_background.mean(axis=0)
         #self._intra_background_stds = self._intra_background.std(axis=0)
 
         #self._inter_background_means2, self._inter_background_stds2 = get_inter_background_means_stds(matrix, 200, max_bins)
+        #self._inter_background_means2, self._inter_background_stds2 = (
+        #    get_inter_background_means_std_using_multiple_resolutions(matrix, 100, max_bins))
+
         self._inter_background_means2, self._inter_background_stds2 = (
-            get_inter_background_means_std_using_multiple_resolutions(matrix, 100, max_bins))
+            get_inter_as_mix_between_inside_outside_multires(matrix, 100, max_bins, ratio=0.99, distance_type="close"))
+
         #self._inter_background_means2 = inter2.mean(axis=0)
         #self._inter_background_stds2 = inter2.std(axis=0)
         #self._inter_background_means2, self._inter_background_stds2 = (
         #    get_inter_as_mix_between_inside_outside_multires(matrix, 20, 5000, ratio=1.0, distance_type="close"))
 
         self._intra_background_means2, self._intra_background_stds2 = (
-            get_inter_as_mix_between_inside_outside_multires(matrix, 100, max_bins, ratio=0.95, distance_type="close"))
+            get_inter_as_mix_between_inside_outside_multires(matrix, 100, max_bins, ratio=0.99, distance_type="close"))
 
         #intra = get_background_fixed_distance(matrix, 200, 5000, "outer_contig")
         #self._intra_background_means2 = intra.mean(axis=0)
@@ -325,7 +336,7 @@ class IterativePathJoiner:
                 #             f"Best score: {np.min(all_scores)}, score: {m[indexes[0], indexes[1]]}")
                 continue
 
-            if score2 > -np.log(0.9) and True:
+            if score2 > -np.log(0.5) and True:
                 logging.info(f"Ignoring {node_a} -> {node_b} because score is {score2} ({score})")
                 continue
 
@@ -352,7 +363,7 @@ class IterativePathJoiner:
                 #plotly.express.imshow(m.data[::2, 1::2], title="distance matrix").show()
 
             n_contigs = self._interaction_matrix.n_contigs
-            n_to_merge = n_contigs // 3 + 1
+            n_to_merge = n_contigs // 4 + 1
             n_to_merge = n_contigs - 1
             n_to_split = n_joined_prev_iteration // 3 - 1
             logging.info("")
@@ -413,7 +424,7 @@ class IterativePathJoiner:
             logging.info(f"Length of path is {len(self._current_path)}")
             self._interaction_matrix = self._interaction_matrix.merge_edges(best_edges)
             #self._interaction_matrix.plot()
-            if i % 10 == 0 and i > 0:
+            if i % 5 == 1:
                 self._get_backgrounds()
 
             self._compute_distance_matrix()
@@ -447,3 +458,38 @@ class IterativePathJoiner:
             else:
                 out.append(ContigPath.from_directed_nodes([nodes]))
         return out
+
+    def rerun_for_each_scaffold(self):
+        new_path = []
+        path = [n for n in self._current_path]
+        logging.info(f"Path before rerun: {path}")
+        for nodes in path:
+            logging.info("------------------------------------------------")
+            logging.info(f"Rerunning for {nodes}")
+            if isinstance(nodes, CompundNode):
+                # don't do anything if all contigs are small
+                original_nodes = nodes.flatten()
+                sizes = [self._original_global_offset.contig_n_bins[node.node_id] for node in original_nodes]
+                if all([size < 50 for size in sizes]):
+                    logging.info(f"Skipping {original_nodes} because all contigs are small")
+                    new_path.append(ContigPath.from_directed_nodes(original_nodes))
+                    continue
+                logging.info(f"Rejoining {original_nodes}")
+                submatrix = self._original_interaction_matrix.get_matrix_for_path(original_nodes, as_raw_matrix=False)
+                assert len(submatrix.contig_sizes) == len(original_nodes)
+                subjoiner = IterativePathJoiner(submatrix)
+                subjoiner.run(n_rounds=100)
+                final_subpath = subjoiner.get_final_path()
+                new_nodes = []
+                for node in final_subpath:
+                    new_node = original_nodes[node.node_id]
+                    if node.orientation == '-':
+                        new_node = new_node.reverse()
+                    new_nodes.append(new_node)
+                logging.info(f"Ended up with {new_nodes}")
+                new_path.append(ContigPath.from_directed_nodes(new_nodes))
+            else:
+                logging.info(f"Single node {nodes}, not rerunning")
+                new_path.append(ContigPath.from_directed_nodes([nodes]))
+
+        return new_path

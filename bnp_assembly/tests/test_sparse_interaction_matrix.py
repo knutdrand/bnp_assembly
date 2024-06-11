@@ -10,7 +10,8 @@ from bnp_assembly.io import PairedReadStream
 from bnp_assembly.location import LocationPair, Location
 from bnp_assembly.sparse_interaction_based_distance import get_edge_counts_with_max_distance, get_intra_background
 from bnp_assembly.sparse_interaction_matrix import NaiveSparseInteractionMatrix, BinnedNumericGlobalOffset, \
-    SparseInteractionMatrix, contigs_covering_percent_of_total, get_number_of_reads_between_all_contigs
+    SparseInteractionMatrix, contigs_covering_percent_of_total, get_number_of_reads_between_all_contigs, \
+    filter_low_mappability
 import numpy as np
 from numpy.testing import assert_array_equal
 import plotly.express as px
@@ -472,3 +473,16 @@ def test_get_contigs_from_bins():
     assert_array_equal(contigs, correct)
     print(contigs)
 
+
+
+def test_filter_low_mappability():
+    matrix = np.ones((9, 9))*10
+    matrix[5, :] = 0
+    matrix[:, 5] = 0
+
+    global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: 3, 1: 3, 2: 3}, 1)
+    matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
+
+    filtered = filter_low_mappability(matrix)
+
+    assert np.all(filtered.contig_n_bins == [3, 2, 3])
