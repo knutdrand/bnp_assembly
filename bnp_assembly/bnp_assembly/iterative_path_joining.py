@@ -243,6 +243,7 @@ class IterativePathJoiner:
             self._inter_background_stds,
             self._intra_background_means,
             self._intra_background_stds,
+            normalize=True
         )
         logging.info("Time to compute distance matrix: %.2f" % (time.perf_counter() - t0))
 

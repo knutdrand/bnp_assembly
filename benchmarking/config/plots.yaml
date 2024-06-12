@@ -116,8 +116,8 @@ plots:
       extra_splits: 0
       split_on_n_ns: 200
       #genome_build: [athalia_rosea, thyatira_batis, harmonia_haxyridis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
-      genome_build: [thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
-      scaffolder: [bnp1k, yahs2]  #, salsa2]
+      genome_build: [athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
+      scaffolder: [bnp1k, yahs2, salsa2]
 
 
 # The following defines different type of plots
@@ -139,6 +139,7 @@ plot_types:
     x: scaffolder
     y: ScaffolderAccuracy
     facet_col: genome_build
+    color: scaffolder
 
   edge_recall:
     type: line

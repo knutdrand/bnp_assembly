@@ -486,3 +486,12 @@ def test_filter_low_mappability():
     filtered = filter_low_mappability(matrix)
 
     assert np.all(filtered.contig_n_bins == [3, 2, 3])
+
+
+
+def test_normalize_probs():
+    background_means = [10, 10]
+    background_stds = [1, 5]
+
+
+

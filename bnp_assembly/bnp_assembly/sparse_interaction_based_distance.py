@@ -515,6 +515,7 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                             inter_background_stds: np.ndarray,
                             intra_background_means: np.ndarray,
                             intra_background_stds: np.ndarray,
+                            normalize=False
                             ):
     """
     Computes prob of in a bayesian way by looking both at prob of reads given edge and not edge
@@ -533,6 +534,10 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                                                         func=scipy.stats.norm.logsf)
     prob_reads_given_not_edge = prob_reads_given_not_edge.data
 
+    #plotly.express.imshow(prob_reads_given_not_edge[0:1000, 0:1000], title="Prob reads given not edge before normalize").show()
+    if normalize:
+        prob_reads_given_not_edge /= -prob_reads_given_not_edge.min()
+
     #plotly.express.imshow(prob_reads_given_not_edge[0:1000, 0:1000], title="Prob reads given not edge").show()
 
     assert not np.any(np.isnan(prob_reads_given_not_edge)), prob_reads_given_not_edge
@@ -547,6 +552,9 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
     #plotly.express.imshow(prob_reads_given_edge.data[0:1000, 0:1000], title="Prob reads given edge").show()
 
     prob_reads_given_edge = prob_reads_given_edge.data
+    if normalize and True:
+        prob_reads_given_edge /= -prob_reads_given_edge.min()
+
     #prob_reads_given_same_chrom = prob_reads_given_same_chrom.data
     #prob_reads_given_not_edge = 1-prob_reads_given_not_edge.data
 

@@ -48,11 +48,11 @@ def visualize_scaffolding_using_sparse_interaction_matrix(path: List[DirectedNod
     return path_matrix.plot(xaxis_names=xaxis_names), path_matrix
 
 
-def visualize_from_agp(contig_filename, agp_filename, sparse_interaction_matrix_filename, around_contig=None):
+def visualize_from_agp(contig_filename, agp_filename, sparse_interaction_matrix_filename, around_contig=None, window_size=5):
     matrix = from_file(sparse_interaction_matrix_filename)
     agp = ScaffoldAlignments.from_agp(agp_filename)
     genome = bnp.Genome.from_file(contig_filename)
     nodes, nonumeric_nodes = get_directed_nodes_from_scaffold_alignments(
-        agp, genome, around_contig, window_size=5)
+        agp, genome, around_contig, window_size=window_size)
     return visualize_scaffolding_using_sparse_interaction_matrix(nodes, matrix, nonumeric_nodes)
 

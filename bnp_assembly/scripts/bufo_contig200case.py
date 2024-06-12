@@ -28,13 +28,15 @@ import matplotlib.pyplot as plt
 #inter_background = BackgroundInterMatrices.from_sparse_interaction_matrix(matrix, max_bins=5000)
 #matrix = from_file("heatmap-contig1886.png.matrix.npz")
 #matrix = from_file("scaffold_heatmap.png.matrix.5.npz")
-matrix = from_file("heatmap-contig57.png.matrix.npz")
+#matrix = from_file("heatmap-contig50-1.png.matrix.npz")
+matrix = from_file("thyatira_batis.npz")
 #matrix = from_file("interaction_matrix_2000.pairs.npz")
 # matrix.plot()
 # plt.show()
 matrix = filter_low_mappability(matrix)
-# matrix.plot()
-# plt.show()
+
+matrix.plot()
+plt.show()
 #intra_background_means, intra_background_stds = get_intra_as_mix_means_stds(matrix, 2000, 5000)
 #plt.imshow(intra_background_stds)
 # matrix2.plot()
@@ -83,7 +85,9 @@ plt.show()
 sys.exit()
 """
 
-initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+#initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+initial_path = [DirectedNode(51, '-'), DirectedNode(50, '-'), DirectedNode(49, '-')]
+matrix = matrix.get_matrix_for_path(initial_path, as_raw_matrix=False)
 #splitted_path = bayesian_split(matrix, initial_path, type='median')
 #sys.exit()
 #matrix.plot_submatrix(70, 82)
@@ -94,7 +98,7 @@ initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 joiner = IterativePathJoiner(matrix)
 joiner.run(n_rounds=10)
 path_matrix = joiner.current_interaction_matrix
-path_matrix.plot()
+#path_matrix.plot()
 path = joiner.get_final_path()
 #print("Length of final path", len(path))
 path_matrix = matrix.get_matrix_for_path2(path, as_raw_matrix=False)

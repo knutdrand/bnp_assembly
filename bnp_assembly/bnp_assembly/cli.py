@@ -259,10 +259,12 @@ def heatmap(fasta_filename: str, interval_filename: str, agp_file: str, out_file
 
 
 @app.command()
-def heatmap2(fasta_filename: str, agp_file: str, interaction_matrix_file_name: str, out_file_name: str, contig: str=None):
+def heatmap2(fasta_filename: str, agp_file: str, interaction_matrix_file_name: str, out_file_name: str,
+             contig: str=None, window_size: int=5):
     if contig == "all":
         contig = None
-    fig, matrix = visualize_from_agp(fasta_filename, agp_file, interaction_matrix_file_name, contig)
+    fig, matrix = visualize_from_agp(fasta_filename, agp_file, interaction_matrix_file_name, contig,
+                                     window_size=window_size)
     plt.savefig(out_file_name)
     plt.show()
     to_file(matrix, out_file_name + ".matrix")

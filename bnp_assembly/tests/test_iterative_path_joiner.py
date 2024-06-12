@@ -24,11 +24,6 @@ def matrix():
     return matrix
 
 
-def test(matrix=matrix()):
-    joiner = IterativePathJoiner(matrix)
-    path = joiner.run()
-
-
 def test_iterative_path_joiner_integration():
 
     n_contigs = 4
@@ -66,12 +61,9 @@ def test_iterative_path_joiner_integration():
     assert edge_counts[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == correct
     print("Correct", correct)
 
-    joiner = IterativePathJoiner(matrix)
-    path = joiner.run(1)
-    px.imshow(joiner._intra_background_means, title="intra background means").show()
-    px.imshow(joiner._intra_background_stds, title="intra background stds").show()
-    px.imshow(joiner._inter_background_means).show()
+    # joiner = IterativePathJoiner(matrix)
+    # path = joiner.run(1)
+    # px.imshow(joiner._intra_background_means, title="intra background means").show()
+    # px.imshow(joiner._intra_background_stds, title="intra background stds").show()
+    # px.imshow(joiner._inter_background_means).show()
 
-
-if __name__ == "__main__":
-    test_iterative_path_joiner_integration()
