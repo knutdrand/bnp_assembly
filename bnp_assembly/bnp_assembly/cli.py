@@ -57,43 +57,28 @@ def estimate_max_distance(contig_sizes: Iterable[int]):
 
 
 @app.command()
-def scaffold(contig_file_name: str, out_file_name: str, threshold: float = 0,
-             logging_folder: str = None, bin_size: int = 5000, masked_regions: str = None, max_distance: int = None,
-             distance_measure: str = "forbes3", n_bins_heatmap_scoring: int=10, interaction_matrix: str = None, cumulative_distribution: str = None, interaction_matrix_big: str = None,
-
+def scaffold(contig_file_name: str,
+             reads: str,
+             out_file_name: str,
+             logging_folder: str = None,
+             bin_size: int = 2000,
              ):
-    logging.info(f"Using threshold {threshold}")
 
-    if interaction_matrix is not None:
-        interaction_matrix = from_file(interaction_matrix)
+    if reads.endswith(".npz"):
+        interaction_matrix = from_file(reads)
+    elif reads.endswith(".pairs") or reads.endswith(".pa5") or reads.endswith(".bam"):
+        interaction_matrix = make_interaction_matrix_from_contigs_and_reads(bin_size, contig_file_name, reads)
 
-    if interaction_matrix_big is not None:
-        interaction_matrix_big = from_file(interaction_matrix_big)
-
-    if cumulative_distribution is not None:
-        cumulative_distribution = from_file(cumulative_distribution)
-
-    if logging_folder is not None:
-        register_logging(logging_folder)
-
-    out_directory = os.path.sep.join(out_file_name.split(os.path.sep)[:-1])
     genome = bnp.Genome.from_file(contig_file_name)
-    max_distance = set_max_distance(bin_size, genome, max_distance)
 
     logging.info("Getting genomic reads")
     input_data = FullInputData(genome, None)
     logging.info("Making scaffold")
     scaffold = make_scaffold(input_data,
                              window_size=2500,
-                             distance_measure=distance_measure,
-                             threshold=threshold,
                              splitting_method='matrix',
                              bin_size=bin_size,
-                             max_distance=max_distance,
-                             n_bins_heatmap_scoring=n_bins_heatmap_scoring,
                              interaction_matrix=interaction_matrix,
-                             interaction_matrix_clipping=interaction_matrix_big,
-                             cumulative_distribution=cumulative_distribution,
                              )
 
     write_scaffolds_to_file(genome, out_file_name, scaffold)
@@ -162,10 +147,17 @@ def scaffold_iteration(agp: str, original_contigs_fa: str, interaction_matrix: s
 
 @app.command()
 def make_interaction_matrix(contig_filename: str, read_filename: str, out_filename: str, bin_size: int=50):
+    matrix = make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, read_filename)
+    plt.show()
+    matrix.assert_is_symmetric()
+    to_file(matrix, out_filename)
+    logging.info("Wrote interaction matrix to file %s" % out_filename)
+
+
+def make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, read_filename):
     genome = bnp.Genome.from_file(contig_filename)
     contig_sizes, _ = get_numeric_contig_name_translation(genome)
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes(contig_sizes, bin_size)
-
     if read_filename.endswith(".bam"):
         read_stream = PairedReadStream.from_bam(genome, read_filename, mapq_threshold=20)
         input_data = FullInputData(genome, read_stream)
@@ -173,14 +165,9 @@ def make_interaction_matrix(contig_filename: str, read_filename: str, out_filena
         matrix = SparseInteractionMatrix.from_reads(global_offset, numeric_input_data.location_pairs)
     elif read_filename.endswith(".pairs") or read_filename.endswith(".pa5"):
         matrix = SparseInteractionMatrix.from_pairs(global_offset, genome, read_filename)
-
-
     matrix.assert_is_symmetric()
     matrix.normalize_on_row_and_column_products()
-    plt.show()
-    matrix.assert_is_symmetric()
-    to_file(matrix, out_filename)
-    logging.info("Wrote interaction matrix to file %s" % out_filename)
+    return matrix
 
 
 @app.command()

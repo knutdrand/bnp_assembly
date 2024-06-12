@@ -122,7 +122,6 @@ class IterativePathJoiner:
         self._inter_background_means, self._inter_background_stds = (
             get_inter_as_mix_between_inside_outside_multires(matrix, 50, max_bins, ratio=0.5))
 
-        logging.info("Getting intra..")
         #intra0 = get_intra_as_mix(matrix, 500, max_bins)
 
         #lowest_size = min(intra0.shape[1], self._inter_background_means.shape[0])

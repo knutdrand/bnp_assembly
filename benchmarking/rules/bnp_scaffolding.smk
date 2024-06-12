@@ -81,9 +81,21 @@ rule run_bnp:
         fa = ScaffoldingResults.path(scaffolder="bnp1k") + "/scaffolds.fa",
         agp = ScaffoldingResults.path(scaffolder="bnp1k") + "/scaffolds.agp"
     shell:
-        "bnp_assembly scaffold {input.contigs} {output.fa} --threshold 20000000000000 "
-        "--bin-size 5000  --logging-folder {params.log_folder} --distance-measure dynamic_heatmap --n-bins-heatmap-scoring 10 "
-        "--interaction-matrix {input.interaction_matrix} --interaction-matrix-big {input.interaction_matrix_big}  "
+        "bnp_assembly scaffold --logging-folder {params.log_folder} {input.contigs} {input.interaction_matrix} {output.fa}"
+
+
+rule run_bnp_from_pairs:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        contigs_index = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
+        pairs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.pa5",
+    params:
+        log_folder = ScaffoldingResults.path(scaffolder="bnp_pairs") + '/logging/'
+    output:
+        fa = ScaffoldingResults.path(scaffolder="bnp_pairs") + "/scaffolds.fa",
+        agp = ScaffoldingResults.path(scaffolder="bnp_pairs") + "/scaffolds.agp"
+    shell:
+        "bnp_assembly scaffold --logging-folder {params.log_folder} {input.contigs} {input.pairs} {output.fa}"
 
 
 rule run_bnp_iteration:

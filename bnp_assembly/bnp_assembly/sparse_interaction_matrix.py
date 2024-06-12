@@ -800,13 +800,13 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         else:
             data = np.array(self.sparse_matrix[rows, cols]).ravel()
 
-        logging.info(f"Time to get data from matrix: {time.perf_counter()-t0}")
+        logging.debug(f"Time to get data from matrix: {time.perf_counter()-t0}")
         boundaries = self._global_offset._contig_bin_offset
         #contig_a = np.searchsorted(boundaries, rows, side='right')-1
         #contig_b = np.searchsorted(boundaries, cols, side='right')-1
         contig_a = self._global_offset.get_contigs_from_bins(rows)
         contig_b = self._global_offset.get_contigs_from_bins(cols)
-        logging.info(f"Time to get contigs: {time.perf_counter()-t0}")
+        logging.debug(f"Time to get contigs: {time.perf_counter()-t0}")
 
         new_contig_sizes = np.array([self._global_offset.contig_sizes[contig.node_id] for contig in path])
         new_contig_n_bins = np.array([self._global_offset._contig_n_bins[contig.node_id] for contig in path])
@@ -833,7 +833,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         #contigs_b_mask = np.searchsorted(new_bin_offsets, new_cols, side='right')-1
         contigs_a_mask = new_global_offset.get_contigs_from_bins(new_rows)
         contigs_b_mask = new_global_offset.get_contigs_from_bins(new_cols)
-        logging.info(f"Time to searchsorted reverse: {time.perf_counter()-t0}")
+        logging.debug(f"Time to searchsorted reverse: {time.perf_counter()-t0}")
 
         reversed_mask_a = is_reversed[contigs_a_mask]
         reversed_mask_b = is_reversed[contigs_b_mask]
@@ -841,15 +841,15 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         contigs_where_reversed_b = contigs_b_mask[reversed_mask_b]
         new_rows[reversed_mask_a] = new_bin_offsets[contigs_where_reversed_a] + new_contig_n_bins[contigs_where_reversed_a] - new_rows[reversed_mask_a] + new_bin_offsets[contigs_where_reversed_a] - 1
         new_cols[reversed_mask_b] = new_bin_offsets[contigs_where_reversed_b] + new_contig_n_bins[contigs_where_reversed_b] - new_cols[reversed_mask_b] + new_bin_offsets[contigs_where_reversed_b] - 1
-        logging.info(f"Time to getting new rows/cols: {time.perf_counter()-t0}")
+        logging.debug(f"Time to getting new rows/cols: {time.perf_counter()-t0}")
 
         new_total_bins = np.sum(new_contig_n_bins)
         # do not need next matrix to be indexed/compressed,
-        logging.info(f"Time to getting path matrix: {time.perf_counter()-t0}")
+        logging.debug(f"Time to getting path matrix: {time.perf_counter()-t0}")
 
         t0 = time.perf_counter()
         new_matrix = backend((data, (new_rows, new_cols)), shape=(new_total_bins, new_total_bins))
-        logging.info(f"Time to init sparse matrix: {time.perf_counter()-t0}")
+        logging.debug(f"Time to init sparse matrix: {time.perf_counter()-t0}")
 
         if as_raw_matrix:
             return new_matrix
@@ -1354,16 +1354,16 @@ def sample_inter_matrices(interaction_matrix: SparseInteractionMatrix,
         interaction_matrix.sparse_matrix.shape[1] * assumed_largest_chromosome_ratio_of_genome)
     #distance_from_diagonal = min(20000, distance_from_diagonal)
 
-    logging.info(f"Assumed smallest chromosome size: {distance_from_diagonal}")
+    logging.debug(f"Assumed smallest chromosome size: {distance_from_diagonal}")
     largest_contig = np.max(interaction_matrix._global_offset._contig_n_bins)
     # size = min(5000, interaction_matrix.sparse_matrix.shape[1] // 10)
     size = min(max_bins, largest_contig)  # many bins is not necessary, and leads to large memory usage
-    logging.info(f"Making background matrices of size {size}")
+    logging.debug(f"Making background matrices of size {size}")
     lowest_x_start = distance_from_diagonal + size
     highest_x_start = interaction_matrix.sparse_matrix.shape[1] - distance_from_diagonal - size
 
     #matrices = np.zeros((n_samples, size, size))
-    for i in tqdm(range(n_samples), desc="Sampling from background", total=n_samples):
+    for i in range(n_samples):
         xstart = random.randint(lowest_x_start, highest_x_start)
         lowest_y_start = 0
         highest_y_start = xstart - size - distance_from_diagonal
@@ -1385,12 +1385,12 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
 
     biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
     chosen_contigs = biggest_contigs[:min(3, 1 + len(biggest_contigs) // 4)]
-    logging.info(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
+    logging.debug(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
     # only keep contigs with size larger than 50 bins
     chosen_contigs = [contig for contig in chosen_contigs if interaction_matrix.contig_n_bins[contig] > 50]
-    assert len(chosen_contigs) > 0, "Coult not find contigs large enough to sample from"
+    assert len(chosen_contigs) > 0, "Could not find contigs large enough to sample from"
     smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
-    logging.info(f"Sampling from contigs {chosen_contigs}")
+    logging.debug(f"Sampling from contigs {chosen_contigs}")
 
     size = max_bins
     size = min(size, smallest_contig_size//4)
@@ -1398,28 +1398,28 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
     if distance_type == "close":
         #distance_from_diagonal = min(4000, smallest_contig_size//4)
         distance_from_diagonal = smallest_contig_size//8
-        logging.info(f"Sampling close with distance: {distance_from_diagonal}")
+        #logging.info(f"Sampling close with distance: {distance_from_diagonal}")
     elif distance_type == "closest":
         distance_from_diagonal = 1
-        logging.info(f"Sampling closest with distance {distance_from_diagonal}")
+        #logging.info(f"Sampling closest with distance {distance_from_diagonal}")
     elif distance_type == "outer_contig":
         distance_from_diagonal = max(int(smallest_contig_size * 1/2), smallest_contig_size-20000)
         distance_from_diagonal = int(smallest_contig_size * 1/2)
-        logging.info(f"Sampling outer contig with distance {distance_from_diagonal}")
+        #logging.info(f"Sampling outer contig with distance {distance_from_diagonal}")
     elif distance_type == "far":
         #distance_from_diagonal = min(10000, smallest_contig_size//2)
         distance_from_diagonal = int(smallest_contig_size * 2/3)
         distance_from_diagonal = min(10, distance_from_diagonal)
-        logging.info(f"Sampling far with distance {distance_from_diagonal}")
+        #logging.info(f"Sampling far with distance {distance_from_diagonal}")
     elif distance_type == "close_closest":
         distance_from_diagonal = [smallest_contig_size//8, 1]
-        logging.info(f"Sampling close_closest with distances randomly picked from {distance_from_diagonal}")
+        #logging.info(f"Sampling close_closest with distances randomly picked from {distance_from_diagonal}")
     else:
         assert False
 
 
     #assert distance_from_diagonal < smallest_contig_size
-    logging.info(f"Distance from diagonal: {distance_from_diagonal}")
+    logging.debug(f"Distance from diagonal: {distance_from_diagonal}")
 
     n_sampled = 0
     for contig in chosen_contigs:
@@ -1465,8 +1465,6 @@ def filter_low_mappability(matrix: SparseInteractionMatrix) -> SparseInteraction
     to_remove = np.where(to_remove_mask)[0]
     n_removed_in_each_contig = np.bincount(matrix._global_offset.get_contigs_from_bins(to_remove), minlength=matrix.n_contigs)
     logging.info(f"N bins removed in each contig: {n_removed_in_each_contig}")
-    for conttig, n_bins in enumerate(n_removed_in_each_contig):
-        logging.info(f"Contig {conttig} had {n_bins} bins removed")
 
     new_contig_n_bins = matrix.contig_n_bins - n_removed_in_each_contig
 

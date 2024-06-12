@@ -46,7 +46,6 @@ def get_distance_matrix_from_sparse_interaction_matrix(interactions: SparseInter
     background = background[::-1, ]
     # matspy.spy(background)
 
-    logging.info(f"Calculating distance matrix for all edges")
     for edge in tqdm(all_edges, total=len(distances) ** 2):
         if edge.from_node_side.node_id == edge.to_node_side.node_id:
             continue
@@ -83,8 +82,6 @@ def get_distance_matrix_from_sparse_interaction_matrix_as_p_values(interactions:
                                                                    background: BackgroundInterMatrices) -> DirectedDistanceMatrix:
     all_edges = get_all_possible_edges(interactions.n_contigs)
     distances = DirectedDistanceMatrix(interactions.n_contigs)
-
-    logging.info(f"Calculating distance matrix for all edges")
 
     for edge in tqdm(all_edges, total=len(distances) ** 2):
         if edge.from_node_side.node_id == edge.to_node_side.node_id:
@@ -174,7 +171,7 @@ def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix
     inter_background_stds = None
     for i in range(n_iterations):
 
-        logging.info(f"Sampling {n_samples} reads for inter background with max bins {max_bins}")
+        #logging.info(f"Sampling {n_samples} reads for inter background with max bins {max_bins}")
         #b = get_intra_distance_background(interaction_matrix, n_samples=n_samples, max_bins=max_bins)
         next_bin_end = max_bins // 2
         if next_bin_end < 10:
@@ -199,9 +196,7 @@ def get_inter_background_means_std_using_multiple_resolutions(interaction_matrix
 
 def get_inter_background(interactions, n_samples=1000, max_bins=1000):
     background = BackgroundInterMatrices.from_sparse_interaction_matrix(interactions, n_samples=n_samples, max_bins=max_bins)
-    logging.info("Summing inter background")
     background_sums = background.matrices.cumsum(axis=1).cumsum(axis=2)
-    logging.info("Done summing")
     return background_sums
 
 
@@ -225,10 +220,9 @@ def get_background_mean_stds(interactions, sampling_function, n_samples=1000, ma
             n_nonzero_cols += sums[dynamic_sampling_lowest_bin, :] > 0
 
             if np.all(n_nonzero_rows > 10) and np.all(n_nonzero_cols > 10):
-                logging.info(
-                    f"Stopping sampling after {i} samples because all rows and columns from {dynamic_sampling_lowest_bin} have enough data")
+                #logging.info(
+                #    f"Stopping sampling after {i} samples because all rows and columns from {dynamic_sampling_lowest_bin} have enough data")
                 break
-    logging.info(f"Total samples: {i}")
     mean = w.mean
     variance = w.var_p
     return mean, np.sqrt(variance)
@@ -324,19 +318,6 @@ def get_intra_as_mix_means_stds(interaction_matrix, n_samples, max_bins):
         return get_background_mean_stds(matrix, sample_intra_from_close_and_closest, n_samples, max_bins, dynamic_sampling, dynamic_sampling_lowest_bin)
     return get_background_means_stds_multires(interaction_matrix, sampling_function, n_samples, max_bins)
 
-    # uses welford
-    for dist_type in ["closest", "close"]:
-        matrices = (matrix for matrix in
-                    sample_with_fixed_distance_inside_big_contigs(interaction_matrix, max_bins, n_samples, dist_type))
-        w = Welford()
-        for matrix in tqdm(matrices, total=n_samples):
-            matrix = matrix[::-1, :]
-            sums = matrix.cumsum(axis=0).cumsum(axis=1)
-            w.add(sums)
-
-    means = w.mean
-    variance = w.var_p
-    return means, np.sqrt(variance)
 
 
 def get_background_means_stds_multires(matrix, sampling_function, n_samples, max_bins):
@@ -346,7 +327,7 @@ def get_background_means_stds_multires(matrix, sampling_function, n_samples, max
     all_stds = None
     #for n_samples, max_bins in resolutions:
     for i in range(n_resolutions):
-        logging.info(f"Sampling at resolution {max_bins} with {n_samples} (sample iteration {i})")
+        #logging.info(f"Sampling at resolution {max_bins} with {n_samples} (sample iteration {i})")
         next_lowest_bin = max_bins // 2
         if next_lowest_bin < 10:
             next_lowest_bin = 0
@@ -386,7 +367,7 @@ def get_inter_as_mix_between_inside_outside_multires(matrix, n_samples, max_bins
     all_stds = None
     #for n_samples, max_bins in resolutions:
     for i in range(n_resolutions):
-        logging.info(f"Sampling at resolution {max_bins} with {n_samples} (sample iteration {i}")
+        #logging.info(f"Sampling at resolution {max_bins} with {n_samples} (sample iteration {i}")
         next_lowest_bin = max_bins // 2
         if next_lowest_bin < 10:
             next_lowest_bin = 0
@@ -423,7 +404,6 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
     # trick is to make a lookup array of a position to an node sidej, where bins further than max
     # distance are masked out
 
-    logging.info("Making lookup")
     lookup = np.zeros(interactions.sparse_matrix.shape[0]) - 1
     n_nodesides = interactions.n_contigs * 2
     nodeside_sizes = np.zeros(n_nodesides, dtype=int)
@@ -441,7 +421,6 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
         nodeside_sizes[nodeside_end] = local_max
 
 
-    logging.info("Calculating matrix")
     rows, columns = interactions.sparse_matrix.nonzero()
     if isinstance(interactions.sparse_matrix, scipy.sparse.coo_matrix):
         values = interactions.sparse_matrix.data
@@ -460,13 +439,10 @@ def get_edge_counts_with_max_distance(interactions: SparseInteractionMatrix, max
 
     indexes = contig1*n_nodesides + contig2
     indexes = indexes.astype(int)
-    logging.info("Doing bincount")
     out = np.bincount(indexes, weights=values, minlength=n_nodesides*n_nodesides).reshape(n_nodesides, n_nodesides)
-
-    logging.info("Making distance matrix")
     matrix = DirectedDistanceMatrix(interactions.n_contigs)
     matrix._matrix = out
-    logging.info(f"Time to compute edge counts: {time.perf_counter() - t0:.2f}")
+    logging.debug(f"Time to compute edge counts: {time.perf_counter() - t0:.2f}")
     return matrix, nodeside_sizes
 
 
@@ -499,12 +475,11 @@ def get_prob_of_edge_counts(background_means: np.ndarray, background_stds: np.nd
     n = n_nodesides
 
     # get p-values
-    logging.info("Calculating p-values")
     edge_scores = edge_counts.data.ravel()
     assert len(edge_scores) == len(edge_means), (len(edge_scores), len(edge_means))
     t0 = time.perf_counter()
     pmfs = func(edge_scores, loc=edge_means, scale=edge_stds).reshape((n_nodesides, n_nodesides))
-    logging.info(f"Done p values, logpdf time: {time.perf_counter() - t0:.2f}")
+    logging.debug(f"Done p values, logpdf time: {time.perf_counter() - t0:.2f}")
     #px(name="joining").imshow(pmfs, title="pmfs").show()
 
     return DirectedDistanceMatrix.from_matrix(pmfs)
@@ -576,7 +551,6 @@ def get_bayesian_edge_probs(interaction_matrix: SparseInteractionMatrix,
                               prior_not_edge + prob_reads_given_not_edge,
                               #prior_same_chrom + prob_reads_given_same_chrom
                             ))
-    logging.info(f"Time to compute probs: {time.perf_counter() - t0:.2f}")
     #prob_edge = prob_edge.reshape(prob_reads_given_edge.shape)
 
 
@@ -614,11 +588,9 @@ def get_intra_background(interaction_matrix, n_per_contig=10, max_contigs=10):
     background = BackgroundMatrix.from_sparse_interaction_matrix(interaction_matrix, create_stack=True, n_per_contig=n_per_contig,
                                                                  max_contigs=max_contigs)
     # get sum of background for all possible shapes
-    logging.info("Doing cumsum")
     background = background.matrix[:, ::-1, :]  # flip because oriented towards diagonal originallyj
     background_sums = background.cumsum(axis=1).cumsum(axis=2)
     assert np.all(background_sums >= 0)
-    logging.info("Cumsum done")
     return background_sums
 
 
