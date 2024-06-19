@@ -77,7 +77,7 @@ class CompundNode:
 
 
 class IterativePathJoiner:
-    def __init__(self, interaction_matrix: SparseInteractionMatrix, skip_init_distance_matrix=False):
+    def __init__(self, interaction_matrix: SparseInteractionMatrix, skip_init_distance_matrix=False, skip_init_background=False):
         self._max_bins_background = 10000
         self._iteration = 0
         self._interaction_matrix = interaction_matrix
@@ -90,6 +90,7 @@ class IterativePathJoiner:
         self._inter_background_stds = None
         self._intra_background = None
         self._skip_init_distance_matrix = skip_init_distance_matrix
+        self._skip_init_background = skip_init_background
         self.shuffle() # start with random path
 
     def shuffle(self):
@@ -100,7 +101,8 @@ class IterativePathJoiner:
         #random.shuffle(initial_path)
         self._current_path = initial_path
         self._interaction_matrix = self._interaction_matrix.get_matrix_for_path2(initial_path, as_raw_matrix=False, backend=scipy.sparse.csr_matrix)
-        self._get_backgrounds()
+        if not self._skip_init_background:
+            self._get_backgrounds()
         if not self._skip_init_distance_matrix:
             self._compute_distance_matrix()
 
@@ -108,19 +110,31 @@ class IterativePathJoiner:
     def current_interaction_matrix(self):
         return self._interaction_matrix
 
+    def set_background(self, intra_background_means, intra_background_stds, inter_background_means, inter_background_stds,
+                       intra_background_means2, intra_background_stds2, inter_background_means2, inter_background_stds2):
+        self._intra_background_means = intra_background_means
+        self._intra_background_stds = intra_background_stds
+        self._inter_background_means = inter_background_means
+        self._inter_background_stds = inter_background_stds
+        self._intra_background_means2 = intra_background_means2
+        self._intra_background_stds2 = intra_background_stds2
+        self._inter_background_means2 = inter_background_means2
+        self._inter_background_stds2 = inter_background_stds2
+
+
     def _get_backgrounds(self):
+        if self._skip_init_background:
+            return
         # n_samples and max gins for inter
+        logging.info(f"Getting backgrounds")
         matrix = self._interaction_matrix
         if isinstance(self._interaction_matrix.sparse_matrix, scipy.sparse.coo_matrix):
             matrix.to_csr_matrix()
 
         max_bins = self._max_bins_background
-        if False and self._inter_background_means is not None and max_bins <= self._inter_background_means.shape[1] + 1:
-            logging.info(f"Not sampling again, already reached max bins")
-            return
 
-        self._inter_background_means, self._inter_background_stds = (
-            get_inter_as_mix_between_inside_outside_multires(matrix, 50, max_bins, ratio=0.5))
+        #self._inter_background_means, self._inter_background_stds = (
+        #    get_inter_as_mix_between_inside_outside_multires(matrix, 50, max_bins, ratio=0.5))
 
         #intra0 = get_intra_as_mix(matrix, 500, max_bins)
 
@@ -128,6 +142,10 @@ class IterativePathJoiner:
         #logging.info(f"Lowest size: {lowest_size}")
         #intra0 = intra0[:, :lowest_size, :lowest_size]
         self._intra_background_means, self._intra_background_stds = get_intra_as_mix_means_stds(matrix, 2000, max_bins)
+
+        self._inter_background_means = self._intra_background_means
+        self._inter_background_stds = self._intra_background_stds
+
         lowest_size = min(self._intra_background_means.shape[0], self._inter_background_means.shape[0])
         self._intra_background_means = self._intra_background_means[:lowest_size, :lowest_size]
         self._intra_background_stds = self._intra_background_stds[:lowest_size, :lowest_size]
@@ -166,6 +184,7 @@ class IterativePathJoiner:
         self._inter_background_stds2 = self._inter_background_stds2[:lowest_size, :lowest_size]
 
         i = self._iteration
+        """
         logging.info("Saving debug data")
         np.save(f"intra_means-{i}.npy", self._intra_background_means)
         np.save(f"intra_stds-{i}.npy", self._intra_background_stds)
@@ -176,6 +195,7 @@ class IterativePathJoiner:
         np.save(f"inter_stds-{i}.npy", self._inter_background_stds)
         np.save(f"inter_means2-{i}.npy", self._inter_background_means2)
         np.save(f"inter_stds2-{i}.npy", self._inter_background_stds2)
+        """
 
 
     def split(self, n_to_split):
@@ -477,7 +497,9 @@ class IterativePathJoiner:
                 logging.info(f"Rejoining {original_nodes}")
                 submatrix = self._original_interaction_matrix.get_matrix_for_path(original_nodes, as_raw_matrix=False)
                 assert len(submatrix.contig_sizes) == len(original_nodes)
-                subjoiner = IterativePathJoiner(submatrix)
+                subjoiner = IterativePathJoiner(submatrix, skip_init_background=True, skip_init_distance_matrix=True)
+                subjoiner.set_background(self._intra_background_means, self._intra_background_stds, self._inter_background_means, self._inter_background_stds, self._intra_background_means2, self._intra_background_stds2, self._inter_background_means2, self._inter_background_stds2)
+                subjoiner._compute_distance_matrix()
                 subjoiner.run(n_rounds=100)
                 final_subpath = subjoiner.get_final_path()
                 new_nodes = []

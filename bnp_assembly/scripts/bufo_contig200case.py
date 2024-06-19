@@ -85,9 +85,9 @@ plt.show()
 sys.exit()
 """
 
-#initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
-initial_path = [DirectedNode(51, '-'), DirectedNode(50, '-'), DirectedNode(49, '-')]
-matrix = matrix.get_matrix_for_path(initial_path, as_raw_matrix=False)
+initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+#initial_path = [DirectedNode(51, '-'), DirectedNode(50, '-'), DirectedNode(49, '-')]
+#matrix = matrix.get_matrix_for_path(initial_path, as_raw_matrix=False)
 #splitted_path = bayesian_split(matrix, initial_path, type='median')
 #sys.exit()
 #matrix.plot_submatrix(70, 82)

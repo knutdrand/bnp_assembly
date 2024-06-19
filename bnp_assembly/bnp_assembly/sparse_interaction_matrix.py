@@ -791,6 +791,8 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
             duplicate_node_ids = [node_id for node_id in node_ids if node_ids.count(node_id) > 1]
             logging.warning(f"Duplicate node ids: {duplicate_node_ids}")
 
+        logging.info("Getting matix for path")
+
         t0 = time.perf_counter()
         rows, cols = np.nonzero(self.sparse_matrix)
         if isinstance(self.sparse_matrix, scipy.sparse.lil_matrix):
@@ -800,13 +802,13 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         else:
             data = np.array(self.sparse_matrix[rows, cols]).ravel()
 
-        logging.debug(f"Time to get data from matrix: {time.perf_counter()-t0}")
+        logging.info(f"Time to get data from matrix: {time.perf_counter()-t0}")
         boundaries = self._global_offset._contig_bin_offset
         #contig_a = np.searchsorted(boundaries, rows, side='right')-1
         #contig_b = np.searchsorted(boundaries, cols, side='right')-1
         contig_a = self._global_offset.get_contigs_from_bins(rows)
         contig_b = self._global_offset.get_contigs_from_bins(cols)
-        logging.debug(f"Time to get contigs: {time.perf_counter()-t0}")
+        logging.info(f"Time to get contigs: {time.perf_counter()-t0}")
 
         new_contig_sizes = np.array([self._global_offset.contig_sizes[contig.node_id] for contig in path])
         new_contig_n_bins = np.array([self._global_offset._contig_n_bins[contig.node_id] for contig in path])
@@ -833,7 +835,7 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         #contigs_b_mask = np.searchsorted(new_bin_offsets, new_cols, side='right')-1
         contigs_a_mask = new_global_offset.get_contigs_from_bins(new_rows)
         contigs_b_mask = new_global_offset.get_contigs_from_bins(new_cols)
-        logging.debug(f"Time to searchsorted reverse: {time.perf_counter()-t0}")
+        logging.info(f"Time to searchsorted reverse: {time.perf_counter()-t0}")
 
         reversed_mask_a = is_reversed[contigs_a_mask]
         reversed_mask_b = is_reversed[contigs_b_mask]
@@ -841,15 +843,15 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         contigs_where_reversed_b = contigs_b_mask[reversed_mask_b]
         new_rows[reversed_mask_a] = new_bin_offsets[contigs_where_reversed_a] + new_contig_n_bins[contigs_where_reversed_a] - new_rows[reversed_mask_a] + new_bin_offsets[contigs_where_reversed_a] - 1
         new_cols[reversed_mask_b] = new_bin_offsets[contigs_where_reversed_b] + new_contig_n_bins[contigs_where_reversed_b] - new_cols[reversed_mask_b] + new_bin_offsets[contigs_where_reversed_b] - 1
-        logging.debug(f"Time to getting new rows/cols: {time.perf_counter()-t0}")
+        logging.info(f"Time to getting new rows/cols: {time.perf_counter()-t0}")
 
         new_total_bins = np.sum(new_contig_n_bins)
         # do not need next matrix to be indexed/compressed,
-        logging.debug(f"Time to getting path matrix: {time.perf_counter()-t0}")
+        logging.info(f"Time to getting path matrix: {time.perf_counter()-t0}")
 
         t0 = time.perf_counter()
         new_matrix = backend((data, (new_rows, new_cols)), shape=(new_total_bins, new_total_bins))
-        logging.debug(f"Time to init sparse matrix: {time.perf_counter()-t0}")
+        logging.info(f"Time to init sparse matrix: {time.perf_counter()-t0}")
 
         if as_raw_matrix:
             return new_matrix
@@ -1412,8 +1414,8 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
         distance_from_diagonal = min(10, distance_from_diagonal)
         #logging.info(f"Sampling far with distance {distance_from_diagonal}")
     elif distance_type == "close_closest":
-        distance_from_diagonal = [smallest_contig_size//8, 1]
-        #logging.info(f"Sampling close_closest with distances randomly picked from {distance_from_diagonal}")
+        distance_from_diagonal = [min(smallest_contig_size//16, 10), 1]
+        logging.info(f"Sampling close_closest with distances randomly picked from {distance_from_diagonal}")
     else:
         assert False
 
@@ -1463,8 +1465,22 @@ def filter_low_mappability(matrix: SparseInteractionMatrix) -> SparseInteraction
 
     to_remove_mask = total_mapped < threshold
     to_remove = np.where(to_remove_mask)[0]
-    n_removed_in_each_contig = np.bincount(matrix._global_offset.get_contigs_from_bins(to_remove), minlength=matrix.n_contigs)
+    # never remove more than half the bins in each contig
+    contig_ids = matrix._global_offset.get_contigs_from_bins(to_remove)
+    n_removed_in_each_contig = np.bincount(contig_ids, minlength=matrix.n_contigs)
+
+    new_to_remove = []
+    for contig, n_removed in enumerate(n_removed_in_each_contig):
+        if matrix.contig_n_bins[contig] - n_removed >= 10:
+            # only remove if at least some bins left
+            new_to_remove.extend(to_remove[contig_ids == contig])
+
+    to_remove = np.array(new_to_remove)
+    contig_ids = matrix._global_offset.get_contigs_from_bins(to_remove)
+    n_removed_in_each_contig = np.bincount(contig_ids, minlength=matrix.n_contigs)
     logging.info(f"N bins removed in each contig: {n_removed_in_each_contig}")
+    for contig, n_removed in enumerate(n_removed_in_each_contig):
+        logging.info(f"Removed {n_removed}/{matrix.contig_n_bins[contig]} bins from contig {contig}")
 
     new_contig_n_bins = matrix.contig_n_bins - n_removed_in_each_contig
 

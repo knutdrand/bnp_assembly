@@ -148,6 +148,51 @@ genomes:
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/007/ERR6002767/ERR6002767_1.fastq.gz
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR600/007/ERR6002767/ERR6002767_2.fastq.gz
       assembly_accession: GCA_905171765.1
+      
+  leucozona_laternaria:
+    n_chromosomes: 5
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR778/008/ERR7783848/ERR7783848_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR778/008/ERR7783848/ERR7783848_2.fastq.gz
+      assembly_accession: GCA_932273885.1
+      
+  rattus_norvegicus:
+    n_chromosomes: 20
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR530/003/ERR5309023/ERR5309023_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR530/003/ERR5309023/ERR5309023_1.fastq.gz
+      assembly_accession: GCA_015227675.2
+      
+  ocypus_olens:
+    n_chromosomes: 20
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/009/ERR6054959/ERR6054959_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/009/ERR6054959/ERR6054959_2.fastq.gz
+      assembly_accession: GCA_910593695.1
+
+  cervus_elaphus:
+    n_chromosomes: 34
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/006/ERR6054836/ERR6054836_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR605/006/ERR6054836/ERR6054836_2.fastq.gz
+      assembly_accession: GCA_910594005.1
+      
+  gibbula_magus:
+    n_chromosomes: 18
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR897/008/ERR8974928/ERR8974928_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR897/008/ERR8974928/ERR8974928_2.fastq.gz
+      assembly_accession: GCA_936450465.1
 
   # simulated genome sequence
   simulated1:
@@ -203,4 +248,14 @@ yahs_parameters:
   harmonia_haxyridis:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
   bufo_bufo:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  leucozona_laternaria:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  rattus_norvegicus:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  ocypus_olens:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  cervus_elaphus:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  gibbula_magus:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"

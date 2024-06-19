@@ -116,8 +116,9 @@ plots:
       extra_splits: 0
       split_on_n_ns: 200
       #genome_build: [athalia_rosea, thyatira_batis, harmonia_haxyridis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
-      genome_build: [athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
-      scaffolder: [bnp1k, yahs2, salsa2]
+      #genome_build: [athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
+      genome_build: [gibbula_magus, leucozona_laternaria, athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae, bufo_bufo]
+      scaffolder: [bnp1k, yahs2, salsa2, haphic]
 
   accuracy_multiple_species2:
     plot_type: accuracy_multiple_species
@@ -137,7 +138,7 @@ plots:
 
 # The following defines different type of plots
 # This includes only the description of the structure of each plot, not what values are used for the variables
-# Each of x_axis, y_axis, category_variable, color, labels, facet_col, facet_row
+# Each of x_axis, y_axis, category_variable, olor, labels, facet_col, facet_row
 # should be either a result_type or a parameter_type if set
 
 plot_types:

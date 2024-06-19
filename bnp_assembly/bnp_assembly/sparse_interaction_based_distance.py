@@ -220,8 +220,8 @@ def get_background_mean_stds(interactions, sampling_function, n_samples=1000, ma
             n_nonzero_cols += sums[dynamic_sampling_lowest_bin, :] > 0
 
             if np.all(n_nonzero_rows > 10) and np.all(n_nonzero_cols > 10):
-                #logging.info(
-                #    f"Stopping sampling after {i} samples because all rows and columns from {dynamic_sampling_lowest_bin} have enough data")
+                logging.info(
+                    f"Stopping sampling after {i} samples because all rows and columns from {dynamic_sampling_lowest_bin} have enough data")
                 break
     mean = w.mean
     variance = w.var_p

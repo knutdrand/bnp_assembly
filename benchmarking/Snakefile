@@ -140,7 +140,8 @@ rule download_reference_with_accession:
         accession = lambda wildcards: config["genomes"][wildcards.species_name]["real"]["assembly_accession"]
     shell:
         """
-        wget -O {output}.tmp 'https://www.ebi.ac.uk/ena/browser/api/fasta/{params.accession}?download=true&gzip=false' && 
+        wget -O {output}.tmp.gz 'https://www.ebi.ac.uk/ena/browser/api/fasta/{params.accession}?download=true&gzip=true' && 
+        zcat {output}.tmp.gz > {output}.tmp &&
         python scripts/rename_athalia_rosea_contigs.py {output}.tmp > {output}
         """
 

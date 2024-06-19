@@ -410,7 +410,6 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData=None, distance_me
     interaction_matrix: SparseInteractionMatrix = distance_kwargs.get("interaction_matrix", None)
     interaction_matrix = filter_low_mappability(interaction_matrix)
 
-
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
 
     contig_sizes = {i: size for i, size in enumerate(interaction_matrix.contig_sizes)}
