@@ -244,7 +244,22 @@ def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix =
     joiner = IterativePathJoiner(interaction_matrix)
     joiner.run()
     #directed_nodes = joiner.get_final_path()
-    return joiner.rerun_for_each_scaffold()
+    result = joiner.rerun_for_each_scaffold()
+    """
+    logging.info(f"...........\n\n\n {joiner._current_path}")
+    #joiner.to_file("joiner.npz")
+    next_joiner = IterativePathJoiner.from_file("joiner.npz")
+    logging.info(f"...........\n\n\n {next_joiner._current_path}")
+    next_joiner.run(n_rounds=10)
+    """
+    # run one final run in case rerun inside each scaffold changes splitting
+    next_joiner = joiner
+    next_joiner._get_backgrounds()
+    next_joiner._compute_distance_matrix()
+    next_joiner.run(n_rounds=1)
+
+    result = next_joiner.get_final_path_as_list_of_contigpaths()
+    return result
     #return joiner.get_final_path_as_list_of_contigpaths()
 
     path = ContigPath.from_directed_nodes(directed_nodes)

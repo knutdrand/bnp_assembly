@@ -29,14 +29,15 @@ import matplotlib.pyplot as plt
 #matrix = from_file("heatmap-contig1886.png.matrix.npz")
 #matrix = from_file("scaffold_heatmap.png.matrix.5.npz")
 #matrix = from_file("heatmap-contig50-1.png.matrix.npz")
-matrix = from_file("thyatira_batis.npz")
+#matrix = from_file("thyatira_batis.npz")
+#matrix = from_file("gibbula_scaffold_matrix.npz")
 #matrix = from_file("interaction_matrix_2000.pairs.npz")
 # matrix.plot()
 # plt.show()
-matrix = filter_low_mappability(matrix)
+#matrix = filter_low_mappability(matrix)
 
-matrix.plot()
-plt.show()
+#matrix.plot()
+#plt.show()
 #intra_background_means, intra_background_stds = get_intra_as_mix_means_stds(matrix, 2000, 5000)
 #plt.imshow(intra_background_stds)
 # matrix2.plot()
@@ -85,7 +86,7 @@ plt.show()
 sys.exit()
 """
 
-initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
+#initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 #initial_path = [DirectedNode(51, '-'), DirectedNode(50, '-'), DirectedNode(49, '-')]
 #matrix = matrix.get_matrix_for_path(initial_path, as_raw_matrix=False)
 #splitted_path = bayesian_split(matrix, initial_path, type='median')
@@ -95,7 +96,10 @@ initial_path = [DirectedNode(contig, '+') for contig in range(matrix.n_contigs)]
 
 #sys.exit()
 
-joiner = IterativePathJoiner(matrix)
+#joiner = IterativePathJoiner(matrix)
+joiner = IterativePathJoiner.from_file("joiner.npz")
+matrix = joiner._original_interaction_matrix
+
 joiner.run(n_rounds=10)
 path_matrix = joiner.current_interaction_matrix
 #path_matrix.plot()

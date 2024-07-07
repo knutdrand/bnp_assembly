@@ -21,6 +21,8 @@ from bnp_assembly.sparse_interaction_based_distance import get_bayesian_edge_pro
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix, BackgroundInterMatrices, \
     BinnedNumericGlobalOffset
 from bnp_assembly.plotting import px
+from shared_memory_wrapper import to_file, from_file
+
 
 class CompundNode:
     def __init__(self, nodes: List[Union[DirectedNode, 'CompundNode']]):
@@ -77,7 +79,7 @@ class CompundNode:
 
 
 class IterativePathJoiner:
-    def __init__(self, interaction_matrix: SparseInteractionMatrix, skip_init_distance_matrix=False, skip_init_background=False):
+    def __init__(self, interaction_matrix: SparseInteractionMatrix, skip_init_distance_matrix=False, skip_init_background=False, skip_init=False):
         self._max_bins_background = 10000
         self._iteration = 0
         self._interaction_matrix = interaction_matrix
@@ -91,7 +93,8 @@ class IterativePathJoiner:
         self._intra_background = None
         self._skip_init_distance_matrix = skip_init_distance_matrix
         self._skip_init_background = skip_init_background
-        self.shuffle() # start with random path
+        if not skip_init:
+            self.shuffle() # start with random path
 
     def shuffle(self):
         n_contigs = self._interaction_matrix.n_contigs
@@ -105,6 +108,29 @@ class IterativePathJoiner:
             self._get_backgrounds()
         if not self._skip_init_distance_matrix:
             self._compute_distance_matrix()
+
+    def to_file(self, file_name):
+        data = {
+            "max_bins_background": self._max_bins_background,
+            "current_path": self._current_path,
+            "interaction_matrix": self._interaction_matrix,
+            "original_interaction_matrix": self._original_interaction_matrix,
+        }
+        to_file(data, file_name)
+
+    @classmethod
+    def from_file(cls, file_name):
+        data = from_file(file_name)
+        joiner = IterativePathJoiner(data["original_interaction_matrix"], skip_init=True)
+        joiner.set_current_path(data["current_path"], data["interaction_matrix"])
+        joiner._get_backgrounds()
+        joiner._compute_distance_matrix()
+        #joiner.shuffle()
+        return joiner
+
+    def set_current_path(self, current_path, interaction_matrix):
+        self._current_path = current_path
+        self._interaction_matrix = interaction_matrix
 
     @property
     def current_interaction_matrix(self):
@@ -376,6 +402,7 @@ class IterativePathJoiner:
 
         # merge the best edges
         n_joined_prev_iteration = 0
+        extra_attempts = 0
         for i in range(n_rounds):
             self._iteration = i
             if i == 0:
@@ -397,7 +424,16 @@ class IterativePathJoiner:
             best_edges = self.get_most_certain_edges(n_to_merge)
             if len(best_edges) == 0:
                 logging.info("No more edges to merge")
-                break
+                if extra_attempts > 0 or True:
+                    break
+                else:
+                    logging.info("Computing backgrounds again and doing one final attempt")
+                    self._get_backgrounds()
+                    self._compute_distance_matrix()
+                    extra_attempts += 1
+                    continue
+
+            extra_attempts = 0
 
             logging.info(f"Best edge: {best_edges[0:50]}")
 
