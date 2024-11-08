@@ -6,7 +6,7 @@ from bnp_assembly.cli import register_logging
 from bnp_assembly.iterative_path_joining import IterativePathJoiner
 from bnp_assembly.make_scaffold import greedy_bayesian_join_and_split, get_contig_names_to_ids_translation
 from bnp_assembly.missing_data import find_contig_clips_from_interaction_matrix
-from bnp_assembly.sparse_interaction_matrix import BackgroundInterMatrices
+from bnp_assembly.sparse_interaction_matrix import BackgroundInterMatrices, weight_adjust_interaction_matrix
 
 logging.basicConfig(level=logging.INFO)
 import numpy as np
@@ -14,45 +14,26 @@ from bnp_assembly.contig_graph import DirectedNode, ContigPath
 from bnp_assembly.contig_path_optimization import LogProbSumOfReadDistancesDynamicScores, \
     InteractionDistancesAndWeights, split_using_inter_distribution
 from bnp_assembly.sparse_interaction_based_distance import get_inter_background, get_intra_background, \
-    get_intra_distance_background
-from shared_memory_wrapper import from_file
+    get_intra_distance_background, get_inter_as_mix_between_inside_outside_multires, \
+    get_inter_background_means_std_using_multiple_resolutions, get_background_means_stds_approximation, \
+    sample_intra_from_close, sample_intra_from_close_and_closest
+from shared_memory_wrapper import from_file, to_file
 import plotly.express as px
 import matplotlib.pyplot as plt
+from bnp_assembly.sparse_interaction_matrix import filter_low_mappability
+from bnp_assembly.sparse_interaction_based_distance import get_intra_as_mix_means_stds
 
 register_logging("./logging")
 
-matrix = from_file("../tests/interaction_matrix_bufo.npz")
-matrix = from_file("heatmap-contig1610.png.matrix.npz")
-scaffolds = ScaffoldAlignments.from_agp("bufo_scaffolds.agp")
-genome = Genome.from_file("bufo_contigs.fa.fai")
-
-#matrix = from_file("athalia_interaction_matrix_1000.npz")
-#scaffolds = ScaffoldAlignments.from_agp("athalia2.agp")
-#genome = Genome.from_file("athalia_contigs.fa.fai")
-"""
-inter0 = get_inter_background(matrix, n_samples=1000, max_bins=500)
-inter = get_intra_distance_background(matrix, n_samples=1000, max_bins=500, type="weak")
-inter2 = np.concatenate([inter0, inter], axis=0)
-intra = get_intra_distance_background(matrix, n_samples=1000, max_bins=500, type="strong")
-i, j = 400, 400
-px.histogram(inter0[:, i, j], nbins=10, title='inter0').show()
-px.histogram(inter[:, i, j], nbins=10, title='inter').show()
-px.histogram(inter2[:, i, j], nbins=10, title='inter2').show()
-px.histogram(intra[:, i, j], nbins=60, title='intra').show()
-print("Intra mean/std: ", np.mean(intra[:, i, j]), np.std(intra[:, i, j]))
-print("Inter mean/std: ", np.mean(inter2[:, i, j]), np.std(inter2[:, i, j]))
+#matrix = from_file("../tests/interaction_matrix_bufo.npz")
+#matrix = from_file("ilex.npz")
+#matrix = from_file("meles_subset.npz")
+matrix = from_file("heatmap-contig1504-20.png.matrix.npz")
+means, stds = get_intra_as_mix_means_stds(matrix, func=sample_intra_from_close, n_samples=2000, max_bins=500)
+means, stds = get_inter_as_mix_between_inside_outside_multires(matrix, 50, max_bins=500, ratio=0.99, distance_type="close")
+plt.imshow(means)
+plt.show()
 sys.exit()
-"""
-
-#px.imshow(np.mean(b, axis=0)).show()
-
-#sys.exit()
-
-contig_names_to_ids = get_contig_names_to_ids_translation(genome)
-
-#contig_sizes = {i: size for i, size in enumerate(matrix.contig_sizes)}
-#contig_clips = find_contig_clips_from_interaction_matrix(contig_sizes, matrix, window_size=100)
-#matrix.trim_with_clips(contig_clips)
 
 joiner = IterativePathJoiner(matrix, skip_init_distance_matrix=False)
 #joiner.init_with_scaffold_alignments(scaffolds, contig_names_to_ids)

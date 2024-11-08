@@ -150,7 +150,7 @@ rule map_hic_with_chromap:
         "../envs/chromap.yml"
     shell:
         """
-        chromap --pairs -t {config[n_threads]} --preset hic -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output}
+        chromap --pairs -t {config[n_threads]} --preset hic -x {input.index} -r {input.primary_assembly} -1 {input.reads1} -2 {input.reads2} -o {output} --remove-pcr-duplicates --low-mem
         """
 
 

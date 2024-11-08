@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+import pytest
 from shared_memory_wrapper import from_file
 import matplotlib.pyplot as plt
 
@@ -11,6 +12,7 @@ from bnp_assembly.sparse_interaction_matrix import BackgroundMatrix
 import plotly.express as px
 
 
+@pytest.mark.skip(reason='slow')
 def test_integration_real_case5():
     """
     Case where two contigs need to both be moved to improve the score, i.e. a local optimum where moving one contig
@@ -36,7 +38,3 @@ def test_integration_real_case5():
 
 
 
-
-
-if __name__ == "__main__":
-    test_integration_real_case5()

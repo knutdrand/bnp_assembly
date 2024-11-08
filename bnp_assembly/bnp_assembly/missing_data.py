@@ -4,7 +4,6 @@ from tqdm import tqdm
 
 from bnp_assembly.sparse_interaction_matrix import SparseInteractionMatrix
 
-logging.basicConfig(level=logging.INFO)
 from npstructures import RaggedArray, RaggedShape
 
 from .graph_objects import NodeSide, Edge

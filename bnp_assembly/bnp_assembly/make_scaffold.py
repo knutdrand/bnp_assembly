@@ -244,7 +244,8 @@ def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix =
     joiner = IterativePathJoiner(interaction_matrix)
     joiner.run()
     #directed_nodes = joiner.get_final_path()
-    result = joiner.rerun_for_each_scaffold()
+    result = joiner.get_final_path_as_list_of_contigpaths()
+    #result = joiner.rerun_for_each_scaffold(max_bins=500)
     """
     logging.info(f"...........\n\n\n {joiner._current_path}")
     #joiner.to_file("joiner.npz")
@@ -253,12 +254,12 @@ def greedy_bayesian_join_and_split(interaction_matrix: SparseInteractionMatrix =
     next_joiner.run(n_rounds=10)
     """
     # run one final run in case rerun inside each scaffold changes splitting
-    next_joiner = joiner
-    next_joiner._get_backgrounds()
-    next_joiner._compute_distance_matrix()
-    next_joiner.run(n_rounds=1)
+    #next_joiner = joiner
+    #next_joiner._get_backgrounds()
+    #next_joiner._compute_distance_matrix()
+    #next_joiner.run(n_rounds=1)
 
-    result = next_joiner.get_final_path_as_list_of_contigpaths()
+    #result = next_joiner.get_final_path_as_list_of_contigpaths()
     return result
     #return joiner.get_final_path_as_list_of_contigpaths()
 
@@ -423,7 +424,7 @@ def make_scaffold_numeric(numeric_input_data: NumericInputData=None, distance_me
 
     # trim contigs, interaction matrix is clipped inplace
     interaction_matrix: SparseInteractionMatrix = distance_kwargs.get("interaction_matrix", None)
-    interaction_matrix = filter_low_mappability(interaction_matrix)
+    #interaction_matrix = filter_low_mappability(interaction_matrix)
 
     interaction_matrix_clipping = distance_kwargs.get("interaction_matrix_clipping", None)
 

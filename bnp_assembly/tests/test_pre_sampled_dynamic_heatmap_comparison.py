@@ -333,7 +333,7 @@ def test_create_background_heatmaps_from_sparse_interaction_matrix():
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes({0: contig_size}, sparse_bin_size)
     interaction_matrix = SparseInteractionMatrix(scipy.sparse.csr_matrix(matrix), global_offset)
     nonsparse = interaction_matrix.nonsparse_matrix
-    px.imshow(nonsparse).show()
+    #px.imshow(nonsparse).show()
 
     heatmap_config = get_dynamic_heatmap_config_with_uniform_bin_sizes(3, bin_size=2)
     dynamic_heatmap_creator = PreComputedDynamicHeatmapCreator({0: contig_size}, heatmap_config,
@@ -344,7 +344,7 @@ def test_create_background_heatmaps_from_sparse_interaction_matrix():
     sampled_heatmaps = dynamic_heatmap_creator.create_from_sparse_interaction_matrix(interaction_matrix)
     print(sampled_heatmaps[0])
 
-    px.imshow(sampled_heatmaps[0].array).show()
+    #px.imshow(sampled_heatmaps[0].array).show()
 
     assert_array_equal(sampled_heatmaps[0].array, [
         [9, 8, 7],

@@ -40,7 +40,7 @@ uniform_distribution = lambda x: DistanceDistribution(np.full(x, np.log(1/x)))
 simple_path = lambda n_nodes: ContigPath.from_directed_nodes([DirectedNode(i, '+') for i in range(n_nodes)])
 two_input = InputData(np.array([3, 2]), simple_path(2), uniform_distribution(3))
 def test_base_probability():
-    '''
+    '''efkuuuAjhhi
     Dxx00
     xDxx0
     xxDxx

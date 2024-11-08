@@ -1,20 +1,21 @@
 """Console script for bnp_assembly."""
-import os
-from pathlib import Path
-from typing import Iterable
 import sys
+
 import logging
 
-from bnp_assembly.bayesian_splitting import bayesian_split
-from bnp_assembly.contig_path_optimization import split_using_inter_distribution
-from bnp_assembly.iterative_path_joining import IterativePathJoiner
-
-logging.basicConfig(level=logging.INFO)
 logging.basicConfig(
     stream=sys.stderr,
     level=logging.INFO,
     format="%(asctime)s %(levelname)s: %(message)s",
 )
+import os
+from pathlib import Path
+from typing import Iterable
+
+from bnp_assembly.bayesian_splitting import bayesian_split
+from bnp_assembly.contig_path_optimization import split_using_inter_distribution
+from bnp_assembly.iterative_path_joining import IterativePathJoiner
+
 import numpy as np
 
 import typer
@@ -36,7 +37,7 @@ from bnp_assembly.scaffolds import Scaffolds
 from bnp_assembly.simulation.missing_data_distribution import MissingRegionsDistribution
 from bnp_assembly.sparse_interaction_based_distance import get_distance_matrix_from_sparse_interaction_matrix
 from bnp_assembly.sparse_interaction_matrix import BinnedNumericGlobalOffset, SparseInteractionMatrix, BackgroundMatrix, \
-    BackgroundInterMatrices
+    BackgroundInterMatrices, filter_low_mappability
 from shared_memory_wrapper import to_file, from_file
 
 from .io import get_genomic_read_pairs, PairedReadStream
@@ -127,7 +128,7 @@ def scaffold_iteration(agp: str, original_contigs_fa: str, interaction_matrix: s
 
     joiner = IterativePathJoiner(matrix)
     joiner.init_with_scaffold_alignments(scaffolds, contig_names_to_ids)
-    joiner.run(n_rounds=10)
+    joiner.run(n_rounds=100)
     path = joiner.get_final_path_as_list_of_contigpaths()
     splitted_path = Scaffolds.from_contig_paths(path, contig_name_translation)
 
@@ -146,15 +147,15 @@ def scaffold_iteration(agp: str, original_contigs_fa: str, interaction_matrix: s
 
 
 @app.command()
-def make_interaction_matrix(contig_filename: str, read_filename: str, out_filename: str, bin_size: int=50):
-    matrix = make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, read_filename)
+def make_interaction_matrix(contig_filename: str, read_filename: str, out_filename: str, bin_size: int=50, skip_normalize: bool=False):
+    matrix = make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, read_filename, normalize=not skip_normalize)
     plt.show()
     matrix.assert_is_symmetric()
     to_file(matrix, out_filename)
     logging.info("Wrote interaction matrix to file %s" % out_filename)
 
 
-def make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, read_filename):
+def make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, read_filename, normalize=False):
     genome = bnp.Genome.from_file(contig_filename)
     contig_sizes, _ = get_numeric_contig_name_translation(genome)
     global_offset = BinnedNumericGlobalOffset.from_contig_sizes(contig_sizes, bin_size)
@@ -166,7 +167,15 @@ def make_interaction_matrix_from_contigs_and_reads(bin_size, contig_filename, re
     elif read_filename.endswith(".pairs") or read_filename.endswith(".pa5"):
         matrix = SparseInteractionMatrix.from_pairs(global_offset, genome, read_filename)
     matrix.assert_is_symmetric()
-    matrix.normalize_on_row_and_column_products()
+
+    matrix = filter_low_mappability(matrix)
+
+    if normalize:
+        logging.info("Normalizing")
+        matrix.normalize_on_row_and_column_products()
+    else:
+        logging.info("Not normalizing")
+
     return matrix
 
 

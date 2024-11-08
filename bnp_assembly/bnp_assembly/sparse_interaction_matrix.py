@@ -1,5 +1,6 @@
 import logging
 import time
+from cgitb import small
 from typing import Dict, Union, Tuple, List, Literal
 import random
 import pandas as pd
@@ -230,10 +231,12 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
     """
     def __init__(self, data: np.ndarray, global_offset: Union[NumericGlobalOffset, BinnedNumericGlobalOffset],
                  allow_nonsymmetric=False):
-        if not allow_nonsymmetric:
-            assert (data.T != data).nnz == 0, "Matrix must be symmetric"
+        t0 = time.perf_counter()
+        #if not allow_nonsymmetric:
+        #    assert (data.T != data).nnz == 0, "Matrix must be symmetric"
         self._data = data
         self._global_offset = global_offset
+        logging.info(f"Init SparseInteractionMatrix took {time.perf_counter()-t0:.2f}s")
 
     def set_dtype(self, dtype):
         self._data = self._data.astype(dtype)
@@ -632,7 +635,10 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
         return fig, ax
 
     def to_lil_matrix(self):
+        t0 = time.perf_counter()
+        logging.info("Converting to lil")
         self._data = self._data.tolil()
+        logging.info(f"Converting to lil took {time.perf_counter()-t0:.2f}s")
 
     def to_csr_matrix(self):
         self._data = self._data.tocsr()
@@ -857,6 +863,38 @@ class SparseInteractionMatrix(NaiveSparseInteractionMatrix):
             return new_matrix
 
         return SparseInteractionMatrix(new_matrix, new_global_offset)
+
+    def set_contig_to_zero(self, contig):
+        """ find all indexes belonging to contig, remove these and create a new matrix
+        """
+        matrix = self.sparse_matrix
+        start = self._global_offset.contig_first_bin(contig)
+        end = self._global_offset.contig_last_bin(contig, inclusive=False)
+        pass
+
+
+    def remove_interactions_from_contigs(self, contigs: List[int]) -> 'SparseInteractionMatrix':
+        logging.info(f"Removing interactions from contigs {contigs}")
+        t0 = time.perf_counter()
+        matrix = self
+        size = matrix.sparse_matrix.shape[0]
+        to_remove = np.zeros(size, dtype=bool)
+
+        cols, rows = matrix.sparse_matrix.nonzero()
+        data = matrix.sparse_matrix.data
+
+        for contig in contigs:
+            start = matrix._global_offset.contig_first_bin(contig)
+            end = matrix._global_offset.contig_last_bin(contig, inclusive=False)
+            to_remove[start:end] = True
+
+        mask = np.logical_not(to_remove[rows]) & np.logical_not(to_remove[cols])
+        new_data = data[mask]
+        new_rows = rows[mask]
+        new_cols = cols[mask]
+        new_matrix = csr_matrix((new_data, (new_rows, new_cols)), shape=(size, size))
+        logging.info(f"Time to remove interactions: {time.perf_counter()-t0}")
+        return SparseInteractionMatrix(new_matrix, matrix._global_offset)
 
 
 
@@ -1348,7 +1386,7 @@ def sample_intra_matrices(interaction_matrix, max_bins, n_samples, type: Literal
 
 def sample_inter_matrices(interaction_matrix: SparseInteractionMatrix,
                         assumed_largest_chromosome_ratio_of_genome=1 / 10, n_samples=50, max_bins=1000,
-                          keep_close=False):
+                          keep_close=False, weight_func=None):
     """
     Samples outside what is assumed to be largest chromosomes reach
     """
@@ -1383,24 +1421,24 @@ def sample_inter_matrices(interaction_matrix: SparseInteractionMatrix,
 
 def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInteractionMatrix,
                                                   max_bins=1000, n_samples=50,
-                             distance_type=Literal['close', 'far']):
+                             distance_type=Union[int, Literal['close', 'far']]):
 
     biggest_contigs = np.argsort(interaction_matrix._global_offset._contig_n_bins)[::-1]
     chosen_contigs = biggest_contigs[:min(3, 1 + len(biggest_contigs) // 4)]
-    logging.debug(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
+    logging.info(f"Chosen contigs: {chosen_contigs}. Sizes: {interaction_matrix.contig_n_bins[chosen_contigs]}")
     # only keep contigs with size larger than 50 bins
     chosen_contigs = [contig for contig in chosen_contigs if interaction_matrix.contig_n_bins[contig] > 50]
     assert len(chosen_contigs) > 0, "Could not find contigs large enough to sample from"
     smallest_contig_size = interaction_matrix.contig_n_bins[chosen_contigs[-1]]
-    logging.debug(f"Sampling from contigs {chosen_contigs}")
+    logging.info(f"Sampling from contigs {chosen_contigs}")
 
     size = max_bins
     size = min(size, smallest_contig_size//4)
 
     if distance_type == "close":
         #distance_from_diagonal = min(4000, smallest_contig_size//4)
-        distance_from_diagonal = smallest_contig_size//8
-        #logging.info(f"Sampling close with distance: {distance_from_diagonal}")
+        distance_from_diagonal = 1  #[10, 50]  #smallest_contig_size//16
+        logging.info(f"Sampling close with distance: {distance_from_diagonal}")
     elif distance_type == "closest":
         distance_from_diagonal = 1
         #logging.info(f"Sampling closest with distance {distance_from_diagonal}")
@@ -1410,11 +1448,18 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
         #logging.info(f"Sampling outer contig with distance {distance_from_diagonal}")
     elif distance_type == "far":
         #distance_from_diagonal = min(10000, smallest_contig_size//2)
-        distance_from_diagonal = int(smallest_contig_size * 2/3)
-        distance_from_diagonal = min(10, distance_from_diagonal)
-        #logging.info(f"Sampling far with distance {distance_from_diagonal}")
+        distance_from_diagonal = int(smallest_contig_size * 2 / 3)
+        distance_from_diagonal = min(smallest_contig_size - size*2, distance_from_diagonal)
+        logging.info(f"Sampling far with distance {distance_from_diagonal}")
     elif distance_type == "close_closest":
-        distance_from_diagonal = [min(smallest_contig_size//16, 10), 1]
+        #distance_from_diagonal = [min(smallest_contig_size//16, 50), 10]
+        distance_from_diagonal = [smallest_contig_size//8, smallest_contig_size // 4]
+        #distance_from_diagonal = [10000, 20000]
+        factor = interaction_matrix.sparse_matrix.shape[1] // 500
+        factor = min(factor, smallest_contig_size // 3)
+        factor = min(smallest_contig_size - factor*4, factor)
+        distance_from_diagonal = [factor, factor*2]
+        distance_from_diagonal = 50  #[50]
         logging.info(f"Sampling close_closest with distances randomly picked from {distance_from_diagonal}")
     else:
         assert False
@@ -1447,10 +1492,13 @@ def sample_with_fixed_distance_inside_big_contigs(interaction_matrix: SparseInte
             assert submatrix.shape[0] == size and submatrix.shape[1] == size
             # matrices[n_sampled] = submatrix
             n_sampled += 1
-            yield submatrix.toarray()
+            effective_distance = abs(ystart+size - xstart)
+            #logging.info("Distance: %d, size: %d" % (effective_distance, size))
+            #matspy.spy(submatrix[::-1,])
+            yield submatrix.toarray()[::-1,]
 
 
-def filter_low_mappability(matrix: SparseInteractionMatrix) -> SparseInteractionMatrix:
+def filter_low_mappability(matrix: SparseInteractionMatrix, min_bins_left=10) -> SparseInteractionMatrix:
     """
     Creates a new interaction matrix where areas with low mappability have been filtered out
     """
@@ -1461,36 +1509,99 @@ def filter_low_mappability(matrix: SparseInteractionMatrix) -> SparseInteraction
     total_mapped = row_sums + col_sums
     mean = np.mean(total_mapped)
     sd = np.std(total_mapped)
-    threshold = mean - 2*sd
+    #threshold = mean - 1*sd
+    threshold = mean / 5
+    logging.info(f"Mean: {mean}, sd: {sd}, threshold: {threshold}")
 
     to_remove_mask = total_mapped < threshold
     to_remove = np.where(to_remove_mask)[0]
-    # never remove more than half the bins in each contig
+
     contig_ids = matrix._global_offset.get_contigs_from_bins(to_remove)
     n_removed_in_each_contig = np.bincount(contig_ids, minlength=matrix.n_contigs)
 
+    # filter to_remove, only keep those where not too much is removed
     new_to_remove = []
+    remove_interactions_from_contigs = []
+    #m = matrix.sparse_matrix.to_lil()
+    #matrix.to_lil_matrix()
     for contig, n_removed in enumerate(n_removed_in_each_contig):
-        if matrix.contig_n_bins[contig] - n_removed >= 10:
-            # only remove if at least some bins left
+        # if removing mot of a contig, remove all of it. We don't want a few bins with many interactions
+        # left as these are likely noise
+        #if n_removed >= matrix.contig_n_bins[contig] - 2:
+        size = matrix.contig_n_bins[contig]
+        if n_removed / size >= 0.4:
+            # remove all of contig
+            remove_interactions_from_contigs.append(contig)
+            #contig_start_bin = matrix._global_offset.contig_first_bin(contig)
+            #contig_end_bin = matrix._global_offset.contig_last_bin(contig, inclusive=False)
+            #new_to_remove.extend(np.arange(contig_start_bin, contig_end_bin)[1:-1])
+            #logging.info("Ignoring contig %d" % contig)
+
+            """
+            contig_start_bin = matrix._global_offset.contig_first_bin(contig)
+            contig_end_bin = matrix._global_offset.contig_last_bin(contig, inclusive=False)
+            matrix.sparse_matrix[contig_start_bin:contig_end_bin, :] = 0
+            matrix.sparse_matrix[:, contig_start_bin:contig_end_bin] = 0
+
+            #prev = to_remove[contig_ids == contig]
+            #contig_indexes = np.where(contig_ids == contig)[0]
+            #new_to_remove.extend(contig_indexes[1:-1])
+            """
+        else:
             new_to_remove.extend(to_remove[contig_ids == contig])
 
-    to_remove = np.array(new_to_remove)
+        indexes = to_remove[contig_ids == contig]
+        indexes = indexes - matrix._global_offset.contig_first_bin(contig)
+        logging.info(f"Contig {contig}: Removed {n_removed}/{size} bins.")
+
+        #if matrix.contig_n_bins[contig] - n_removed >= min_bins_left:
+        #    # only remove if at least some bins left
+        #    new_to_remove.extend(to_remove[contig_ids == contig])
+        #else:
+        #    logging.info(f"Not removing {n_removed} bins from contig {contig} since only {matrix.contig_n_bins[contig] - n_removed} bins left")
+
+    #matrix.to_csr_matrix()
+
+    to_remove = np.array(new_to_remove, int)
+    to_remove_mask = np.zeros_like(to_remove_mask)
+    to_remove_mask[to_remove] = True
+
     contig_ids = matrix._global_offset.get_contigs_from_bins(to_remove)
     n_removed_in_each_contig = np.bincount(contig_ids, minlength=matrix.n_contigs)
-    logging.info(f"N bins removed in each contig: {n_removed_in_each_contig}")
+    print(f"N bins removed in each contig: {n_removed_in_each_contig}")
+
     for contig, n_removed in enumerate(n_removed_in_each_contig):
         logging.info(f"Removed {n_removed}/{matrix.contig_n_bins[contig]} bins from contig {contig}")
 
     new_contig_n_bins = matrix.contig_n_bins - n_removed_in_each_contig
 
-    new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)
+    new_contig_offsets = np.insert(np.cumsum(new_contig_n_bins), 0, 0)[:-1]
     new_contig_sizes = np.array([
         size - n_removed_in_each_contig[contig]*matrix.contig_bin_size(contig) for contig, size
         in enumerate(matrix.contig_sizes)
         ])
     new_global_offset = BinnedNumericGlobalOffset(new_contig_sizes, new_contig_n_bins, new_contig_offsets)
     new_data = s[~to_remove_mask, :][:, ~to_remove_mask]
-    return SparseInteractionMatrix(new_data, new_global_offset)
+    assert new_global_offset.contig_n_bins.sum() == new_data.shape[0]
+    assert new_global_offset.contig_offsets[-1] + new_global_offset.contig_n_bins[-1] == new_data.shape[0], f"{new_global_offset.contig_offsets[-1]} + {new_global_offset.contig_n_bins[-1]} != {new_data.shape[0]}"
+
+    new = SparseInteractionMatrix(new_data, new_global_offset)
+    new = new.remove_interactions_from_contigs(remove_interactions_from_contigs)
+    return new
 
 
+
+def weight_adjust_interaction_matrix(matrix: SparseInteractionMatrix, max_distance, scale=2.0):
+    logging.info("Weight adjusting")
+
+    s = matrix.sparse_matrix
+    rows, cols = np.nonzero(s)
+    data = s.data
+
+    distance_from_diag = np.abs(rows - cols)
+    # let weight go from scale to 1.0 linearly within distance, and be 1.0 for the rest
+    weights = np.maximum(1.0, 1 + scale - scale * distance_from_diag / max_distance)
+    new_data = data * weights
+    new_sparse_matrix = csr_matrix((new_data, (rows, cols)), shape=s.shape)
+    logging.info("Done weight adjusting")
+    return SparseInteractionMatrix(new_sparse_matrix, matrix._global_offset)

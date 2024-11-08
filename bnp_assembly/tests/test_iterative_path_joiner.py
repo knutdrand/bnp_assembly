@@ -53,10 +53,10 @@ def test_iterative_path_joiner_integration():
     #plotly.express.imshow(matrix, title='matrix').show()
     matrix = SparseInteractionMatrix.from_np_matrix(global_offset, matrix)
 
-    edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(matrix, 2)
+    edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(matrix, 2, use_numba=True)
     assert edge_counts[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == 79+78+78+77
 
-    edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(matrix, 4)
+    edge_counts, nodeside_sizes = get_edge_counts_with_max_distance(matrix, 4, use_numba=True)
     correct = 79 + 78 * 2 + 77 * 3 + 76 * 4 + 75 * 3 + 74 * 2 + 73
     assert edge_counts[Edge(NodeSide(0, 'r'), NodeSide(1, 'l'))] == correct
     print("Correct", correct)

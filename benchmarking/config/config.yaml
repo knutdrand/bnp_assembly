@@ -193,6 +193,63 @@ genomes:
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR897/008/ERR8974928/ERR8974928_1.fastq.gz
         - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR897/008/ERR8974928/ERR8974928_2.fastq.gz
       assembly_accession: GCA_936450465.1
+      
+      
+  ilex_aquifolium:
+    n_chromosomes: 20
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR109/018/ERR10936418/ERR10936418_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR109/018/ERR10936418/ERR10936418_2.fastq.gz
+      assembly_accession: GCA_951799425.1
+
+  meles_meles:
+    n_chromosomes: 23
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR668/002/ERR6688402/ERR6688402_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR668/002/ERR6688402/ERR6688402_2.fastq.gz
+      assembly_accession: GCA_922984935.1
+      
+  myotis_mystacinus:
+    n_chromosomes: 22
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR127/078/ERR12765178/ERR12765178_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR127/078/ERR12765178/ERR12765178_2.fastq.gz
+      assembly_accession: GCA_964094495.2
+
+  larus_fuscus:
+    n_chromosomes: 32
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR125/042/ERR12512742/ERR12512742_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR125/042/ERR12512742/ERR12512742_2.fastq.gz
+      assembly_accession: GCA_963932225.1
+
+  ulmus_glabra:
+    n_chromosomes: 14
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR127/067/ERR12737267/ERR12737267_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR127/067/ERR12737267/ERR12737267_2.fastq.gz
+      assembly_accession: GCA_964106905.1
+    
+
+  sardina_pilchardus:
+    n_chromosomes: 25
+    real:
+      simulated: True
+      hic_data:
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR121/068/ERR12121868/ERR12121868_1.fastq.gz
+        - ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR121/068/ERR12121868/ERR12121868_2.fastq.gz
+      assembly_accession: GCA_963854185.1
+
 
   # simulated genome sequence
   simulated1:
@@ -258,4 +315,16 @@ yahs_parameters:
   cervus_elaphus:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
   gibbula_magus:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  ilex_aquifolium:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  larus_fuscus:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  sardina_pilchardus:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  ulmus_glabra:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  meles_meles:
+    "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"
+  myotis_mystacinus:
     "-r 10000,20000,50000,100000,200000,500000,1000000,2000000,5000000,10000000,20000000,50000000,100000000,200000000,500000000"

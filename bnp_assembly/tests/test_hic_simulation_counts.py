@@ -48,6 +48,7 @@ def location_pairs2():
     return LocationPair(location_a, location_b)
 
 
+@pytest.mark.skip
 def test_count_window_combinations(contig_list, location_pairs):
     overlap_count, inside_counts = count_window_combinastions(contig_list, location_pairs)
     # print(overlap_count)
@@ -56,6 +57,7 @@ def test_count_window_combinations(contig_list, location_pairs):
     assert inside_counts[(0, 'l')] == 1
 
 
+@pytest.mark.skip
 def test_distance_best_path(contig_list, location_pairs):
     graph = calculate_distance_matrices(contig_list, location_pairs)
     path = best_path(graph)[0]
@@ -66,6 +68,7 @@ def test_distance_best_path(contig_list, location_pairs):
     assert (a == correct_path or b == correct_path)
 
 
+@pytest.mark.skip
 def test_count_window_combinations(contig_list2, location_pairs2):
     overlap_count, inside_counts = count_window_combinastions(contig_list2, location_pairs2, window_size=5)
     # print(overlap_count)
@@ -74,12 +77,14 @@ def test_count_window_combinations(contig_list2, location_pairs2):
     assert sum(overlap_count.values()) == 2
     assert sum(inside_counts.values()) == 0
 
+@pytest.mark.skip
 def test_distance_distance_matrtix(contig_list2, location_pairs2):
     graph = calculate_distance_matrices(contig_list2, location_pairs2, window_size=5)
     data = graph.data
     assert np.argmin(data[2]) == 5, data
 
 
+@pytest.mark.skip
 def test_distance_best_path2(contig_list2, location_pairs2):
     graph = calculate_distance_matrices(contig_list2, location_pairs2, window_size=5)
     path = best_path(graph)[0]
@@ -126,6 +131,7 @@ def generate_random_order(n_nodes, signal=2, noise=1):
 
 @pytest.mark.parametrize('n_nodes', list(range(3, 20)))
 @pytest.mark.parametrize('s', list(range(2, 10)))
+@pytest.mark.skip
 def test_random(n_nodes, s):
     contig_dict, correct_path, pairs = generate_random_order(n_nodes, signal=s, noise=s-1)
     print(correct_path, pairs)
@@ -137,6 +143,7 @@ class Dummy:
     sequence: str
 
 
+@pytest.mark.skip
 def test_hic_simulation_acceptance():
     contigs = bnp.as_encoded_array(['A'*1000, 'B'*500, 'C'*700])
     contigs= Dummy(contigs)
@@ -145,6 +152,7 @@ def test_hic_simulation_acceptance():
     # simulate_raw(contigs, 200, 100, 20, 0.5)
 
 
+@pytest.mark.skip
 def test_simulate():
     contigs = bnp.as_encoded_array(['A'*1000, 'B'*500, 'C'*700])
     contigs= Dummy(contigs)

@@ -35,6 +35,17 @@ rule make_interaction_matrix_from_pairs:
     shell:
         "bnp_assembly make-interaction-matrix {input.contigs} {input.hic_to_contig_mappings} {output.matrix} --bin-size {wildcards.bin_size} "
 
+rule make_interaction_matrix_from_pairs_no_normalize:
+    input:
+        contigs=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        hic_to_contig_mappings=HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.pa5",
+    params:
+        log_folder = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + '/logging/'
+    output:
+        matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_{bin_size, \d+}.pairs.not_normalized.npz",
+    shell:
+        "bnp_assembly make-interaction-matrix {input.contigs} {input.hic_to_contig_mappings} {output.matrix} --bin-size {wildcards.bin_size} --skip-normalize "
+
 
 rule plot_interaction_matrix:
     input:
@@ -102,7 +113,7 @@ rule run_bnp_iteration:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         contigs_index = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
-        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.pairs.npz",
+        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_2000.pairs.not_normalized.npz",
         agp = ScaffoldingResults.path(scaffolder="bnp1k") + "/scaffolds.agp"
     output:
         fa = ScaffoldingResults.path(scaffolder="bnp1k-iteration") + "/scaffolds.fa",
@@ -111,14 +122,26 @@ rule run_bnp_iteration:
         "bnp_assembly scaffold-iteration {input.agp} {input.contigs} {input.interaction_matrix} {output.fa} "
 
 
+rule run_bnp_iteration2:
+    input:
+        contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
+        contigs_index = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
+        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_2000.pairs.npz",
+        agp = ScaffoldingResults.path(scaffolder="bnp1k-iteration") + "/scaffolds.agp"
+    output:
+        fa = ScaffoldingResults.path(scaffolder="bnp1k-iteration2") + "/scaffolds.fa",
+        agp = ScaffoldingResults.path(scaffolder="bnp1k-iteration2") + "/scaffolds.agp"
+    shell:
+        "bnp_assembly scaffold-iteration {input.agp} {input.contigs} {input.interaction_matrix} {output.fa} "
+
 
 rule run_bnp10k:
     input:
         contigs = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa",
         contigs_index = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.fa.fai",
         hic_to_contig_mappings = HifiasmResultsWithExtraSplits.path() + "/hifiasm.hic.p_ctg.sorted_by_read_name.bam",
-        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_10000.npz",
-        interaction_matrix_big = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_1000.npz",
+        interaction_matrix = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_10000.pairs.npz",
+        interaction_matrix_big = ScaffoldingResults.path(scaffolder="bnp_scaffolding_dynamic_heatmaps") + "/interaction_matrix_2000.pairs.npz",
     params:
         log_folder = ScaffoldingResults.path(scaffolder="bnp10k") + '/logging/'
     output:

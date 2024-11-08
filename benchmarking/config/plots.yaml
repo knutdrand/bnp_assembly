@@ -117,8 +117,9 @@ plots:
       split_on_n_ns: 200
       #genome_build: [athalia_rosea, thyatira_batis, harmonia_haxyridis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
       #genome_build: [athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae]
-      genome_build: [gibbula_magus, leucozona_laternaria, athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae, bufo_bufo]
-      scaffolder: [bnp1k, yahs2, salsa2, haphic]
+      #genome_build: [gibbula_magus, leucozona_laternaria, athalia_rosea, thyatira_batis, malachius_bipustulatus, melitaea_cinxia, nymphalis_urticae, bufo_bufo]
+      genome_build: [athalia_rosea, bufo_bufo, ilex_aquifolium, sardina_pilchardus, ulmus_glabra, larus_fuscus, myotis_mystacinus, meles_meles]
+      scaffolder: [bnp1k, yahs2]  #, salsa2, haphic]
 
   accuracy_multiple_species2:
     plot_type: accuracy_multiple_species
